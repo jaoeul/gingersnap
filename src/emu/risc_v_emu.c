@@ -7,7 +7,7 @@
 #include "risc_v_emu.h"
 
 static void*
-mmu_set_permissions(mmu_t* mmu, size_t start_address, permission_t permission, size_t size)
+mmu_set_permissions(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size)
 {
     if (start_address + size >= mmu->memory_size) {
         fprintf(stderr, "[%s]Address is to high!\n", __func__);
@@ -46,7 +46,7 @@ mmu_allocate(mmu_t* mmu, size_t size)
 
     // Set permissions of newly allocated memory to unitialized and writeable.
     // Keep extra memory added by the alignment as uninitialized.
-    mmu->set_permissions(mmu, base, PERM_READ_AFTER_WRITE | PERM_WRITE, size);
+    mmu->set_permissions(mmu, base, PERM_RAW | PERM_WRITE, size);
 
     return 0;
 }
@@ -68,31 +68,34 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
     for (int i = 0; i < size; i++) {
         // If the RAW bit is set
         size_t current_address = destination_address + i;
-        permission_t current_perm = mmu->permissions[current_address];
+        uint8_t current_perm = mmu->permissions[current_address];
 
-        if ((current_perm & PERM_READ_AFTER_WRITE) !=0) {
+        if ((current_perm & PERM_RAW) !=0) {
             has_read_after_write = true;
         }
 
         // If write permission is not set
-        if ((*(mmu->permissions + destination_address + i) & PERM_WRITE) == 0) {
+        if ((current_perm & PERM_WRITE) == 0) {
+            fprintf(stderr, "[%s][Byte number %d] Tried to write to invalid address!\n", __func__, i);
             return NULL;
         }
     }
+
+    // Write the data
+    void* result_address = memcpy(mmu->memory + destination_address, source_buffer, size);
 
     // Set permission of all memory written to readable.
     if (has_read_after_write) {
         for (int i = 0; i < size; i++) {
             // Remove the RAW bit
-            *(mmu->permissions + destination_address + i) &= ~PERM_READ_AFTER_WRITE;
+            *(mmu->permissions + destination_address + i) &= ~PERM_READ;
 
             // Set permission of written memory to readable.
             *(mmu->permissions + destination_address + i) |= PERM_READ;
         }
     }
 
-    // Write the data
-    return memcpy(mmu->memory + destination_address, source_buffer, size);
+    return result_address;
 }
 
 /**
@@ -115,7 +118,7 @@ mmu_read(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t 
 static mmu_t*
 mmu_create(size_t memory_size)
 {
-    const size_t base_allocation_address = 0x10000;
+    const size_t base_allocation_address = 0x0;
     if (memory_size <= base_allocation_address) {
         fprintf(stderr, "[%s]Emulator needs more memory!\n", __func__);
         return NULL;

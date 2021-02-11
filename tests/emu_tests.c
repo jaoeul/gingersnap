@@ -7,6 +7,8 @@
 
 #include "../src/emu/risc_v_emu.h"
 
+typedef void (*test_fn)(void);
+
 static void
 test_emulator_reset_memory_success(void)
 {
@@ -197,8 +199,8 @@ test_emulator_allocate_memory_test_permissions(void)
     const size_t base = emu->mmu->current_allocation;
     const size_t allocation_size = 32;
 
-    permission_t* expected = calloc(allocation_size, sizeof(uint8_t));
-    memset(expected, PERM_WRITE | PERM_READ_AFTER_WRITE, allocation_size);
+    uint8_t* expected = calloc(allocation_size, sizeof(uint8_t));
+    memset(expected, PERM_WRITE | PERM_RAW, allocation_size);
 
     // Act
     emu->mmu->allocate(emu->mmu, allocation_size);
@@ -222,7 +224,9 @@ test_emulator_write_success(void)
     risc_v_emu_t* emu                = risc_v_emu_create(test_memory_size);
     const size_t allocation_size     = 32;
     const size_t buffer_size         = 16;
-    const size_t base                = emu->mmu->current_allocation;
+    const size_t base_address        = emu->mmu->current_allocation;
+
+    printf("Base address: %d\n", base_address);
 
     emu->mmu->allocate(emu->mmu, allocation_size);
 
@@ -231,12 +235,11 @@ test_emulator_write_success(void)
 
     // Act
     // Write to guest memory from the buffer
-    const void* result_ptr = emu->mmu->write(emu->mmu, base, buffer, buffer_size);
+    printf("Writing %d bytes to address %p\n", buffer_size, emu->mmu->memory);
+    emu->mmu->write(emu->mmu, base_address, buffer, buffer_size);
+    const int result_int = memcmp(emu->mmu->memory + base_address, buffer, buffer_size);
 
     // Assert
-    const int result_int = memcmp(emu->mmu->memory + base, buffer, buffer_size);
-
-    assert(result_ptr != NULL);
     assert(result_int == 0);
 
     printf("Passed test [%s]!\n", __func__);
@@ -346,10 +349,27 @@ test_emulator_write_failure_permission_denied(void)
     emu->destroy(emu);
 }
 
+#define NB_TEST_CASES 11
+
+// TODO: Better RNG
+static void
+shuffle_tests(test_fn test_cases[])
+{
+    srand(time(NULL));
+    for (int i = NB_TEST_CASES - 1; i > 0; i--)
+    {
+        int j = rand() % (i+1);
+        test_fn tmp = test_cases[i];
+
+        test_cases[i] = test_cases[j];
+        test_cases[j] = tmp;
+        (void)j;
+    }
+}
+
 int
 main(void)
 {
-#define NB_TEST_CASES 11
     // Create an array of function pointers. Each pointer points to a test case.
     void (*test_cases[NB_TEST_CASES])() = {
         test_emulator_reset_memory_success,
@@ -365,7 +385,8 @@ main(void)
         test_emulator_write_read_failure,
     };
 
-    // Execute tests
+    // Execute tests in random order
+    shuffle_tests(test_cases);
     for (int i = 0; i < NB_TEST_CASES; i++) {
         ((void (*)())test_cases[i])();
     }

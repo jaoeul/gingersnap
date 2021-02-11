@@ -4,21 +4,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define PERM_WRITE (1 << 0)
+#define PERM_READ  (1 << 1)
+#define PERM_EXEC  (1 << 2)
+#define PERM_RAW   (1 << 3)
+
 typedef struct risc_v_emu risc_v_emu_t;
 
 typedef struct mmu mmu_t;
 
-// Permission bitfield
-typedef enum uint8_t {
-    PERM_READ             = 1 << 0,
-    PERM_WRITE            = 1 << 1,
-    PERM_EXEC             = 1 << 2,
-    PERM_READ_AFTER_WRITE = 1 << 3,
-} permission_t;
-
 struct mmu {
     size_t (*allocate)(mmu_t* mmu, size_t size);
-    void* (*set_permissions)(mmu_t* mmu, size_t start_address, permission_t permission, size_t size);
+    void* (*set_permissions)(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size);
     void* (*write)(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t size);
     void* (*read)(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t size);
 
@@ -29,7 +26,7 @@ struct mmu {
     uint8_t* memory;
 
     // Memory permissions, each byte corresponds to the byte with the same offset in the guest memory block
-    struct permission_t* permissions;
+    uint8_t* permissions;
 
     // Counter tracking number of allocated bytes in guest memory. Acts as the virtual base address of next allocation
     // for the guest.

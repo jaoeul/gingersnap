@@ -19,7 +19,7 @@ will implement byte-level permission, detectingn when an
 illegal address has been accessed.
 
 ## CPU emulator
-To run the fuzzcaseu deterministically we implement
+To run the fuzzcases deterministically we implement
 an CPU emulator. This lets us run any arbitrary binary
 compiled for the target emulated architecture fully under
 our control.
@@ -28,9 +28,9 @@ our control.
 A binary that uses syscalls will not work in a pure CPU emulator.
 We can bypass this problem either by running the entire OS in the
 emulator, or by implementing a function of our own for every
-syscalled called by the target binary.
+syscall called by the target binary.
 
 ## State reset functionality
 To restart the binary quickly in userspace (without having to use
-any kind of syscall) we simple revert the state of the CPU and memory
+any kind of syscall) we simply revert the state of the CPU and memory
 to its initial state, present before execution started.

@@ -9,15 +9,15 @@ main(void)
     printf("Engaging Gingersnap!\n");
 
     // Create a emulator with 1MB of ram
-    risc_v_emu_t* emu = risc_v_emu_create(1024 * 1024 * 1024);
+    risc_v_emu_t* emu = risc_v_emu_create(1024 * 1024);
     if (!emu) {
         return 1;
     }
 
-    // TODO: malloc_usable_size() is not portable across plotforms
-    printf("emu struct size: %ld bytes\n"
-           "emu memory size: %ld bytes\n"
-           "emu permissions size: %ld bytes\n"
+    // TODO: malloc_usable_size() is not portable across platforms
+    printf("emu struct size: %d bytes\n"
+           "emu memory size: %d bytes\n"
+           "emu permissions size: %d bytes\n"
            "emu struct address: %p\n",
            sizeof(*emu),
            malloc_usable_size(emu->mmu->memory),
