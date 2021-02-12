@@ -5,14 +5,15 @@ Project is inspired by Gamozolabs.
 
 This is a work in progress.
 
+The core idea of this project is to restart binaries
+efficiently and determinintically, providing mutated
+input for each run. When a specific input triggers a
+crash, the fuzzer will note the input and proceed
+with the next input.
+
 # Components
 
 ## MMU
-The core idea of this project is to restart binaries
-quickly with different input. When a specific input
-triggers a crash, the fuzzer will note the input and
-proceed with the next input.
-
 We will need to be able to detect crashes. The MMU
 handles the memory required for the test binary. It
 will implement byte-level permission, detectingn when an
