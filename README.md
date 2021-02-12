@@ -32,6 +32,5 @@ emulator, or by implementing a function of our own for every
 syscall called by the target binary.
 
 ## State reset functionality
-To restart the binary quickly in userspace (without having to use
-any kind of syscall) we simply revert the state of the CPU and memory
+To restart the binary quickly in userspace, we simply revert the state of the CPU and memory
 to its initial state, present before execution started.
