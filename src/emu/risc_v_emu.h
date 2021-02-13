@@ -1,17 +1,20 @@
 #ifndef EMU_H
 #define EMU_H
 
-#include <stdint.h>
 #include <stdbool.h>
-
-#define PERM_WRITE (1 << 0)
-#define PERM_READ  (1 << 1)
-#define PERM_EXEC  (1 << 2)
-#define PERM_RAW   (1 << 3)
+#include <stddef.h>
+#include <stdint.h>
 
 typedef struct risc_v_emu risc_v_emu_t;
 
 typedef struct mmu mmu_t;
+
+enum uint8_t {
+    PERM_WRITE = 1 << 0,
+    PERM_READ  = 1 << 1,
+    PERM_EXEC  = 1 << 2,
+    PERM_RAW   = 1 << 3,
+};
 
 struct mmu {
     size_t (*allocate)(mmu_t* mmu, size_t size);

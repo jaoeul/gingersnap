@@ -15,9 +15,9 @@ main(void)
     }
 
     // TODO: malloc_usable_size() is not portable across platforms
-    printf("emu struct size: %d bytes\n"
-           "emu memory size: %d bytes\n"
-           "emu permissions size: %d bytes\n"
+    printf("emu struct size: %ld bytes\n"
+           "emu memory size: %ld bytes\n"
+           "emu permissions size: %ld bytes\n"
            "emu struct address: %p\n",
            sizeof(*emu),
            malloc_usable_size(emu->mmu->memory),

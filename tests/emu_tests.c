@@ -207,7 +207,6 @@ test_emulator_allocate_memory_test_permissions(void)
     const int result = memcmp((unsigned char *)emu->mmu->permissions + base, expected, allocation_size);
 
     // Assert that the newly allocated memory has the permissions set for uninitialized memory
-    printf("Result == [%d]!\n", result);
     assert(result == 0);
     printf("Passed test [%s]!\n", __func__);
 
@@ -226,8 +225,6 @@ test_emulator_write_success(void)
     const size_t buffer_size         = 16;
     const size_t base_address        = emu->mmu->current_allocation;
 
-    printf("Base address: %d\n", base_address);
-
     emu->mmu->allocate(emu->mmu, allocation_size);
 
     uint8_t buffer[buffer_size];
@@ -235,7 +232,6 @@ test_emulator_write_success(void)
 
     // Act
     // Write to guest memory from the buffer
-    printf("Writing %d bytes to address %p\n", buffer_size, emu->mmu->memory);
     emu->mmu->write(emu->mmu, base_address, buffer, buffer_size);
     const int result_int = memcmp(emu->mmu->memory + base_address, buffer, buffer_size);
 
