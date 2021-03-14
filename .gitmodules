@@ -1,0 +1,3 @@
+[submodule "src/adt"]
+	path = src/adt
+	url = git@github.com:joelengelcrona/c_data_structures.git

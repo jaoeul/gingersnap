@@ -6,8 +6,75 @@
 
 #include "risc_v_emu.h"
 
+// Amount of bytes in single block
+// TODO: Tune this value for performance
+const size_t DIRTY_BLOCK_SIZE = 64;
+
+static void
+dirty_state_print_blocks(dirty_state_t* state)
+{
+    for (size_t i = 0; i < state->index_dirty_blocks; i++) {
+        printf("%lu ", state->dirty_blocks[i]);
+    }
+    printf("\n");
+}
+
+// Mark to block which contains the address dirty by adding the block's index
+// to the dirty_blocks vector, and mark the bit corresponding to the block as
+// dirty in the dirty_bitmap.
+static void
+dirty_state_make_dirty(dirty_state_t* state, size_t block)
+{
+    // There are 64 blocks in one bitmap entry since we use uint64_t to
+    // represent bitmap entries.
+    size_t index  = block / 64;
+    uint8_t bit   = block % 64;
+
+    const uint64_t shift_bit = 1;
+
+    // If block is not already dirty
+    if ((state->dirty_bitmaps[index] & (shift_bit << bit)) == 0) {
+        // Append the block index of the dirty block
+        state->dirty_blocks[state->index_dirty_blocks] = block;
+        state->index_dirty_blocks++;
+
+        // Mark block as dirty
+        state->dirty_bitmaps[index] |= 1 << bit;
+    }
+
+    return;
+}
+
+static dirty_state_t*
+dirty_state_create(size_t memory_size)
+{
+    dirty_state_t* state    = calloc(1, sizeof(*state));
+
+    // Max possible number of dirty memory blocks. This is capped to the total
+    // memory size / DIRTY_BLOCK_SIZE since we will not allow duplicates of
+    // dirtied blocks in the dirty_state->dirty_blocks vector, and will
+    // therefore never need more than this number of entries.
+    size_t nb_max_blocks = memory_size / DIRTY_BLOCK_SIZE;
+
+    // Number of bitmap entries. One entry represents 64 blocks.
+    size_t nb_max_bitmaps = nb_max_blocks / 64;
+
+    state->dirty_blocks = calloc(nb_max_blocks, sizeof(*state->dirty_blocks));
+    state->index_dirty_blocks = 0;
+
+    state->dirty_bitmaps = calloc(nb_max_bitmaps,
+                                  sizeof(*state->dirty_bitmaps));
+    state->nb_max_dirty_bitmaps = nb_max_bitmaps;
+
+    state->make_dirty = dirty_state_make_dirty;
+    state->print      = dirty_state_print_blocks;
+
+    return state;
+}
+
 static void*
-mmu_set_permissions(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size)
+mmu_set_permissions(mmu_t* mmu, size_t start_address, uint8_t permission,
+                    size_t size)
 {
     if (start_address + size >= mmu->memory_size) {
         fprintf(stderr, "[%s]Address is to high!\n", __func__);
@@ -76,18 +143,29 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
 
         // If write permission is not set
         if ((current_perm & PERM_WRITE) == 0) {
-            fprintf(stderr, "[%s][Byte number %d] Tried to write to invalid address!\n", __func__, i);
+            fprintf(stderr, "[%s][Byte number %d] Tried to write to invalid "
+                    "address!\n", __func__, i);
             return NULL;
         }
     }
 
     // Write the data
-    void* result_address = memcpy(mmu->memory + destination_address, source_buffer, size);
+    void* result_address = memcpy(mmu->memory + destination_address,
+            source_buffer, size);
+
+    // Mark blocks corresponding to addresses written to as dirty
+    size_t start_block = destination_address / DIRTY_BLOCK_SIZE;
+    size_t end_block   = (destination_address + size) / DIRTY_BLOCK_SIZE;
+    for (size_t i = start_block; i <= end_block; i++) {
+        mmu->dirty_state->make_dirty(mmu->dirty_state, i);
+    }
 
     // Set permission of all memory written to readable.
     if (has_read_after_write) {
         for (int i = 0; i < size; i++) {
-            // Remove the RAW bit
+
+            // Remove the RAW bit TODO: Find out if this really is needed, we
+            // might gain performance by removing it
             *(mmu->permissions + destination_address + i) &= ~PERM_READ;
 
             // Set permission of written memory to readable.
@@ -142,6 +220,8 @@ mmu_create(size_t memory_size)
     mmu->write           = mmu_write;
     mmu->read            = mmu_read;
 
+    mmu->dirty_state     = dirty_state_create(memory_size);
+
     return mmu;
 }
 
@@ -151,6 +231,7 @@ destroy_mmu(mmu_t* mmu)
     if (mmu) {
         free(mmu->memory);
         free(mmu->permissions);
+        free(mmu->dirty_state);
         free(mmu);
     }
     return;
@@ -180,12 +261,12 @@ risc_v_emu_execute(risc_v_emu_t* emu)
  * Reset state of emulator to that of a another emulator.
  */
 static bool
-risc_v_emu_reset(risc_v_emu_t* destination_emu, risc_v_emu_t* source_emu)
+risc_v_emu_fork(risc_v_emu_t* destination_emu, risc_v_emu_t* source_emu)
 {
-    // Reset register state
+    // Fork register state
     memcpy(&destination_emu->registers, &source_emu->registers, sizeof(destination_emu->registers));
 
-    // Reset memory state
+    // Fork memory state
     if (destination_emu->mmu->memory_size == source_emu->mmu->memory_size) {
         memcpy(destination_emu->mmu->memory, source_emu->mmu->memory, destination_emu->mmu->memory_size);
         return true;
@@ -229,10 +310,9 @@ risc_v_emu_create(size_t memory_size)
     }
 
     // Set the pubilcly accessible function pointers
-
     emu->init    = risc_v_emu_init;
     emu->execute = risc_v_emu_execute;
-    emu->reset   = risc_v_emu_reset;
+    emu->fork    = risc_v_emu_fork;
     emu->destroy = risc_v_emu_destroy;
 
     return emu;

@@ -1,8 +1,6 @@
 Gingersnap shapshot fuzzer
 ==========================
 
-Project is inspired by Gamozolabs.
-
 This is a work in progress.
 
 The core idea of this project is to restart binaries

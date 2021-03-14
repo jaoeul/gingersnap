@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "../src/emu/risc_v_emu.h"
+#include "../emu/risc_v_emu.h"
 
 typedef void (*test_fn)(void);
 
@@ -25,7 +25,7 @@ test_emulator_reset_memory_success(void)
     memset(destination_emu->mmu->memory, 0x42, test_memory_size);
 
     // Reset the memory state of the destination emulator to that of the source emulator
-    destination_emu->reset(destination_emu, source_emu);
+    destination_emu->fork(destination_emu, source_emu);
 
     // Verify that the memory of the destination emulator is the same as that of the source emulator
     const int result = memcmp(destination_emu->mmu->memory, source_emu->mmu->memory, test_memory_size);
@@ -56,7 +56,7 @@ test_emulator_reset_memory_invalid_size(void)
     memset(destination_emu->mmu->memory, 0x42, test_memory_size);
 
     // Reset the memory state of the destination emulator to that of the source emulator
-    const bool result = destination_emu->reset(destination_emu, source_emu);
+    const bool result = destination_emu->fork(destination_emu, source_emu);
 
     // Assert that the call to reset returned false
     assert(result == false);
@@ -114,7 +114,7 @@ test_emulator_reset_registers_success(void)
     source_emu->registers.pc   = 32;
 
     // Reset the memory state of the destination emulator to that of the source emulator
-    destination_emu->reset(destination_emu, source_emu);
+    destination_emu->fork(destination_emu, source_emu);
 
     // Verify that the memory of the destination emulator is the same as that of the source emulator
     const int result = memcmp(&destination_emu->registers, &source_emu->registers, sizeof(destination_emu->registers));
@@ -191,7 +191,7 @@ test_emulator_reallocate_memory_success(void)
 }
 
 static void
-test_emulator_allocate_memory_test_permissions(void)
+test_emulator_allocate_memory_test_permissions_success(void)
 {
     // Arrange
     const size_t test_memory_size = 1024 * 1024;
@@ -213,6 +213,28 @@ test_emulator_allocate_memory_test_permissions(void)
     // Clean up
     emu->destroy(emu);
     free(expected);
+}
+
+// Tries to read unintialized memory. Should fail
+static void
+test_emulator_allocate_memory_test_permissions_failure(void)
+{
+    // Arrange
+    const size_t test_memory_size = 1024 * 1024;
+    risc_v_emu_t* emu = risc_v_emu_create(test_memory_size);
+    const size_t allocation_size = 32;
+    uint8_t      buffer[32];
+
+    // Act
+    emu->mmu->allocate(emu->mmu, allocation_size);
+    const void* result_ptr = emu->mmu->read(emu->mmu, buffer, 0, sizeof(buffer));
+
+    // Assert that the newly allocated memory has the permissions set for uninitialized memory
+    assert(result_ptr == NULL);
+    printf("Passed test [%s]!\n", __func__);
+
+    // Clean up
+    emu->destroy(emu);
 }
 
 static void
@@ -281,13 +303,14 @@ test_emulator_write_read_success(void)
     emu->destroy(emu);
 }
 
+// Tries to read 16 bytes 100 bytes into memory. Only 16 bytes have been written. Should fail
 static void
 test_emulator_write_read_failure(void)
 {
     // Arrange
     const size_t test_memory_size    = 1024 * 1024;
     risc_v_emu_t* emu                = risc_v_emu_create(test_memory_size);
-    const size_t allocation_size     = 32;
+    const size_t allocation_size     = 128;
     const size_t buffer_size         = 16;
 
     emu->mmu->allocate(emu->mmu, allocation_size);
@@ -301,7 +324,7 @@ test_emulator_write_read_failure(void)
     uint8_t dest_buffer[buffer_size];
     memset(&dest_buffer, 0, buffer_size);
 
-    const void* result_ptr = emu->mmu->read(emu->mmu, (uint8_t*)dest_buffer, 16, buffer_size);
+    const void* result_ptr = emu->mmu->read(emu->mmu, (uint8_t*)dest_buffer, 100, buffer_size);
 
     // Assert
     const int result_int = memcmp(&dest_buffer, &source_buffer, buffer_size);
@@ -345,7 +368,7 @@ test_emulator_write_failure_permission_denied(void)
     emu->destroy(emu);
 }
 
-#define NB_TEST_CASES 11
+#define NB_TEST_CASES 12
 
 // TODO: Better RNG
 static void
@@ -374,16 +397,18 @@ main(void)
         test_emulator_allocate_memory_success,
         test_emulator_allocate_memory_failure_out_of_memory,
         test_emulator_reallocate_memory_success,
-        test_emulator_allocate_memory_test_permissions,
+        test_emulator_allocate_memory_test_permissions_success,
         test_emulator_write_success,
         test_emulator_write_read_success,
         test_emulator_write_failure_permission_denied,
         test_emulator_write_read_failure,
+        test_emulator_allocate_memory_test_permissions_failure,
     };
 
     // Execute tests in random order
     shuffle_tests(test_cases);
     for (int i = 0; i < NB_TEST_CASES; i++) {
+        printf("TEST: [%d]\t", i);
         ((void (*)())test_cases[i])();
     }
 
