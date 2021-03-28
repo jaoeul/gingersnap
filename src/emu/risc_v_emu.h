@@ -7,6 +7,10 @@
 
 #include "../adt/vector.h"
 
+// Amount of bytes in single block
+// TODO: Tune this value for performance
+#define DIRTY_BLOCK_SIZE  64;
+
 typedef struct risc_v_emu risc_v_emu_t;
 
 typedef struct dirty_state dirty_state_t;
@@ -14,9 +18,9 @@ typedef struct dirty_state dirty_state_t;
 typedef struct mmu mmu_t;
 
 enum uint8_t {
-    PERM_WRITE = 1 << 0,
-    PERM_READ  = 1 << 1,
-    PERM_EXEC  = 1 << 2,
+    PERM_EXEC  = 1 << 0,
+    PERM_WRITE = 1 << 1,
+    PERM_READ  = 1 << 2,
     PERM_RAW   = 1 << 3,
 };
 
@@ -42,9 +46,9 @@ struct dirty_state {
 
 struct mmu {
     size_t (*allocate)(mmu_t* mmu, size_t size);
-    void* (*set_permissions)(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size);
-    void* (*write)(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t size);
-    void* (*read)(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t size);
+    void  (*set_permissions)(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size);
+    void  (*write)(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t size);
+    void  (*read)(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t size);
 
     // The size of the emulator memory
     size_t memory_size;

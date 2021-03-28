@@ -11,7 +11,7 @@ typedef struct {
     size_t memory_size;
     size_t align;
     size_t flags;
-} segment_t;
+} program_header_t;
 
 void
 load_elf(char* path, risc_v_emu_t* emu);

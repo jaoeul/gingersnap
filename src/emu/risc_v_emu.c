@@ -4,11 +4,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "../shared/print_utils.h"
 #include "risc_v_emu.h"
-
-// Amount of bytes in single block
-// TODO: Tune this value for performance
-const size_t DIRTY_BLOCK_SIZE = 64;
 
 static void
 dirty_state_print_blocks(dirty_state_t* state)
@@ -27,8 +24,8 @@ dirty_state_make_dirty(dirty_state_t* state, size_t block)
 {
     // There are 64 blocks in one bitmap entry since we use uint64_t to
     // represent bitmap entries.
-    size_t index  = block / 64;
-    uint8_t bit   = block % 64;
+    size_t index = block / 64;
+    uint8_t bit  = block % 64;
 
     const uint64_t shift_bit = 1;
 
@@ -72,17 +69,31 @@ dirty_state_create(size_t memory_size)
     return state;
 }
 
-static void*
+void
+dirty_state_destroy(dirty_state_t* dirty_state)
+{
+    free(dirty_state->dirty_blocks);
+    free(dirty_state->dirty_bitmaps);
+    free(dirty_state);
+}
+
+// TODO: Might delete
+static void
 mmu_set_permissions(mmu_t* mmu, size_t start_address, uint8_t permission,
                     size_t size)
 {
     if (start_address + size >= mmu->memory_size) {
         fprintf(stderr, "[%s]Address is to high!\n", __func__);
+        return;
+    }
+    if (start_address < 0) {
+        fprintf(stderr, "[%s]Address can't be below 0!\n", __func__);
+        return;
     }
 
     // Set the provided address to the specified permission
     // TODO: Remove this cast to unsigned char*
-    return memset((unsigned char*)mmu->permissions + start_address, permission, size);
+    memset((unsigned char*)mmu->permissions + start_address, permission, size);
 }
 
 /**
@@ -119,12 +130,12 @@ mmu_allocate(mmu_t* mmu, size_t size)
 }
 
 /**
- * Guest write function. Function is intentionally not bounds checked to allow for illegal writes which will be detected
- * and recorded as a crash.
+ * Guest write function. Function does intentionally not checked for writes
+ * outside of the guest allocated memory or memory given to the emulator
  *
  * TODO: Should we check for write outside of allocated memory?
  */
-static void*
+static void
 mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t size)
 {
     // Check permission of memory we are about to write to. If any of the addresses has the PERM_READ_AFTER_WRITE bit
@@ -143,15 +154,17 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
 
         // If write permission is not set
         if ((current_perm & PERM_WRITE) == 0) {
-            fprintf(stderr, "[%s][Byte number %d] Tried to write to invalid "
-                    "address!\n", __func__, i);
-            return NULL;
+            fprintf(stderr, "[%s] Error! Address 0x%lx not writeable. Has perm ",
+                    __func__, current_address);
+            print_permissions(current_perm);
+            printf("\n");
+            return;
         }
     }
 
     // Write the data
-    void* result_address = memcpy(mmu->memory + destination_address,
-            source_buffer, size);
+    printf("[%s] Writing 0x%lx bytes to address 0x%lx\n", __func__, size, destination_address);
+    memcpy(mmu->memory + destination_address, source_buffer, size);
 
     // Mark blocks corresponding to addresses written to as dirty
     size_t start_block = destination_address / DIRTY_BLOCK_SIZE;
@@ -163,7 +176,6 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
     // Set permission of all memory written to readable.
     if (has_read_after_write) {
         for (int i = 0; i < size; i++) {
-
             // Remove the RAW bit TODO: Find out if this really is needed, we
             // might gain performance by removing it
             *(mmu->permissions + destination_address + i) &= ~PERM_READ;
@@ -172,25 +184,22 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
             *(mmu->permissions + destination_address + i) |= PERM_READ;
         }
     }
-
-    return result_address;
 }
 
 /**
  * Guest read function. Function is intentionally not bounds checked to allow for illegal reads which will be detected
  * and recorded as a crash.
  */
-static void*
+static void
 mmu_read(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t size)
 {
     // If permission denied
     for (int i = 0; i < size; i++) {
         if ((*(mmu->permissions + source_address + i) & PERM_READ) == 0) {
-            return NULL;
+            return;
         }
     }
-
-    return memcpy(destination_buffer, mmu->memory + source_address, size);
+    memcpy(destination_buffer, mmu->memory + source_address, size);
 }
 
 static mmu_t*
@@ -226,12 +235,14 @@ mmu_create(size_t memory_size)
 }
 
 static void
-destroy_mmu(mmu_t* mmu)
+mmu_destroy(mmu_t* mmu)
 {
+    if (mmu->dirty_state) {
+        dirty_state_destroy(mmu->dirty_state);
+    }
     if (mmu) {
         free(mmu->memory);
         free(mmu->permissions);
-        free(mmu->dirty_state);
         free(mmu);
     }
     return;
@@ -284,7 +295,7 @@ static void
 risc_v_emu_destroy(risc_v_emu_t* emu)
 {
     if (emu) {
-        destroy_mmu(emu->mmu);
+        mmu_destroy(emu->mmu);
         free(emu);
     }
     return;

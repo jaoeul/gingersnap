@@ -4,6 +4,7 @@
 
 #include "endianess_converter.h"
 #include "elf_loader.h"
+#include "print_utils.h"
 
 void
 load_elf(char* path, risc_v_emu_t* emu)
@@ -35,7 +36,6 @@ load_elf(char* path, risc_v_emu_t* emu)
     uint8_t bytes_program_header_offset[8];
     uint8_t bytes_nb_program_headers[2];
 
-    uint64_t entry_point;
     uint64_t program_header_offset;
     uint64_t nb_program_headers;
 
@@ -52,7 +52,11 @@ load_elf(char* path, risc_v_emu_t* emu)
 
     // If we have got an least significant byte elf file
     if (elf[5] == 1) {
-        entry_point           = lsb_byte_arr_to_u64(bytes_entry_point, sizeof(bytes_entry_point));
+        // Set the program counter to the entry point of executable
+        const uint64_t entry_point = lsb_byte_arr_to_u64(bytes_entry_point, sizeof(bytes_entry_point));
+        emu->registers.pc = entry_point;
+        printf("[%s] Setting PC to 0x%lx\n", __func__, entry_point);
+
         program_header_offset = lsb_byte_arr_to_u64(bytes_program_header_offset, sizeof(bytes_program_header_offset));
         nb_program_headers    = lsb_byte_arr_to_u64(bytes_nb_program_headers, sizeof(bytes_nb_program_headers));
     }
@@ -65,7 +69,6 @@ load_elf(char* path, risc_v_emu_t* emu)
         printf("Malformed ELF header!\n");
         abort();
     }
-    printf("Entry point:\t\t\t0x%lx\n", entry_point);
     printf("Program header offset:\t\t0x%lx\n", program_header_offset);
     printf("Number of program headers:\t%lu\n", nb_program_headers);
 
@@ -81,6 +84,17 @@ load_elf(char* path, risc_v_emu_t* emu)
         (void)  bytes_current_program_header;
         for (size_t i = 0; i < program_header_size; i++) {
             bytes_current_program_header[i] = elf[current_program_header + i];
+        }
+
+        // Parse program header type - Skip this header if not loadable
+        uint64_t program_header_type;
+        uint8_t bytes_type[4];
+        for (size_t i = 0; i < 4; i++) {
+            bytes_type[i] = elf[current_program_header + i];
+            program_header_type = lsb_byte_arr_to_u64(bytes_type, sizeof(bytes_type));
+        }
+        if (program_header_type != 1) {
+            continue;
         }
 
         // Parse offset
@@ -119,7 +133,9 @@ load_elf(char* path, risc_v_emu_t* emu)
             bytes_flags[i] = elf[(current_program_header + 0x04) + i];
         }
 
-        segment_t segment = {
+        // Creating this struct is a bit unecessary, but might be useful for
+        // code resue
+        program_header_t program_header = {
             .offset            = lsb_byte_arr_to_u64(bytes_offset, sizeof(bytes_offset)),
             .virtual_address   = lsb_byte_arr_to_u64(bytes_virtual_address, sizeof(bytes_virtual_address)),
             .physical_address  = lsb_byte_arr_to_u64(bytes_physical_address, sizeof(bytes_physical_address)),
@@ -129,16 +145,39 @@ load_elf(char* path, risc_v_emu_t* emu)
             .flags             = lsb_byte_arr_to_u64(bytes_flags, sizeof(bytes_flags)),
         };
 
-        printf("***\nProgram header: %lu\n", i);
-        printf("offset: %lx\n", segment.offset);
-        printf("v address: %lx\n", segment.virtual_address);
-        printf("p address: %lx\n", segment.physical_address);
-        printf("file size: %lx\n", segment.file_size);
-        printf("mem size:%lx\n", segment.memory_size);
-        printf("align: %lx\n", segment.align);
-        printf("flags: %lx\n", segment.flags);
-        printf("***\n");
+        // Sanity checks
+        if ((program_header.offset + program_header.file_size) > (emu->mmu->memory_size - 1)) {
+            fprintf(stderr, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
+                    "would cause write outside of emulator memory!\n", __func__,
+                    program_header.file_size, program_header.offset);
+            abort();
+        }
+        else if ((program_header.offset + program_header.file_size) > (emu->mmu->current_allocation)) {
+            fprintf(stderr, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
+                    "would cause write outside of emulator allocated memory!\n", __func__,
+                    program_header.file_size, program_header.offset);
+            abort();
+        }
+        // Load the executable segments of the binary into the emulator
+        // NOTE: This write dirties the executable memory. Might want to make it
+        //       clean before starting the emulator, for perf
+        emu->mmu->write(emu->mmu, program_header.offset, elf, program_header.file_size);
+
+        // Set the permissions of the loaded segment in the emulator
+        emu->mmu->set_permissions(emu->mmu, program_header.offset, program_header.flags, program_header.file_size);
+
+        //printf("***\nProgram header: %lu\n", i);
+        //printf("offset: %lx\n", segment.offset);
+        //printf("v address: %lx\n", segment.virtual_address);
+        //printf("p address: %lx\n", segment.physical_address);
+        //printf("file size: %lx\n", segment.file_size);
+        //printf("mem size:%lx\n", segment.memory_size);
+        //printf("align: %lx\n", segment.align);
+        //printf("flags: %lx\n", segment.flags);
+        //print_permissions(segment.flags);
+        //printf("***\n");
     }
 
+    free(elf);
     return;
 }

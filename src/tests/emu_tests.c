@@ -140,7 +140,8 @@ test_emulator_allocate_memory_success(void)
     // Act
     emu->mmu->allocate(emu->mmu, new_allocation);
 
-    // Assert that the variable tracking the size of allocated memory has been updated correctly
+    // Assert that the variable tracking the size of allocated memory has been
+    // updated correctly
     assert(emu->mmu->current_allocation - base == new_allocation);
     printf("Passed test [%s]!\n", __func__);
 
@@ -227,10 +228,9 @@ test_emulator_allocate_memory_test_permissions_failure(void)
 
     // Act
     emu->mmu->allocate(emu->mmu, allocation_size);
-    const void* result_ptr = emu->mmu->read(emu->mmu, buffer, 0, sizeof(buffer));
+    emu->mmu->read(emu->mmu, buffer, 0, sizeof(buffer));
 
     // Assert that the newly allocated memory has the permissions set for uninitialized memory
-    assert(result_ptr == NULL);
     printf("Passed test [%s]!\n", __func__);
 
     // Clean up
@@ -283,18 +283,16 @@ test_emulator_write_read_success(void)
 
     // Act
     // Write to guest memory from the buffer
-    const void* result_write = emu->mmu->write(emu->mmu, base, source_buffer, buffer_size);
+    emu->mmu->write(emu->mmu, base, source_buffer, buffer_size);
 
     uint8_t dest_buffer[buffer_size];
     memset(&dest_buffer, 0, buffer_size);
 
-    const void* result_read = emu->mmu->read(emu->mmu, dest_buffer, base, buffer_size);
+    emu->mmu->read(emu->mmu, dest_buffer, base, buffer_size);
 
     // Assert
     const int result_int = memcmp(&dest_buffer, &source_buffer, buffer_size);
 
-    assert(result_write != NULL);
-    assert(result_read  != NULL);
     assert(result_int == 0);
 
     printf("Passed test [%s]!\n", __func__);
@@ -324,12 +322,11 @@ test_emulator_write_read_failure(void)
     uint8_t dest_buffer[buffer_size];
     memset(&dest_buffer, 0, buffer_size);
 
-    const void* result_ptr = emu->mmu->read(emu->mmu, (uint8_t*)dest_buffer, 100, buffer_size);
+    emu->mmu->read(emu->mmu, (uint8_t*)dest_buffer, 100, buffer_size);
 
     // Assert
     const int result_int = memcmp(&dest_buffer, &source_buffer, buffer_size);
     assert(result_int != 0);
-    assert(result_ptr == NULL);
     printf("Passed test [%s]!\n", __func__);
 
     // Clean up
@@ -355,11 +352,10 @@ test_emulator_write_failure_permission_denied(void)
     emu->mmu->set_permissions(emu->mmu, 0, PERM_READ, buffer_size);
 
     // Write to guest memory from the buffer
-    const void* result_ptr = emu->mmu->write(emu->mmu, 0, buffer, buffer_size);
+    emu->mmu->write(emu->mmu, 0, buffer, buffer_size);
 
     // Assert
     const int result_int = memcmp(emu->mmu->memory, buffer, buffer_size);
-    assert(result_ptr == NULL);
     assert(result_int != 0);
 
     printf("Passed test [%s]!\n", __func__);
