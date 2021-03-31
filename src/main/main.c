@@ -12,9 +12,9 @@ main(void)
     printf("Engaging Gingersnap!\n");
 
     // Create a emulator with 1MB of ram
-    risc_v_emu_t* emu = risc_v_emu_create(1024 * 512);
+    risc_v_emu_t* emu = risc_v_emu_create(1024 * 250);
 
-    emu->mmu->allocate(emu->mmu, (1024 * 137));
+    emu->mmu->allocate(emu->mmu, (1024 * 240));
 
     load_elf("/usr/bin/ls", emu);
 

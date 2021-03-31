@@ -117,13 +117,14 @@ load_elf(char* path, risc_v_emu_t* emu)
             bytes_current_program_header[i] = elf[current_program_header + i];
         }
 
-        // Parse program header type - Skip this header if not loadable
+        // Parse program header type
         uint64_t program_header_type;
         uint8_t  bytes_type[4];
         for (size_t i = 0; i < 4; i++) {
             bytes_type[i] = elf[current_program_header + i];
             program_header_type = byte_arr_to_u64(bytes_type, sizeof(bytes_type), is_lsb);
         }
+        // Skip this header if not loadable
         if (program_header_type != 1) {
             continue;
         }
