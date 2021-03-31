@@ -6,6 +6,16 @@
 #include "elf_loader.h"
 #include "print_utils.h"
 
+typedef struct {
+    size_t offset;
+    size_t virtual_address;
+    size_t physical_address;
+    size_t file_size;
+    size_t memory_size;
+    size_t align;
+    size_t flags;
+} program_header_t;
+
 void
 load_elf(char* path, risc_v_emu_t* emu)
 {
@@ -15,6 +25,10 @@ load_elf(char* path, risc_v_emu_t* emu)
     long     elf_length;
 
     fileptr = fopen(path, "rb");
+    if (!fileptr) {
+        printf("Error! Could not find specified executable: %s\n", path);
+    }
+
     fseek(fileptr, 0, SEEK_END);
     elf_length = ftell(fileptr);
     rewind(fileptr);
@@ -26,54 +40,71 @@ load_elf(char* path, risc_v_emu_t* emu)
     }
     fclose(fileptr);
 
-    // Verify 64 bit elf
-    if (elf[4] == 1) {
-        printf("Gingersnap does not support 32 bit elf files yet!\n");
-        abort();
-    }
+    bool     is_lsb;
+    bool     is_64_bit;
+    size_t   program_header_size;
+    uint8_t  bytes_entry_point[2];
+    uint8_t  bytes_program_header_offset[8];
+    uint8_t  bytes_nb_program_headers[2];
 
-    uint8_t bytes_entry_point[2];
-    uint8_t bytes_program_header_offset[8];
-    uint8_t bytes_nb_program_headers[2];
-
-    uint64_t program_header_offset;
-    uint64_t nb_program_headers;
-
-    // Get bytes representing important addresses in the elf
-    for (uint8_t i = 0; i < 2; i++) {
-        bytes_entry_point[i] = elf[0x18 + i];
-    }
-    for (uint8_t i = 0; i < 8; i++) {
-        bytes_program_header_offset[i] = elf[0x20 + i];
-    }
-    for (uint8_t i = 0; i < 2; i++) {
-        bytes_nb_program_headers[i] = elf[0x38 + i];
-    }
-
-    // If we have got an least significant byte elf file
+    // If LSB elf file
     if (elf[5] == 1) {
-        // Set the program counter to the entry point of executable
-        const uint64_t entry_point = lsb_byte_arr_to_u64(bytes_entry_point, sizeof(bytes_entry_point));
-        emu->registers.pc = entry_point;
-        printf("[%s] Setting PC to 0x%lx\n", __func__, entry_point);
-
-        program_header_offset = lsb_byte_arr_to_u64(bytes_program_header_offset, sizeof(bytes_program_header_offset));
-        nb_program_headers    = lsb_byte_arr_to_u64(bytes_nb_program_headers, sizeof(bytes_nb_program_headers));
+        is_lsb = true;
+        printf("Elf is LSB\n");
     }
-    // Else if we have got an most significant byte elf file
+    // Else MSB elf file
     else if (elf[5] == 2) {
-        // TODO
-        abort();
+        printf("Elf is MSB\n");
+        is_lsb = false;
     }
     else {
         printf("Malformed ELF header!\n");
         abort();
     }
+
+    // 32 bit elf
+    if (elf[4] == 1) {
+        is_64_bit           = false;
+        program_header_size = 0x20;
+        for (uint8_t i = 0; i < 4; i++) {
+            bytes_entry_point[i] = elf[0x18 + i];
+        }
+        for (uint8_t i = 0; i < 4; i++) {
+            bytes_program_header_offset[i] = elf[0x1C + i];
+        }
+        for (uint8_t i = 0; i < 2; i++) {
+            bytes_nb_program_headers[i] = elf[0x2C + i];
+        }
+    }
+    // 64 bit elf
+    else if (elf[4] == 2) {
+        is_64_bit           = true;
+        program_header_size = 0x38;
+        for (uint8_t i = 0; i < 8; i++) {
+            bytes_entry_point[i] = elf[0x18 + i];
+        }
+        for (uint8_t i = 0; i < 8; i++) {
+            bytes_program_header_offset[i] = elf[0x20 + i];
+        }
+        for (uint8_t i = 0; i < 2; i++) {
+            bytes_nb_program_headers[i] = elf[0x38 + i];
+        }
+    }
+    else {
+        printf("Malformed ELF header!\n");
+        abort();
+    }
+
+    const uint64_t program_header_offset = byte_arr_to_u64(bytes_program_header_offset, sizeof(bytes_program_header_offset), is_lsb);
+    const uint64_t nb_program_headers    = byte_arr_to_u64(bytes_nb_program_headers, sizeof(bytes_nb_program_headers), is_lsb);
+    const uint64_t entry_point           = byte_arr_to_u64(bytes_entry_point, sizeof(bytes_entry_point), is_lsb);
+    emu->registers.pc                    = entry_point;
+
+    printf("[%s] Setting PC to 0x%lx\n", __func__, entry_point);
     printf("Program header offset:\t\t0x%lx\n", program_header_offset);
     printf("Number of program headers:\t%lu\n", nb_program_headers);
 
     // Parse program headers
-    const size_t program_header_size = 0x38;
     const size_t program_header_base = program_header_offset;
     for (uint64_t i = 0; i < nb_program_headers; i++) {
         const size_t current_program_header = program_header_base + (program_header_size * i);
@@ -88,62 +119,91 @@ load_elf(char* path, risc_v_emu_t* emu)
 
         // Parse program header type - Skip this header if not loadable
         uint64_t program_header_type;
-        uint8_t bytes_type[4];
+        uint8_t  bytes_type[4];
         for (size_t i = 0; i < 4; i++) {
             bytes_type[i] = elf[current_program_header + i];
-            program_header_type = lsb_byte_arr_to_u64(bytes_type, sizeof(bytes_type));
+            program_header_type = byte_arr_to_u64(bytes_type, sizeof(bytes_type), is_lsb);
         }
         if (program_header_type != 1) {
             continue;
         }
 
-        // Parse offset
-        uint8_t bytes_offset[8];
-        for (size_t i = 0; i < 8; i++) {
-            bytes_offset[i] = elf[(current_program_header + 0x08) + i];
+        // Load addresses related to loadable segments into a program_header struct
+        program_header_t program_header = {0};
+        if (is_64_bit) {
+            uint8_t bytes_offset[8];
+            for (size_t i = 0; i < 8; i++) {
+                bytes_offset[i] = elf[(current_program_header + 0x08) + i];
+            }
+            uint8_t bytes_virtual_address[8];
+            for (size_t i = 0; i < 8; i++) {
+                bytes_virtual_address[i] = elf[(current_program_header + 0x10) + i];
+            }
+            uint8_t bytes_physical_address[8];
+            for (size_t i = 0; i < 8; i++) {
+                bytes_physical_address[i] = elf[(current_program_header + 0x18) + i];
+            }
+            uint8_t bytes_file_size[8];
+            for (size_t i = 0; i < 8; i++) {
+                bytes_file_size[i] = elf[(current_program_header + 0x20) + i];
+            }
+            uint8_t bytes_memory_size[8];
+            for (size_t i = 0; i < 8; i++) {
+                bytes_memory_size[i] = elf[(current_program_header + 0x28) + i];
+            }
+            uint8_t bytes_align[8];
+            for (size_t i = 0; i < 8; i++) {
+                bytes_align[i] = elf[(current_program_header + 0x30) + i];
+            }
+            uint8_t bytes_flags[4];
+            for (size_t i = 0; i < 4; i++) {
+                bytes_flags[i] = elf[(current_program_header + 0x04) + i];
+            }
+            program_header.offset            = byte_arr_to_u64(bytes_offset, sizeof(bytes_offset), is_lsb);
+            program_header.virtual_address   = byte_arr_to_u64(bytes_virtual_address, sizeof(bytes_virtual_address), is_lsb);
+            program_header.physical_address  = byte_arr_to_u64(bytes_physical_address, sizeof(bytes_physical_address), is_lsb);
+            program_header.file_size         = byte_arr_to_u64(bytes_file_size, sizeof(bytes_file_size), is_lsb);
+            program_header.memory_size       = byte_arr_to_u64(bytes_memory_size, sizeof(bytes_memory_size), is_lsb);
+            program_header.align             = byte_arr_to_u64(bytes_align, sizeof(bytes_align), is_lsb);
+            program_header.flags             = byte_arr_to_u64(bytes_flags, sizeof(bytes_flags), is_lsb);
         }
-        // Parse virtual address
-        uint8_t bytes_virtual_address[8];
-        for (size_t i = 0; i < 8; i++) {
-            bytes_virtual_address[i] = elf[(current_program_header + 0x10) + i];
+        else if (!is_64_bit) {
+            uint8_t bytes_offset[4];
+            for (size_t i = 0; i < 4; i++) {
+                bytes_offset[i] = elf[(current_program_header + 0x04) + i];
+            }
+            uint8_t bytes_virtual_address[4];
+            for (size_t i = 0; i < 4; i++) {
+                bytes_virtual_address[i] = elf[(current_program_header + 0x08) + i];
+            }
+            uint8_t bytes_physical_address[4];
+            for (size_t i = 0; i < 4; i++) {
+                bytes_physical_address[i] = elf[(current_program_header + 0x0C) + i];
+            }
+            uint8_t bytes_file_size[4];
+            for (size_t i = 0; i < 4; i++) {
+                bytes_file_size[i] = elf[(current_program_header + 0x10) + i];
+            }
+            uint8_t bytes_memory_size[4];
+            for (size_t i = 0; i < 4; i++) {
+                bytes_memory_size[i] = elf[(current_program_header + 0x14) + i];
+            }
+            uint8_t bytes_flags[4];
+            for (size_t i = 0; i < 4; i++) {
+                bytes_flags[i] = elf[(current_program_header + 0x18) + i];
+            }
+            uint8_t bytes_align[4];
+            for (size_t i = 0; i < 4; i++) {
+                bytes_align[i] = elf[(current_program_header + 0x1C) + i];
+            }
+            program_header.offset            = byte_arr_to_u64(bytes_offset, sizeof(bytes_offset), is_lsb);
+            program_header.virtual_address   = byte_arr_to_u64(bytes_virtual_address, sizeof(bytes_virtual_address), is_lsb);
+            program_header.physical_address  = byte_arr_to_u64(bytes_physical_address, sizeof(bytes_physical_address), is_lsb);
+            program_header.file_size         = byte_arr_to_u64(bytes_file_size, sizeof(bytes_file_size), is_lsb);
+            program_header.memory_size       = byte_arr_to_u64(bytes_memory_size, sizeof(bytes_memory_size), is_lsb);
+            program_header.align             = byte_arr_to_u64(bytes_align, sizeof(bytes_align), is_lsb);
+            program_header.flags             = byte_arr_to_u64(bytes_flags, sizeof(bytes_flags), is_lsb);
         }
-        // Parse physical address
-        uint8_t bytes_physical_address[8];
-        for (size_t i = 0; i < 8; i++) {
-            bytes_physical_address[i] = elf[(current_program_header + 0x18) + i];
-        }
-        // Parse file size
-        uint8_t bytes_file_size[8];
-        for (size_t i = 0; i < 8; i++) {
-            bytes_file_size[i] = elf[(current_program_header + 0x20) + i];
-        }
-        // Parse memory size
-        uint8_t bytes_memory_size[8];
-        for (size_t i = 0; i < 8; i++) {
-            bytes_memory_size[i] = elf[(current_program_header + 0x28) + i];
-        }
-        // Parse align
-        uint8_t bytes_align[4];
-        for (size_t i = 0; i < 4; i++) {
-            bytes_align[i] = elf[(current_program_header + 0x30) + i];
-        }
-        // Parse flags
-        uint8_t bytes_flags[4];
-        for (size_t i = 0; i < 4; i++) {
-            bytes_flags[i] = elf[(current_program_header + 0x04) + i];
-        }
-
-        // Creating this struct is a bit unecessary, but might be useful for
-        // code resue
-        program_header_t program_header = {
-            .offset            = lsb_byte_arr_to_u64(bytes_offset, sizeof(bytes_offset)),
-            .virtual_address   = lsb_byte_arr_to_u64(bytes_virtual_address, sizeof(bytes_virtual_address)),
-            .physical_address  = lsb_byte_arr_to_u64(bytes_physical_address, sizeof(bytes_physical_address)),
-            .file_size         = lsb_byte_arr_to_u64(bytes_file_size, sizeof(bytes_file_size)),
-            .memory_size       = lsb_byte_arr_to_u64(bytes_memory_size, sizeof(bytes_memory_size)),
-            .align             = lsb_byte_arr_to_u64(bytes_align, sizeof(bytes_align)),
-            .flags             = lsb_byte_arr_to_u64(bytes_flags, sizeof(bytes_flags)),
-        };
 
         // Sanity checks
         if ((program_header.offset + program_header.file_size) > (emu->mmu->memory_size - 1)) {

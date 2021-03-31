@@ -1,9 +1,10 @@
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "endianess_converter.h"
 
-uint64_t
+static uint64_t
 lsb_byte_arr_to_u64(uint8_t bytes[], size_t nb)
 {
     uint64_t result = 0;
@@ -16,7 +17,7 @@ lsb_byte_arr_to_u64(uint8_t bytes[], size_t nb)
     return result;
 }
 
-uint64_t
+static uint64_t
 msb_byte_arr_to_u64(uint8_t bytes[], size_t nb)
 {
     uint64_t result = 0;
@@ -27,4 +28,10 @@ msb_byte_arr_to_u64(uint8_t bytes[], size_t nb)
     }
 
     return result;
+}
+
+uint64_t
+byte_arr_to_u64(uint8_t* bytes, size_t nb, bool endianess)
+{
+    return endianess ? lsb_byte_arr_to_u64(bytes, nb) : msb_byte_arr_to_u64(bytes, nb);
 }
