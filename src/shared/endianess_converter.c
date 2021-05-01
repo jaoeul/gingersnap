@@ -44,7 +44,10 @@ u64_to_byte_arr_lsb(uint64_t num, uint8_t result_bytes[8])
     for (uint64_t i = 0; i < 64; i++) {
         // If the current bit is set
         if ((num & ((uint64_t)1 << i)) != 0) {
-            // Set the corresponding bit in the result array
+            // Set the corresponding bit in the result array.
+            // Since the resulting value will be a uint8_t we have to run a
+            // modulo operation on the shifting bit to not go out of bounds.
+            // Otherwise we would write outside the result value, up to 64 bits.
             result_bytes[(uint8_t)floor(i / 8)] |= ((uint8_t)1 << (i % 8));
         }
     }

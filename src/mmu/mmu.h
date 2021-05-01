@@ -40,9 +40,9 @@ struct dirty_state {
 
 struct mmu {
     size_t (*allocate)(mmu_t* mmu, size_t size);
-    void  (*set_permissions)(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size);
-    void  (*write)(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t size);
-    void  (*read)(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t size);
+    void   (*set_permissions)(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size);
+    void   (*write)(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t size);
+    void   (*read)(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t size);
 
     // The size of the emulator memory
     size_t memory_size;

@@ -9,50 +9,57 @@
 int
 main(void)
 {
+    const size_t emu_total_mem = (1024 * 1024) * 250;
+    const size_t stack_size    = (1024 * 1024);
+
     printf("Engaging Gingersnap!\n");
 
-    // Create a emulator with 1MB of ram
-    risc_v_emu_t* emu = risc_v_emu_create(1024 * 250);
+    risc_v_emu_t* emu = risc_v_emu_create(emu_total_mem);
 
-    emu->mmu->allocate(emu->mmu, (1024 * 240));
-
+    // Load the elf into emulator memory.
+    // Virtual addresses in the elf program headers corresponds directly to
+    // addresses in the emulators memory.
     load_elf("/usr/bin/ls", emu);
+
+    // Create a stack which starts at the current_allocation address of the emulator
+    uint64_t stack = emu->mmu->allocate(emu->mmu, stack_size);
+    emu->registers.sp = stack + stack_size;
+
+    // Populate program name memory segment
+    uint64_t program_name_address = emu->mmu->allocate(emu->mmu, 4096);
+    printf("program_name_address: 0x%lx\n", program_name_address);
+    emu->mmu->write(emu->mmu, program_name_address, (uint8_t*)"ls\0", 3);
+
+    // Populate arg1 name memory segment
+    uint64_t argv1_address = emu->mmu->allocate(emu->mmu, 4096);
+    printf("argv1_address: 0x%lx\n", argv1_address);
+    emu->mmu->write(emu->mmu, argv1_address, (uint8_t*)"arg1\0", 4);
+
+    // Push initial values onto the stack
+    printf("Building initial stack at guest address: 0x%lx\n", emu->registers.sp);
+    uint8_t auxp[8]     = {0};
+    uint8_t envp[8]     = {0};
+    uint8_t argv_end[8] = {0};
+    uint8_t argv1[8]    = {0};
+    uint8_t argv0[8]    = {0};
+
+    // Push the required values onto the stack as 64 bit values
+    emu->stack_push(emu, auxp, 8);
+    emu->stack_push(emu, envp, 8);
+    emu->stack_push(emu, argv_end, 8);
+
+    u64_to_byte_arr(argv1_address, argv1, LSB);
+    emu->stack_push(emu, argv1, 8);
+
+    u64_to_byte_arr(program_name_address, argv0, LSB);
+    emu->stack_push(emu, argv0, 8);
 
     print_emu_memory_allocated(emu);
     print_emu_registers(emu);
 
+    printf("Current allocation: 0x%lx\n", emu->mmu->current_allocation);
     printf("Destroying emu structs!\n");
     emu->destroy(emu);
 
     return 0;
 }
-
-//    // TODO: malloc_usable_size() is not portable across platforms
-//    printf("emu struct size: %ld bytes\n"
-//           "emu memory size: %ld bytes\n"
-//           "emu permissions size: %ld bytes\n"
-//           "emu struct address: %p\n",
-//           sizeof(*emu),
-//           malloc_usable_size(emu->mmu->memory),
-//           malloc_usable_size(emu->mmu->permissions),
-//           (void*)emu);
-//
-//    // Allocate 1KB of memory for a emulator
-//    emu->mmu->allocate(emu->mmu, 1024 * 10);
-//
-//    // Write some text to emulator memory
-//    uint8_t* test_str= (unsigned char*)"test\0";
-//    emu->mmu->write(emu->mmu, 0, test_str, sizeof(test_str));
-//
-//    uint8_t* test_str2 = (uint8_t*)"test2\0";
-//    emu->mmu->write(emu->mmu, 1024, test_str2, sizeof(test_str2));
-//
-//    // Print the written text
-//    printf("\n%s\n", (unsigned char*)emu->mmu->memory);
-//
-//    printf("Dirty_blocks: ");
-//    emu->mmu->dirty_state->print(emu->mmu->dirty_state);
-//
-//    printf("Bitmaps:\n");
-//    print_bitmaps(emu->mmu->dirty_state->dirty_bitmaps,
-//                  emu->mmu->dirty_state->nb_max_dirty_bitmaps);

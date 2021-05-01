@@ -14,7 +14,7 @@ with the next input.
 ## MMU
 We will need to be able to detect crashes. The MMU
 handles the memory required for the test binary. It
-will implement byte-level permission, detectingn when an
+will implement byte-level permission, detecting when an
 illegal address has been accessed.
 
 ## CPU emulator

@@ -98,7 +98,8 @@ mmu_set_permissions(mmu_t* mmu, size_t start_address, uint8_t permission,
 }
 
 
-// Allocate memory for emulator.
+// Allocate memory for emulator. Returns the guest address of the allocated
+// memory
 static size_t
 mmu_allocate(mmu_t* mmu, size_t size)
 {
@@ -110,12 +111,15 @@ mmu_allocate(mmu_t* mmu, size_t size)
 
     // Guest memory is already full
     if (base >= mmu->memory_size) {
+        printf("[%s] Error! Emulator memory already full!\n", __func__);
+        abort();
         return 1;
     }
 
     // Check if new allocation runs the emulator out of memory
     if ((mmu->current_allocation + aligned_size) >= mmu->memory_size) {
-        fprintf(stderr, "[%s] Emulator is out of memory!\n", __func__);
+        printf("[%s] Emulator is out of memory!\n", __func__);
+        abort();
         return 1;
     }
 
@@ -126,7 +130,7 @@ mmu_allocate(mmu_t* mmu, size_t size)
     // Keep extra memory added by the alignment as uninitialized.
     mmu->set_permissions(mmu, base, PERM_RAW | PERM_WRITE, size);
 
-    return 0;
+    return base;
 }
 
 
@@ -153,7 +157,7 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
 
         // If write permission is not set
         if ((current_perm & PERM_WRITE) == 0) {
-            fprintf(stderr, "[%s] Error! Address 0x%lx not writeable. Has perm ",
+            printf("[%s] Error! Address 0x%lx not writeable. Has perm ",
                     __func__, current_address);
             print_permissions(current_perm);
             printf("\n");
@@ -203,7 +207,11 @@ mmu_read(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t 
 mmu_t*
 mmu_create(size_t memory_size)
 {
-    const size_t base_allocation_address = 0x0;
+    // TODO: This value places the `current_allocation` of the emulator to start
+    //       out in the middle of the `/usr/bin/ls` elf file. Revisit this to
+    //       check if it couses problems and needs to be changed.
+    const size_t base_allocation_address = 0x10000;
+
     if (memory_size <= base_allocation_address) {
         fprintf(stderr, "[%s]Emulator needs more memory!\n", __func__);
         return NULL;

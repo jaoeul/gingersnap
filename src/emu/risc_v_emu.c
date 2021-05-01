@@ -39,6 +39,13 @@ risc_v_emu_fork(risc_v_emu_t* destination_emu, risc_v_emu_t* source_emu)
     }
 }
 
+static void
+risc_v_emu_stack_push(risc_v_emu_t* emu, uint8_t bytes[], size_t nb_bytes)
+{
+    emu->mmu->write(emu->mmu, emu->registers.sp - nb_bytes, bytes, nb_bytes);
+    emu->registers.sp -= nb_bytes;
+}
+
 // Free the memory allocated for an emulator.
 static void
 risc_v_emu_destroy(risc_v_emu_t* emu)
@@ -68,10 +75,11 @@ risc_v_emu_create(size_t memory_size)
     }
 
     // Set the pubilcly accessible function pointers
-    emu->init    = risc_v_emu_init;
-    emu->execute = risc_v_emu_execute;
-    emu->fork    = risc_v_emu_fork;
-    emu->destroy = risc_v_emu_destroy;
+    emu->init       = risc_v_emu_init;
+    emu->execute    = risc_v_emu_execute;
+    emu->fork       = risc_v_emu_fork;
+    emu->stack_push = risc_v_emu_stack_push;
+    emu->destroy    = risc_v_emu_destroy;
 
     return emu;
 }

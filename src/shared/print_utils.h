@@ -23,4 +23,7 @@ print_emu_memory_allocated(risc_v_emu_t* emu);
 void
 print_emu_registers(risc_v_emu_t* emu);
 
+void
+print_byte_array(uint8_t bytes[], size_t nb_bytes);
+
 #endif // PRINT_UTILS_H

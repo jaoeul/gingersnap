@@ -213,19 +213,28 @@ load_elf(char* path, risc_v_emu_t* emu)
                     program_header.file_size, program_header.offset);
             abort();
         }
-        else if ((program_header.offset + program_header.file_size) > (emu->mmu->current_allocation)) {
-            fprintf(stderr, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
-                    "would cause write outside of emulator allocated memory!\n", __func__,
-                    program_header.file_size, program_header.offset);
-            abort();
-        }
+
+        //// We have to load the elf before memory is allocated in the emulator.
+        //   Thus we cannot check if a write would cause the emulator go out
+        //   of allocated memory. No memory should be allocated at this point.
+        //
+        //else if ((program_header.offset + program_header.file_size) > (emu->mmu->current_allocation)) {
+        //    fprintf(stderr, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
+        //            "would cause write outside of emulator allocated memory!\n", __func__,
+        //            program_header.file_size, program_header.offset);
+        //    abort();
+        //}
+
+        // Set the permissions of the addresses where the loadable program
+        // header will be loaded to writeable. We have to do this since the
+        // memory we are about to write to is not yet allocated, and does not
+        // have WRITE permissions set.
+        emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, PERM_WRITE, program_header.file_size);
+
         // Load the executable segments of the binary into the emulator
         // NOTE: This write dirties the executable memory. Might want to make it
-        //       clean before starting the emulator, for perf
-        emu->mmu->write(emu->mmu, program_header.offset, elf, program_header.file_size);
-
-        // Set the permissions of the loaded segment in the emulator
-        emu->mmu->set_permissions(emu->mmu, program_header.offset, program_header.flags, program_header.file_size);
+        //       clean before starting the emulator
+        emu->mmu->write(emu->mmu, program_header.virtual_address, elf, program_header.file_size);
 
         //printf("***\nProgram header: %lu\n", i);
         //printf("offset: %lx\n", segment.offset);

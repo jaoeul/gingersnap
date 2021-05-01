@@ -44,10 +44,11 @@ typedef struct {
 } registers_t;
 
 struct risc_v_emu {
-    void (*init)   (risc_v_emu_t* emu);
-    void (*execute)(risc_v_emu_t* emu);
-    bool (*fork)  (risc_v_emu_t* destination_emu, struct risc_v_emu* source_emu);
-    void (*destroy)(risc_v_emu_t* emu);
+    void (*init)      (risc_v_emu_t* emu);
+    void (*execute)   (risc_v_emu_t* emu);
+    bool (*fork)      (risc_v_emu_t* destination_emu, struct risc_v_emu* source_emu);
+    void (*stack_push)(risc_v_emu_t* emu, uint8_t bytes[], size_t nb_bytes);
+    void (*destroy)   (risc_v_emu_t* emu);
 
     // The registers, tracking the cpu emulator state
     registers_t registers;

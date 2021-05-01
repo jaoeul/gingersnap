@@ -59,7 +59,7 @@ print_emu_memory(risc_v_emu_t* emu)
 {
     for (size_t i = 0; i < emu->mmu->memory_size - 1; i++) {
         printf("Address: 0x%lx\t", i);
-        printf("Value: 0x%u\t", emu->mmu->memory[i]);
+        printf("Value: 0x%x\t", emu->mmu->memory[i]);
         printf("Perm: ");
         print_permissions(emu->mmu->permissions[i]);
         printf("\t");
@@ -86,7 +86,7 @@ print_emu_memory_allocated(risc_v_emu_t* emu)
 {
     for (size_t i = 0; i < emu->mmu->current_allocation - 1; i++) {
         printf("Address: 0x%lx\t", i);
-        printf("Value: 0x%u\t", emu->mmu->memory[i]);
+        printf("Value: 0x%x\t", emu->mmu->memory[i]);
         printf("Perm: ");
         print_permissions(emu->mmu->permissions[i]);
         printf("\t");
@@ -144,4 +144,13 @@ print_emu_registers(risc_v_emu_t* emu)
     printf("emu->t5: 0x%lx\n", emu->registers.t5);
     printf("emu->t6: 0x%lx\n", emu->registers.t6);
     printf("emu->pc: 0x%lx\n", emu->registers.pc);
+}
+
+void
+print_byte_array(uint8_t bytes[], size_t nb_bytes)
+{
+    for (size_t i = 0; i < nb_bytes; i++) {
+        printf("0x%02x ", bytes[i]);
+    }
+    printf("\n");
 }
