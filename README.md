@@ -34,7 +34,7 @@ To restart the binary quickly in userspace, we simply revert the state of the
 CPU and memory to its initial state, present before execution started.
 
 ## Risc V
-The cpu emulator will implement the riscv 32i instruction set. Target
+The cpu emulator will implement the riscv 64i instruction set. Target
 executables need to be compiled for this architecture, and statically linked.
 How to build a target with these properties are described below.
 
@@ -62,10 +62,10 @@ make -j $(nproc)
 
 The resulting compiler should be called `riscv64-unknown-linux-gnu-gcc`.
 
-Create a sample C program and compile it to a statically linked riscv 32
+Create a sample C program and compile it to a statically linked riscv 64
 bit elf
 
-### Compiling source code to riscv 32i elf
+### Compiling source code to riscv 64i elf
 
 ```bash
 riscv64-unknown-linux-gnu-gcc -static -march=rv64i ./opt/riscv/bin/test.c -o <name_of_exe>
@@ -77,7 +77,7 @@ sudo apt-get install qemu-user
 qemu-riscv64 <name_of_exe>
 ```
 
-We are now able to compile source code to riscv32i elfs, the cpu architecture
+We are now able to compile source code to riscv64i elfs, the cpu architecture
 emulated by gingersnap.
 
 
