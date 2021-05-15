@@ -4,6 +4,7 @@
 
 #include "endianess_converter.h"
 #include "elf_loader.h"
+#include "logger.h"
 #include "print_utils.h"
 
 typedef struct {
@@ -31,7 +32,7 @@ load_elf(char* path, risc_v_emu_t* emu)
 
     fileptr = fopen(path, "rb");
     if (!fileptr) {
-        printf("Error! Could not find specified executable: %s\n", path);
+        ginger_log(ERROR, "Could not find specified executable: %s\n", path);
         abort();
     }
 
@@ -41,7 +42,7 @@ load_elf(char* path, risc_v_emu_t* emu)
 
     elf = (uint8_t*)malloc(elf_length * sizeof(uint8_t));
     if (!fread(elf, elf_length, 1, fileptr)) {
-        printf("Failed to read ELF!\n");
+        ginger_log(ERROR, "Failed to read ELF!\n");
         abort();
     }
     fclose(fileptr);
@@ -56,15 +57,15 @@ load_elf(char* path, risc_v_emu_t* emu)
     // If LSB elf file
     if (elf[5] == 1) {
         is_lsb = true;
-        printf(" - Elf is LSB\n");
+        ginger_log(INFO, " - Elf is LSB\n");
     }
     // Else MSB elf file
     else if (elf[5] == 2) {
-        printf(" - Elf is MSB\n");
+        ginger_log(INFO, " - Elf is MSB\n");
         is_lsb = false;
     }
     else {
-        printf("Error! Malformed ELF header!\n");
+        ginger_log(INFO, "Error! Malformed ELF header!\n");
         abort();
     }
 
@@ -109,14 +110,14 @@ load_elf(char* path, risc_v_emu_t* emu)
         emu->registers[REG_PC] = byte_arr_to_u64(bytes_entry_point, 8, is_lsb);
     }
     else {
-        printf("Error! Malformed ELF header!\n");
+        ginger_log(ERROR, "Malformed ELF header!\n");
         abort();
     }
     nb_program_headers = byte_arr_to_u64(bytes_nb_program_headers, 2, is_lsb);
 
-    printf(" - Setting PC to              0x%x\n", emu->registers[REG_PC]);
-    printf(" - Program header offset:     0x%lx\n", program_header_offset);
-    printf(" - Number of program headers: %lu\n", nb_program_headers);
+    ginger_log(INFO, " - Setting PC to              0x%x\n", emu->registers[REG_PC]);
+    ginger_log(INFO, " - Program header offset:     0x%lx\n", program_header_offset);
+    ginger_log(INFO, " - Number of program headers: %lu\n", nb_program_headers);
 
     // Parse program headers
     const size_t program_header_base = program_header_offset;
@@ -221,7 +222,7 @@ load_elf(char* path, risc_v_emu_t* emu)
 
         // Sanity checks
         if ((program_header.offset + program_header.file_size) > (emu->mmu->memory_size - 1)) {
-            fprintf(stderr, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
+            ginger_log(ERROR, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
                     "would cause write outside of emulator memory!\n", __func__,
                     program_header.file_size, program_header.offset);
             abort();

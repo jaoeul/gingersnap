@@ -7,6 +7,7 @@
 #include "risc_v_emu.h"
 
 #include "../shared/endianess_converter.h"
+#include "../shared/logger.h"
 #include "../shared/print_utils.h"
 
 /* ----------------------- Instruction meta functions ------------------------*/
@@ -21,7 +22,7 @@ static void
 set_register(risc_v_emu_t* emu, uint8_t reg, uint32_t value)
 {
     emu->registers[reg] = value;
-    printf("Set register: %u to 0x%x\n", reg, emu->registers[reg]);
+    ginger_log(INFO, "Set register: %u to 0x%x\n", reg, emu->registers[reg]);
 }
 
 /* --------------------- End instruction meta functions ----------------------*/
@@ -47,7 +48,7 @@ risc_v_emu_execute_next_instruction(risc_v_emu_t* emu)
         // Check for execute permission
         const uint8_t current_permission = emu->mmu->permissions[emu->registers[REG_PC] + i];
         if ((current_permission & PERM_EXEC) == 0) {
-            printf("No exec perm set on address: 0x%x\n", emu->registers[REG_PC] + i);
+            ginger_log(ERROR, "No exec perm set on address: 0x%x\n", emu->registers[REG_PC] + i);
             abort();
         }
         instruction_bytes[i] = emu->mmu->memory[emu->registers[REG_PC] + i];
@@ -59,8 +60,8 @@ risc_v_emu_execute_next_instruction(risc_v_emu_t* emu)
     const uint32_t current_instruction = (uint32_t)byte_arr_to_u64(instruction_bytes, 4, LSB);
     const uint8_t  current_opcode      = current_instruction & 127; // & 0b1111111
 
-    printf("Current instruction: 0x%x\n", current_instruction);
-    printf("Current opcode: 0x%x\n", current_opcode);
+    ginger_log(INFO, "Current instruction: 0x%x\n", current_instruction);
+    ginger_log(INFO, "Current opcode: 0x%x\n", current_opcode);
 
     // Execute the instruction
     emu->instructions[current_opcode](emu, current_instruction);
@@ -79,7 +80,7 @@ risc_v_emu_fork(risc_v_emu_t* destination_emu, risc_v_emu_t* source_emu)
         return true;
     }
     else {
-        fprintf(stderr, "[%s]Source and destination emulators differ in memory size!\n", __func__);
+        ginger_log(ERROR, "[%s]Source and destination emulators differ in memory size!\n", __func__);
         return false;
     }
 }
@@ -108,13 +109,13 @@ risc_v_emu_create(size_t memory_size)
 {
     risc_v_emu_t* emu = calloc(1, sizeof(risc_v_emu_t));
     if (!emu) {
-        fprintf(stderr, "[%s]Could not create emu!\n", __func__);
+        ginger_log(ERROR, "[%s]Could not create emu!\n", __func__);
         return NULL;
     }
     emu->mmu = mmu_create(memory_size);
 
     if (!emu->mmu) {
-        fprintf(stderr, "[%s]Could not create mmu!\n", __func__);
+        ginger_log(ERROR, "[%s]Could not create mmu!\n", __func__);
         risc_v_emu_destroy(emu);
         return NULL;
     }

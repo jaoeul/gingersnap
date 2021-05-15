@@ -2,17 +2,17 @@
 #include <malloc.h>
 
 #include "../emu/risc_v_emu.h"
-#include "../shared/print_utils.h"
 #include "../shared/elf_loader.h"
 #include "../shared/endianess_converter.h"
+#include "../shared/endianess_converter.h"
+#include "../shared/logger.h"
+#include "../shared/print_utils.h"
 
 int
 main(int argc, char** argv)
 {
     const size_t emu_total_mem = (1024 * 1024) * 256;
     const size_t stack_size    = (1024 * 1024);
-
-    printf("Engaging Gingersnap!\n");
 
     risc_v_emu_t* emu = risc_v_emu_create(emu_total_mem);
 
@@ -27,16 +27,16 @@ main(int argc, char** argv)
 
     // Populate program name memory segment
     uint64_t program_name_address = emu->mmu->allocate(emu->mmu, 4096);
-    printf("program_name_address: 0x%lx\n", program_name_address);
+    ginger_log(INFO, "program_name_address: 0x%lx\n", program_name_address);
     emu->mmu->write(emu->mmu, program_name_address, (uint8_t*)"ls\0", 3);
 
     // Populate arg1 name memory segment
     uint64_t argv1_address = emu->mmu->allocate(emu->mmu, 4096);
-    printf("argv1_address: 0x%lx\n", argv1_address);
+    ginger_log(INFO, "argv1_address: 0x%lx\n", argv1_address);
     emu->mmu->write(emu->mmu, argv1_address, (uint8_t*)"arg1\0", 4);
 
     // Push initial values onto the stack
-    printf("Building initial stack at guest address: 0x%x\n", emu->registers[REG_SP]);
+    ginger_log(INFO, "Building initial stack at guest address: 0x%x\n", emu->registers[REG_SP]);
     uint8_t auxp[8]     = {0};
     uint8_t envp[8]     = {0};
     uint8_t argv_end[8] = {0};
@@ -58,13 +58,13 @@ main(int argc, char** argv)
         print_emu_registers(emu);
     }
 
-    printf("Current allocation address: 0x%lx\n", emu->mmu->current_allocation);
+    ginger_log(INFO, "Current allocation address: 0x%lx\n", emu->mmu->current_allocation);
 
     // Run the emulator
     emu->execute(emu);
     print_emu_registers(emu);
 
-    printf("Destroying emu structs!\n");
+    ginger_log(INFO, "Destroying emu structs!\n");
     emu->destroy(emu);
 
     return 0;

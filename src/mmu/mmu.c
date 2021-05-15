@@ -6,6 +6,7 @@
 
 #include "mmu.h"
 
+#include "../shared/logger.h"
 #include "../shared/print_utils.h"
 
 static void
@@ -84,11 +85,11 @@ mmu_set_permissions(mmu_t* mmu, size_t start_address, uint8_t permission,
                     size_t size)
 {
     if (start_address + size >= mmu->memory_size) {
-        fprintf(stderr, "[%s]Address is to high!\n", __func__);
+        ginger_log(ERROR, "[%s]Address is to high!\n", __func__);
         return;
     }
     if (start_address < 0) {
-        fprintf(stderr, "[%s]Address can't be below 0!\n", __func__);
+        ginger_log(ERROR, "[%s]Address can't be below 0!\n", __func__);
         return;
     }
 
@@ -111,14 +112,14 @@ mmu_allocate(mmu_t* mmu, size_t size)
 
     // Guest memory is already full
     if (base >= mmu->memory_size) {
-        printf("[%s] Error! Emulator memory already full!\n", __func__);
+        ginger_log(ERROR, "[%s] Error! Emulator memory already full!\n", __func__);
         abort();
         return 1;
     }
 
     // Check if new allocation runs the emulator out of memory
     if ((mmu->current_allocation + aligned_size) >= mmu->memory_size) {
-        printf("[%s] Emulator is out of memory!\n", __func__);
+        ginger_log(ERROR, "[%s] Emulator is out of memory!\n", __func__);
         abort();
         return 1;
     }
@@ -157,7 +158,7 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
 
         // If write permission is not set
         if ((current_perm & PERM_WRITE) == 0) {
-            printf("[%s] Error! Address 0x%lx not writeable. Has perm ",
+            ginger_log(ERROR, "[%s] Address 0x%lx not writeable. Has perm ",
                     __func__, current_address);
             print_permissions(current_perm);
             printf("\n");
@@ -166,7 +167,7 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
     }
 
     // Write the data
-    printf("[%s] Writing 0x%lx bytes to address 0x%lx\n", __func__, size, destination_address);
+    ginger_log(INFO, "[%s] Writing 0x%lx bytes to address 0x%lx\n", __func__, size, destination_address);
     memcpy(mmu->memory + destination_address, source_buffer, size);
 
     // Mark blocks corresponding to addresses written to as dirty
@@ -216,7 +217,7 @@ mmu_create(size_t memory_size)
     const size_t base_allocation_address = 0x100000;
 
     if (memory_size <= base_allocation_address) {
-        fprintf(stderr, "[%s]Emulator needs more memory!\n", __func__);
+        ginger_log(ERROR, "[%s]Emulator needs more memory!\n", __func__);
         return NULL;
     }
 
