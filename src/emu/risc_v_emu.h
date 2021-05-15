@@ -7,51 +7,59 @@
 
 #include "../mmu/mmu.h"
 
-typedef struct {
-    uint64_t zero;
-    uint64_t ra;
-    uint64_t sp;
-    uint64_t gp;
-    uint64_t tp;
-    uint64_t t0;
-    uint64_t t1;
-    uint64_t t2;
-    uint64_t fp;
-    uint64_t s1;
-    uint64_t a0;
-    uint64_t a1;
-    uint64_t a2;
-    uint64_t a3;
-    uint64_t a4;
-    uint64_t a5;
-    uint64_t a6;
-    uint64_t a7;
-    uint64_t s2;
-    uint64_t s3;
-    uint64_t s4;
-    uint64_t s5;
-    uint64_t s6;
-    uint64_t s7;
-    uint64_t s8;
-    uint64_t s9;
-    uint64_t s10;
-    uint64_t s11;
-    uint64_t t3;
-    uint64_t t4;
-    uint64_t t5;
-    uint64_t t6;
-    uint64_t pc;
-} registers_t;
+// This enum is not used to store register state. It is only used as indices
+// for access to correct offset in the emulator register array.
+enum register_indices {
+    REG_ZERO = 0,
+    REG_RA,
+    REG_SP,
+    REG_GP,
+    REG_TP,
+    REG_T0,
+    REG_T1,
+    REG_T2,
+    REG_FP,
+    REG_S1,
+    REG_A0,
+    REG_A1,
+    REG_A2,
+    REG_A3,
+    REG_A4,
+    REG_A5,
+    REG_A6,
+    REG_A7,
+    REG_S2,
+    REG_S3,
+    REG_S4,
+    REG_S5,
+    REG_S6,
+    REG_S7,
+    REG_S8,
+    REG_S9,
+    REG_S10,
+    REG_S11,
+    REG_T3,
+    REG_T4,
+    REG_T5,
+    REG_T6,
+    REG_PC,
+    REG_LAST,
+};
 
 struct risc_v_emu {
-    void (*init)      (risc_v_emu_t* emu);
+
+    // Public API
     void (*execute)   (risc_v_emu_t* emu);
     bool (*fork)      (risc_v_emu_t* destination_emu, struct risc_v_emu* source_emu);
     void (*stack_push)(risc_v_emu_t* emu, uint8_t bytes[], size_t nb_bytes);
     void (*destroy)   (risc_v_emu_t* emu);
 
+    // All risc v instructions are implemented as separate functions. Their opcode
+    // corresponds to an index in this array of function pointers.
+    void (*instructions[256])(risc_v_emu_t* emu, uint32_t instruction);
+
     // The registers, tracking the cpu emulator state
-    registers_t registers;
+    uint32_t registers[33];
 
     // Memory management unit
     mmu_t* mmu;

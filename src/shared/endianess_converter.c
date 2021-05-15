@@ -69,5 +69,5 @@ u64_to_byte_arr_msb(uint64_t num, uint8_t result_bytes[8])
 void
 u64_to_byte_arr(uint64_t num, uint8_t result_bytes[8], ENDIANESS endianess)
 {
-    return endianess ? u64_to_byte_arr_lsb(num, result_bytes) : u64_to_byte_arr_msb(num, result_bytes);
+    endianess ? u64_to_byte_arr_lsb(num, result_bytes) : u64_to_byte_arr_msb(num, result_bytes);
 }

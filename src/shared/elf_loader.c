@@ -16,6 +16,7 @@ typedef struct {
     size_t flags;
 } program_header_t;
 
+// Parse an elf file and load it into the memory of an emulator.
 void
 load_elf(char* path, risc_v_emu_t* emu)
 {
@@ -24,9 +25,14 @@ load_elf(char* path, risc_v_emu_t* emu)
     uint8_t* elf;
     long     elf_length;
 
+    printf("==============================================\n");
+    printf(" - Loading elf %s\n", path);
+    printf("==============================================\n\n");
+
     fileptr = fopen(path, "rb");
     if (!fileptr) {
         printf("Error! Could not find specified executable: %s\n", path);
+        abort();
     }
 
     fseek(fileptr, 0, SEEK_END);
@@ -40,32 +46,36 @@ load_elf(char* path, risc_v_emu_t* emu)
     }
     fclose(fileptr);
 
-    bool     is_lsb;
-    bool     is_64_bit;
-    size_t   program_header_size;
-    uint8_t  bytes_entry_point[2];
-    uint8_t  bytes_program_header_offset[8];
-    uint8_t  bytes_nb_program_headers[2];
+    bool     is_lsb                         = false;
+    bool     is_64_bit                      = false;
+    size_t   program_header_size            = 0;
+    uint64_t program_header_offset          = 0;
+    uint64_t nb_program_headers             = 0;
+    uint8_t bytes_nb_program_headers[2]     = {0};
 
     // If LSB elf file
     if (elf[5] == 1) {
         is_lsb = true;
-        printf("Elf is LSB\n");
+        printf(" - Elf is LSB\n");
     }
     // Else MSB elf file
     else if (elf[5] == 2) {
-        printf("Elf is MSB\n");
+        printf(" - Elf is MSB\n");
         is_lsb = false;
     }
     else {
-        printf("Malformed ELF header!\n");
+        printf("Error! Malformed ELF header!\n");
         abort();
     }
 
     // 32 bit elf
     if (elf[4] == 1) {
-        is_64_bit           = false;
-        program_header_size = 0x20;
+        uint8_t bytes_entry_point[4]            = {0};
+        uint8_t bytes_program_header_offset[4]  = {0};
+
+        is_64_bit            = false;
+        program_header_size  = 0x20;
+
         for (uint8_t i = 0; i < 4; i++) {
             bytes_entry_point[i] = elf[0x18 + i];
         }
@@ -75,11 +85,17 @@ load_elf(char* path, risc_v_emu_t* emu)
         for (uint8_t i = 0; i < 2; i++) {
             bytes_nb_program_headers[i] = elf[0x2C + i];
         }
+        program_header_offset  = byte_arr_to_u64(bytes_program_header_offset, 4, is_lsb);
+        emu->registers[REG_PC] = byte_arr_to_u64(bytes_entry_point, 4, is_lsb);
     }
     // 64 bit elf
     else if (elf[4] == 2) {
-        is_64_bit           = true;
-        program_header_size = 0x38;
+        uint8_t bytes_entry_point[8]            = {0};
+        uint8_t bytes_program_header_offset[8]  = {0};
+
+        is_64_bit            = true;
+        program_header_size  = 0x38;
+
         for (uint8_t i = 0; i < 8; i++) {
             bytes_entry_point[i] = elf[0x18 + i];
         }
@@ -89,26 +105,23 @@ load_elf(char* path, risc_v_emu_t* emu)
         for (uint8_t i = 0; i < 2; i++) {
             bytes_nb_program_headers[i] = elf[0x38 + i];
         }
+        program_header_offset  = byte_arr_to_u64(bytes_program_header_offset, 8, is_lsb);
+        emu->registers[REG_PC] = byte_arr_to_u64(bytes_entry_point, 8, is_lsb);
     }
     else {
-        printf("Malformed ELF header!\n");
+        printf("Error! Malformed ELF header!\n");
         abort();
     }
+    nb_program_headers = byte_arr_to_u64(bytes_nb_program_headers, 2, is_lsb);
 
-    const uint64_t program_header_offset = byte_arr_to_u64(bytes_program_header_offset, sizeof(bytes_program_header_offset), is_lsb);
-    const uint64_t nb_program_headers    = byte_arr_to_u64(bytes_nb_program_headers, sizeof(bytes_nb_program_headers), is_lsb);
-    const uint64_t entry_point           = byte_arr_to_u64(bytes_entry_point, sizeof(bytes_entry_point), is_lsb);
-    emu->registers.pc                    = entry_point;
-
-    printf("[%s] Setting PC to 0x%lx\n", __func__, entry_point);
-    printf("Program header offset:\t\t0x%lx\n", program_header_offset);
-    printf("Number of program headers:\t%lu\n", nb_program_headers);
+    printf(" - Setting PC to              0x%x\n", emu->registers[REG_PC]);
+    printf(" - Program header offset:     0x%lx\n", program_header_offset);
+    printf(" - Number of program headers: %lu\n", nb_program_headers);
 
     // Parse program headers
     const size_t program_header_base = program_header_offset;
     for (uint64_t i = 0; i < nb_program_headers; i++) {
         const size_t current_program_header = program_header_base + (program_header_size * i);
-        //const size_t end_address   = start_address + program_header_size;
 
         // Parse the current program header
         uint8_t bytes_current_program_header[program_header_size];
@@ -217,13 +230,6 @@ load_elf(char* path, risc_v_emu_t* emu)
         //// We have to load the elf before memory is allocated in the emulator.
         //   Thus we cannot check if a write would cause the emulator go out
         //   of allocated memory. No memory should be allocated at this point.
-        //
-        //else if ((program_header.offset + program_header.file_size) > (emu->mmu->current_allocation)) {
-        //    fprintf(stderr, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
-        //            "would cause write outside of emulator allocated memory!\n", __func__,
-        //            program_header.file_size, program_header.offset);
-        //    abort();
-        //}
 
         // Set the permissions of the addresses where the loadable program
         // header will be loaded to writeable. We have to do this since the
@@ -235,6 +241,9 @@ load_elf(char* path, risc_v_emu_t* emu)
         // NOTE: This write dirties the executable memory. Might want to make it
         //       clean before starting the emulator
         emu->mmu->write(emu->mmu, program_header.virtual_address, elf, program_header.file_size);
+
+        // Set memory loaded to readable and executable. Remove the earlier set write permission
+        emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, PERM_READ | PERM_EXEC, program_header.file_size);
 
         //printf("***\nProgram header: %lu\n", i);
         //printf("offset: %lx\n", segment.offset);

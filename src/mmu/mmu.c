@@ -181,7 +181,7 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
         for (int i = 0; i < size; i++) {
             // Remove the RAW bit TODO: Find out if this really is needed, we
             // might gain performance by removing it
-            *(mmu->permissions + destination_address + i) &= ~PERM_READ;
+            *(mmu->permissions + destination_address + i) &= ~PERM_RAW;
 
             // Set permission of written memory to readable.
             *(mmu->permissions + destination_address + i) |= PERM_READ;
@@ -207,10 +207,13 @@ mmu_read(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t 
 mmu_t*
 mmu_create(size_t memory_size)
 {
-    // TODO: This value places the `current_allocation` of the emulator to start
-    //       out in the middle of the `/usr/bin/ls` elf file. Revisit this to
-    //       check if it couses problems and needs to be changed.
-    const size_t base_allocation_address = 0x10000;
+    // *NOTE*
+    //
+    // The base allocation address needs to be larger than the larger than
+    // the address of the last program header loaded into memory + its size.
+    // This is to make sure that allocations made by the emulator, when running
+    // the target binary, does not overwrite the binary itself.
+    const size_t base_allocation_address = 0x100000;
 
     if (memory_size <= base_allocation_address) {
         fprintf(stderr, "[%s]Emulator needs more memory!\n", __func__);
