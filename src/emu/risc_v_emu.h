@@ -59,7 +59,7 @@ struct risc_v_emu {
     void (*instructions[256])(risc_v_emu_t* emu, uint32_t instruction);
 
     // The registers, tracking the cpu emulator state
-    uint32_t registers[33];
+    uint64_t registers[33];
 
     // Memory management unit
     mmu_t* mmu;

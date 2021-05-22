@@ -61,8 +61,10 @@ main(int argc, char** argv)
     ginger_log(INFO, "Current allocation address: 0x%lx\n", emu->mmu->current_allocation);
 
     // Run the emulator
-    emu->execute(emu);
-    print_emu_registers(emu);
+    for (;;) {
+        emu->execute(emu);
+        print_emu_registers(emu);
+    }
 
     ginger_log(INFO, "Destroying emu structs!\n");
     emu->destroy(emu);

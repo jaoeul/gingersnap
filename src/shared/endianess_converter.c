@@ -32,9 +32,9 @@ msb_byte_arr_to_u64(uint8_t bytes[], size_t num)
 }
 
 uint64_t
-byte_arr_to_u64(uint8_t* bytes, size_t num, ENDIANESS endianess)
+byte_arr_to_u64(uint8_t* bytes, size_t size, ENDIANESS endianess)
 {
-    return endianess ? lsb_byte_arr_to_u64(bytes, num) : msb_byte_arr_to_u64(bytes, num);
+    return endianess ? lsb_byte_arr_to_u64(bytes, size) : msb_byte_arr_to_u64(bytes, size);
 }
 
 static void

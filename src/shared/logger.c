@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#define LOG_LENGTH_MAX 1024
-
 #include "logger.h"
+
+#define LOG_LENGTH_MAX 1024
 
 #define BLACK  "\033[0;30m"
 #define RED    "\033[0;31m"

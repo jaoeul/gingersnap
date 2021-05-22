@@ -140,7 +140,7 @@ mmu_allocate(mmu_t* mmu, size_t size)
 //
 // TODO: Should we check for write outside of allocated memory?
 static void
-mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t size)
+mmu_write(mmu_t* mmu, size_t destination_address, const uint8_t* source_buffer, size_t size)
 {
     // Check permission of memory we are about to write to. If any of the addresses has the PERM_READ_AFTER_WRITE bit
     // set, we will remove it from all of them. If none of the addresses has it set, we will skip it.
@@ -191,10 +191,11 @@ mmu_write(mmu_t* mmu, size_t destination_address, uint8_t* source_buffer, size_t
 }
 
 
-// Guest read function. Function is intentionally not bounds checked to allow for illegal reads which will be detected
-// and recorded as a crash.
+// Read from guest memory into buffer. Function is intentionally not bounds
+// checked to allow for illegal reads which will be detected and recorded as a
+// crash.
 static void
-mmu_read(mmu_t* mmu, uint8_t* destination_buffer, size_t source_address, size_t size)
+mmu_read(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_address, size_t size)
 {
     // If permission denied
     for (int i = 0; i < size; i++) {
