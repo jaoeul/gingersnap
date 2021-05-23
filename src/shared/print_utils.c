@@ -122,16 +122,15 @@ print_emu_registers(risc_v_emu_t* emu)
     }
 
     // How many register strings fit horizontally?
-    unsigned short max_len_string = 7 /*ZERO 0x*/ + 18 /*0xffffffffffffffff*/;
+    unsigned short max_len_string = 7 /*"ZERO 0x"*/ + 20 /*"0xffffffffffffffff  "*/;
     unsigned short nb_fit = nb_columns / max_len_string;
 
     // Strings to print.
-    char* register_strings[33] = {0};
-    for (int i = 0; i < sizeof(register_strings) / sizeof(register_strings[0]); ++i) {
+    uint8_t nb_register_strings = 33;
+    char*   register_strings[nb_register_strings];
+    for (int i = 0; i < nb_register_strings; ++i) {
         register_strings[i] = calloc(max_len_string, 1);
     }
-    uint8_t nb_register_strings = sizeof(register_strings) / sizeof(register_strings[0]);
-
     sprintf(register_strings[0],  "ZERO 0x%-16lx", emu->registers[REG_ZERO]);
     sprintf(register_strings[1],  "RA   0x%-16lx", emu->registers[REG_RA]);
     sprintf(register_strings[2],  "SP   0x%-16lx", emu->registers[REG_SP]);
@@ -141,7 +140,7 @@ print_emu_registers(risc_v_emu_t* emu)
     sprintf(register_strings[6],  "T1   0x%-16lx", emu->registers[REG_T1]);
     sprintf(register_strings[7],  "T2   0x%-16lx", emu->registers[REG_T2]);
     sprintf(register_strings[8],  "FP   0x%-16lx", emu->registers[REG_FP]);
-    sprintf(register_strings[9], "S1   0x%-16lx", emu->registers[REG_S1]);
+    sprintf(register_strings[9],  "S1   0x%-16lx", emu->registers[REG_S1]);
     sprintf(register_strings[10], "A0   0x%-16lx", emu->registers[REG_A0]);
     sprintf(register_strings[11], "A1   0x%-16lx", emu->registers[REG_A1]);
     sprintf(register_strings[12], "A2   0x%-16lx", emu->registers[REG_A2]);
@@ -164,7 +163,7 @@ print_emu_registers(risc_v_emu_t* emu)
     sprintf(register_strings[29], "T4   0x%-16lx", emu->registers[REG_T4]);
     sprintf(register_strings[30], "T5   0x%-16lx", emu->registers[REG_T5]);
     sprintf(register_strings[31], "T6   0x%-16lx", emu->registers[REG_T6]);
-    sprintf(register_strings[32], "PC   1x%-16lx", emu->registers[REG_PC]);
+    sprintf(register_strings[32], "PC   0x%-16lx", emu->registers[REG_PC]);
 
     // Pretty print.
     char legend[nb_columns];
@@ -177,6 +176,10 @@ print_emu_registers(risc_v_emu_t* emu)
         printf("\n");
     }
     printf("%s\n", legend);
+
+    for (int i = 0; i < nb_register_strings; ++i) {
+        free(register_strings[i]);
+    }
 }
 
 void

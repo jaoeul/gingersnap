@@ -44,8 +44,8 @@ __attribute__((used))
 static int32_t
 s_type_get_immediate(const uint32_t instruction)
 {
-    const uint32_t immediate40  = (instruction >> 7)  & 0x1f; // & 0b11111
-    const uint32_t immediate115 = (instruction >> 25) & 0x7f; // & 0b111111
+    const uint32_t immediate40  = (instruction >> 7)  & 0x1f;
+    const uint32_t immediate115 = (instruction >> 25) & 0x7f; 
 
     uint32_t target_immediate = (immediate115  << 5) | immediate40;
     target_immediate = (target_immediate << 20) >> 20;
@@ -56,10 +56,10 @@ s_type_get_immediate(const uint32_t instruction)
 static int32_t
 b_type_get_immediate(const uint32_t instruction)
 {
-    const uint32_t immediate11  = (instruction >> 7)  & 0x01; // & 0b1
-    const uint32_t immediate41  = (instruction >> 8)  & 0x0f; // & 0b1111
-    const uint32_t immediate105 = (instruction >> 25) & 0x3f; // & 0b1111
-    const uint32_t immediate12  = (instruction >> 31) & 0x01; // & 0b1
+    const uint32_t immediate11  = (instruction >> 7)  & 0x01;
+    const uint32_t immediate41  = (instruction >> 8)  & 0x0f;
+    const uint32_t immediate105 = (instruction >> 25) & 0x3f;
+    const uint32_t immediate12  = (instruction >> 31) & 0x01;
 
     uint32_t target_immediate = (immediate12  << 12) |
                                 (immediate11  << 11) |
@@ -73,43 +73,43 @@ b_type_get_immediate(const uint32_t instruction)
 static uint32_t
 j_type_get_immediate(const uint32_t instruction)
 {
-    return (instruction >> 12) & 0xfffff; // 20 bits
+    return (instruction >> 12) & 0xfffff;
 }
 
 static uint32_t
 get_funct7(const uint32_t instruction)
 {
-    return (instruction >> 25) & 0x7f; // 0b1111111
+    return (instruction >> 25) & 0x7f;
 }
 
 static uint32_t
 get_rs2(const uint32_t instruction)
 {
-    return (instruction >> 20) & 0x1f; // 0b11111
+    return (instruction >> 20) & 0x1f;
 }
 
 static uint32_t
 get_rs1(const uint32_t instruction)
 {
-    return (instruction >> 15) & 0x1f; // 0b11111
+    return (instruction >> 15) & 0x1f;
 }
 
 static uint32_t
 get_funct3(const uint32_t instruction)
 {
-    return (instruction >> 12) & 0x07; // 0b111
+    return (instruction >> 12) & 0x07;
 }
 
 static uint32_t
 get_rd(const uint32_t instruction)
 {
-    return (instruction >> 7) & 0x1f; // 0b11111
+    return (instruction >> 7) & 0x1f;
 }
 
 static uint8_t
 get_opcode(const uint32_t instruction)
 {
-    return instruction & 0x7f; // 0b1111111
+    return instruction & 0x7f;
 }
 
 static uint32_t
@@ -163,8 +163,6 @@ set_rd(risc_v_emu_t* emu, const uint32_t instruction, const uint32_t value)
 {
     set_register(emu, get_rd(instruction), value);
 }
-
-/* --------------------- End instruction meta functions ----------------------*/
 
 
 /* ========================================================================== */
