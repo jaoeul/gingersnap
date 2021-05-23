@@ -4,10 +4,10 @@ Gingersnap shapshot fuzzer
 This is a work in progress.
 
 The core idea of this project is to implement a fuzzer able to restart
-executables in a deterministic and efficient manner, providing mutated input for
-each run, with the goal of ultimately crashing the program. When a specific
-input triggers a crash, the fuzzer will note the input and proceed with the next
-input.
+executables in a deterministic and efficient manner, providing new, mutated
+input for each test case, with the goal of ultimately crashing the program, or
+finding unexpected behavior. When a specific input triggers a crash, the fuzzer
+will note the input and proceed with the next input.
 
 # Components
 
@@ -49,9 +49,8 @@ only the essential crosscompiler, but they will come in handy later, so we might
 as well build them.
 
 The version of gcc we get by running the following commands will be able to
-compile C code to a 64 bit exacutable, using the riscv64i instruction set. This
-is a tiny instruction set, consisting of only 40 different instructions, which
-is a bit easier to emulate than x64. :^)
+compile C code to a 64 bit riscvi exacutable. This is a tiny instruction set,
+consisting of only 40 different instructions, which is easy to emulate.
 
 ```bash
 git clone https://github.com/riscv/riscv-gnu-toolchain.git

@@ -23,7 +23,7 @@ enum {
     LOAD                             = 0x04,
     STORE                            = 0x23,
     ARITHMETIC_I_TYPE                = 0x13,
-    ARITHMETIC_32_R_TYPE             = 0x33,
+    ARITHMETIC_R_TYPE                = 0x33,
     FENCE                            = 0x0f,
     ENV                              = 0x73,
     ARITHMETIC_64_REGISTER_IMMEDIATE = 0x1b,
@@ -34,7 +34,6 @@ enum {
 /*                         Instruction meta functions                         */
 /* ========================================================================== */
 
-__attribute__((used))
 static int32_t
 i_type_get_immediate(const uint32_t instruction)
 {
@@ -54,7 +53,6 @@ s_type_get_immediate(const uint32_t instruction)
     return target_immediate;
 }
 
-__attribute__((used))
 static int32_t
 b_type_get_immediate(const uint32_t instruction)
 {
@@ -72,77 +70,36 @@ b_type_get_immediate(const uint32_t instruction)
     return target_immediate;
 }
 
-__attribute__((used))
 static uint32_t
-u_type_get_immediate(const uint32_t instruction)
-{
-    return (instruction >> 12) & 0xfffff; // 0b11111111111111111111
-}
-
-__attribute__((used))
-static uint32_t
-j_type_get_immediate_1(const uint32_t instruction)
-{
-    return (instruction >> 12) & 0xff; // 0b11111111
-}
-
-__attribute__((used))
-static uint32_t
-j_type_get_immediate_2(const uint32_t instruction)
-{
-    return (instruction >> 20) & 0x1; // 0b1
-}
-
-__attribute__((used))
-static uint32_t
-j_type_get_immediate_3(const uint32_t instruction)
-{
-    return (instruction >> 21) & 0x3ff; // 0b1111111111
-}
-
-__attribute__((used))
-static uint32_t
-j_type_get_immediate_4(const uint32_t instruction)
-{
-    return (instruction >> 31) & 0x01; // 0b1
-}
-
-__attribute__((used))
-static uint32_t
-j_type_get_immediate_full(const uint32_t instruction)
+j_type_get_immediate(const uint32_t instruction)
 {
     return (instruction >> 12) & 0xfffff; // 20 bits
 }
 
-__attribute__((used))
 static uint32_t
 get_funct7(const uint32_t instruction)
 {
     return (instruction >> 25) & 0x7f; // 0b1111111
 }
 
-__attribute__((used))
 static uint32_t
 get_rs2(const uint32_t instruction)
 {
     return (instruction >> 20) & 0x1f; // 0b11111
 }
 
-__attribute__((used))
 static uint32_t
 get_rs1(const uint32_t instruction)
 {
     return (instruction >> 15) & 0x1f; // 0b11111
 }
 
-__attribute__((used))
 static uint32_t
 get_funct3(const uint32_t instruction)
 {
     return (instruction >> 12) & 0x07; // 0b111
 }
 
-__attribute__((used))
 static uint32_t
 get_rd(const uint32_t instruction)
 {
@@ -207,13 +164,6 @@ set_rd(risc_v_emu_t* emu, const uint32_t instruction, const uint32_t value)
     set_register(emu, get_rd(instruction), value);
 }
 
-__attribute__((used))
-static void
-set_rs1(risc_v_emu_t* emu, const uint32_t instruction, const uint32_t value)
-{
-    set_register(emu, get_rs1(instruction), value);
-}
-
 /* --------------------- End instruction meta functions ----------------------*/
 
 
@@ -221,17 +171,8 @@ set_rs1(risc_v_emu_t* emu, const uint32_t instruction, const uint32_t value)
 /*                           Instruction functions                            */
 /* ========================================================================== */
 
-// Instructions with shared opcodes uses the _funct_ fields encoded in the
-// instruction to determine what to do. This is handled by arrays of function
-// pointers. When a shared opcode is executed, a function, generic to the opcode
-// instructions is executed, which looks at the relevant _funct_ field and
-// choses the correct function to execute in corresponding function pointer
-// array.
-
 /* --------------------------- U-Type instructions ---------------------------*/
 
-// Load upper immediate.
-__attribute__((used))
 static void
 lui(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -251,15 +192,13 @@ auipc(risc_v_emu_t* emu, const uint32_t instruction)
 
 /* --------------------------- J-Type instructions ---------------------------*/
 
-// Jump and link.
-__attribute__((used))
 static void
 jal(risc_v_emu_t* emu, const uint32_t instruction)
 {
     // When an unsigned int and an int are added together, the int is first
     // converted to unsigned int before the addition takes place. This makes
     // the following addition work.
-    const int32_t jump_offset = (int32_t)j_type_get_immediate_full(instruction);
+    const int32_t jump_offset = (int32_t)j_type_get_immediate(instruction);
     const uint32_t result     = get_register(emu, REG_PC) + jump_offset;
     set_register(emu, REG_PC, result);
 
@@ -280,8 +219,6 @@ jal(risc_v_emu_t* emu, const uint32_t instruction)
 
 /* --------------------------- I-Type instructions ---------------------------*/
 
-// Jump and link register.
-__attribute__((used))
 static void
 jalr(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -403,7 +340,6 @@ ld(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
-// TODO: Consider array of functions pointers instead of if statement, for perf.
 static void
 execute_load_instruction(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -431,7 +367,7 @@ execute_load_instruction(risc_v_emu_t* emu, const uint32_t instruction)
         lwu(emu, instruction);
     }
     else {
-        ginger_log(ERROR, "Invalid funct3 in load instruction!\n");
+        ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
         abort();
     }
 }
@@ -529,7 +465,6 @@ srai(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
-// TODO: Consider array of functions pointers instead of if statement, for perf.
 static void
 execute_arithmetic_i_instruction(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -538,8 +473,8 @@ execute_arithmetic_i_instruction(risc_v_emu_t* emu, const uint32_t instruction)
     if (funct3 == 0) {
         addi(emu, instruction);
     }
-    // SLLI
     else if (funct3 == 1) {
+        slli(emu, instruction);
     }
     else if (funct3 == 2) {
         slti(emu, instruction);
@@ -550,18 +485,6 @@ execute_arithmetic_i_instruction(risc_v_emu_t* emu, const uint32_t instruction)
     else if (funct3 == 4) {
         xori(emu, instruction);
     }
-    // SRLI || SRAI
-    else if (funct3 == 5) {
-    }
-    else if (funct3 == 6) {
-        ori(emu, instruction);
-    }
-    else if (funct3 == 7) {
-        andi(emu, instruction);
-    }
-    else if (funct3 == 1) {
-        slli(emu, instruction);
-    }
     else if (funct3 == 5) {
         const uint32_t funct7 = get_funct7(instruction);
         if (funct7 == 0) {
@@ -571,9 +494,18 @@ execute_arithmetic_i_instruction(risc_v_emu_t* emu, const uint32_t instruction)
             srai(emu, instruction);
         }
         else {
-            ginger_log(ERROR, "Invalid funct7 in arthmetic_32(SRLI || SRAI) instruction!\n");
+            ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
             abort();
         }
+    }
+    else if (funct3 == 6) {
+        ori(emu, instruction);
+    }
+    else if (funct3 == 7) {
+        andi(emu, instruction);
+    }
+    else if (funct3 == 1) {
+        slli(emu, instruction);
     }
 }
 
@@ -620,7 +552,7 @@ addiw(risc_v_emu_t* emu, const uint32_t instruction)
     const uint32_t addend    = get_register(emu, rs1);
 
     // FIXME: Carefully monitor casting logic of following line.
-    const int64_t result    = (uint64_t)((int64_t)addend + immediate);
+    const int64_t result = (uint64_t)((int64_t)addend + immediate);
     set_register(emu, get_rd(instruction), result);
     increment_pc(emu);
 }
@@ -672,12 +604,12 @@ execute_arithmetic_64_register_immediate_instructions(risc_v_emu_t* emu, const u
             sraiw(emu, instruction);
         }
         else {
-            ginger_log(ERROR, "Invalid funct7 in %s(SRLI || SRAI) instruction!\n", __func__);
+            ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
             abort();
         }
     }
     else {
-        ginger_log(ERROR, "Invalid funct3 in %s instruction!\n", __func__);
+        ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
         abort();
     }
 }
@@ -765,7 +697,7 @@ execute_arithmetic_64_register_register_instructions(risc_v_emu_t* emu, const ui
             subw(emu, instruction);
         }
         else {
-            ginger_log(ERROR, "Invalid funct3(ADDW || SUBW) in %s instruction!\n", __func__);
+            ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
             abort();
         }
     }
@@ -780,12 +712,12 @@ execute_arithmetic_64_register_register_instructions(risc_v_emu_t* emu, const ui
             sraw(emu, instruction);
         }
         else {
-            ginger_log(ERROR, "Invalid funct3(SRLW || SRAW) in %s instruction!\n", __func__);
+            ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
             abort();
         }
     }
     else {
-        ginger_log(ERROR, "Invalid funct3 in %s instruction!\n", __func__);
+        ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
         abort();
     }
 }
@@ -899,7 +831,6 @@ and(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
-// TODO: Consider array of functions pointers instead of if statement, for perf.
 static void
 execute_arithmetic_32_r_instruction(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -914,7 +845,7 @@ execute_arithmetic_32_r_instruction(risc_v_emu_t* emu, const uint32_t instructio
             sub(emu, instruction);
         }
         else {
-            ginger_log(ERROR, "Invalid funct7 in arthmetic_32_r(ADD || SUB) instruction!\n");
+            ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
             abort();
         }
     }
@@ -938,20 +869,18 @@ execute_arithmetic_32_r_instruction(risc_v_emu_t* emu, const uint32_t instructio
             sra(emu, instruction);
         }
         else {
-            ginger_log(ERROR, "Invalid funct7 in arthmetic_32_r(SRL || SRA) instruction!\n");
+            ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
             abort();
         }
     }
-    // OR
     else if (funct3 == 6) {
         or(emu, instruction);
     }
-    // AND
     else if (funct3 == 7) {
         and(emu, instruction);
     }
     else {
-        ginger_log(ERROR, "Invalid funct7 in arthmetic_32_r instruction!\n");
+        ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
         abort();
     }
 }
@@ -1018,7 +947,6 @@ sd(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
-// TODO: Consider array of functions pointers instead of if statement, for perf.
 static void
 execute_store_instruction(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -1037,15 +965,13 @@ execute_store_instruction(risc_v_emu_t* emu, const uint32_t instruction)
         sd(emu, instruction);
     }
     else {
-        ginger_log(ERROR, "Invalid funct3 in store instruction!\n");
+        ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
         abort();
     }
 }
 
 /* --------------------------- B-Type instructions ---------------------------*/
 
-// Branch equal.
-__attribute__((used))
 static void
 beq(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -1061,8 +987,6 @@ beq(risc_v_emu_t* emu, const uint32_t instruction)
     }
 }
 
-// Branch not equal.
-__attribute__((used))
 static void
 bne(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -1078,8 +1002,6 @@ bne(risc_v_emu_t* emu, const uint32_t instruction)
     }
 }
 
-// Branch less than.
-__attribute__((used))
 static void
 blt(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -1095,8 +1017,6 @@ blt(risc_v_emu_t* emu, const uint32_t instruction)
     }
 }
 
-// Branch less than unsigned.
-__attribute__((used))
 static void
 bltu(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -1112,8 +1032,6 @@ bltu(risc_v_emu_t* emu, const uint32_t instruction)
     }
 }
 
-// Branch greater equal.
-__attribute__((used))
 static void
 bge(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -1129,8 +1047,6 @@ bge(risc_v_emu_t* emu, const uint32_t instruction)
     }
 }
 
-// Branch greater equal unsigned.
-__attribute__((used))
 static void
 bgeu(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -1146,12 +1062,6 @@ bgeu(risc_v_emu_t* emu, const uint32_t instruction)
     }
 }
 
-// All branch instructions use the same opcode. When called, find the
-// correct instruction by analysis of the funct3 field encoded into the
-// instruction.
-//
-// TODO: Might exchange following if statiment for an array of function pointers
-// for perf.
 static void
 execute_branch_instruction(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -1176,7 +1086,7 @@ execute_branch_instruction(risc_v_emu_t* emu, const uint32_t instruction)
         bgeu(emu, instruction);
     }
     else {
-        ginger_log(ERROR, "Invalid funct3 in branch instruction!\n");
+        ginger_log(ERROR, "[%s:%u] Invalid instruction!\n", __func__, __LINE__);
         abort();
     }
 }
@@ -1276,7 +1186,7 @@ risc_v_emu_create(size_t memory_size)
     emu->instructions[LOAD]                             = execute_load_instruction;
     emu->instructions[STORE]                            = execute_store_instruction;
     emu->instructions[ARITHMETIC_I_TYPE]                = execute_arithmetic_i_instruction;
-    emu->instructions[ARITHMETIC_32_R_TYPE]             = execute_arithmetic_32_r_instruction;
+    emu->instructions[ARITHMETIC_R_TYPE]                = execute_arithmetic_32_r_instruction;
     emu->instructions[FENCE]                            = fence;
     emu->instructions[ENV]                              = execute_env_instructions;
     emu->instructions[ARITHMETIC_64_REGISTER_IMMEDIATE] = execute_arithmetic_64_register_immediate_instructions;
