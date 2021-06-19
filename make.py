@@ -2,7 +2,7 @@
 #
 # Fuck make lol
 #
-# High level algorithm:
+# High level build process:
 #
 # - For each module
 #   - If we are building the real application, ignore tests, and vice versa.
@@ -82,8 +82,7 @@ if __name__ == "__main__":
     release_cflags       = ["-O2", "-Werror", "-Wall", "-pedantic"]
     release_linker_flags = ["-O2", "-Werror", "-Wall", "-pedantic"]
 
-
-    # Default target in debug.
+    # Default target is debug.
     if len(sys.argv) < 2:
         compile_src("debug", debug_target, "./src", debug_cflags, debug_linker_flags)
     else:
