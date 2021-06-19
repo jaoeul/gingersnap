@@ -76,11 +76,11 @@ if __name__ == "__main__":
     release_target = "release_gingersnap"
     test_target    = "test_gingersnap"
 
-    debug_cflags       = ["-g", "-Werror", "-Wall", "-pedantic"]
-    debug_linker_flags = ["-g", "-Werror", "-Wall", "-pedantic"]
+    debug_cflags       = ["-g", "-Werror", "-Wall"];
+    debug_linker_flags = ["-g", "-Werror", "-Wall"];
 
-    release_cflags       = ["-O2", "-Werror", "-Wall", "-pedantic"]
-    release_linker_flags = ["-O2", "-Werror", "-Wall", "-pedantic"]
+    release_cflags       = ["-O2", "-Werror", "-Wall"];
+    release_linker_flags = ["-O2", "-Werror", "-Wall"];
 
     # Default target is debug.
     if len(sys.argv) < 2:

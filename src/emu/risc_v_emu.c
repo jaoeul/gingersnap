@@ -6,6 +6,7 @@
 
 #include "risc_v_emu.h"
 
+#include "../shared/binary_integers.h"
 #include "../shared/endianess_converter.h"
 #include "../shared/logger.h"
 #include "../shared/print_utils.h"
@@ -37,19 +38,19 @@ enum {
 static uint32_t
 get_funct3(const uint32_t instruction)
 {
-    return (instruction >> 12) & 0x07;
+    return (instruction >> 12) & 0b111;
 }
 
 static uint32_t
 get_funct7(const uint32_t instruction)
 {
-    return (instruction >> 25) & 0x7f;
+    return (instruction >> 25) & 0b1111111;
 }
 
 static int32_t
 i_type_get_immediate(const uint32_t instruction)
 {
-    return (int32_t)instruction >> 20 ; // 0b111111111111
+    return (int32_t)instruction >> 20;
 }
 
 static char*
@@ -91,169 +92,12 @@ reg_to_str(const uint8_t reg)
     else { return '\0'; }
 }
 
-/*
-static char*
-branch_instruction_to_str(const uint32_t instruction)
-{
-    const uint32_t funct3 = get_funct3(instruction);
-
-    if (funct3 == 0) { return "BEQ\0"; }
-    else if (funct3 == 1) { return "BNE\0"; }
-    else if (funct3 == 4) { return "BLT\0"; }
-    else if (funct3 == 5) { return "BGE\0"; }
-    else if (funct3 == 6) { return "BLTU\0"; }
-    else if (funct3 == 7) { return "BGEU\0"; }
-    else { return "\0"; }
-}
-
-static char*
-load_instruction_to_str(const uint32_t instruction)
-{
-    const uint32_t funct3 = get_funct3(instruction);
-
-    if (funct3 == 0) { return "lb\0"; }
-    else if (funct3 == 1) { return "lh\0"; }
-    else if (funct3 == 2) { return "lw\0"; }
-    else if (funct3 == 3) { return "ld\0"; }
-    else if (funct3 == 4) { return "lbu\0"; }
-    else if (funct3 == 5) { return "lhu\0"; }
-    else if (funct3 == 6) { return "lwu\0"; }
-    else { return "\0";
-    }
-}
-
-static char*
-store_instruction_to_str(const uint32_t instruction)
-{
-    const uint32_t funct3 = get_funct3(instruction);
-    if (funct3 == 0) { return "sb\0"; }
-    else if (funct3 == 1) { return "sh\0"; }
-    else if (funct3 == 2) { return "sw\0"; }
-    else if (funct3 == 3) { return "sd\0"; }
-    else { return "\0";
-    }
-}
-
-static char*
-arithmetic_i_instruction_to_str(const uint32_t instruction)
-{
-    const uint32_t funct3 = get_funct3(instruction);
-    const uint32_t funct7 = get_funct7(instruction);
-
-    if (funct3 == 0) { return "ADDI\0"; }
-    else if (funct3 == 1) { return "SLLI\0"; }
-    else if (funct3 == 2) { return "SLTI\0"; }
-    else if (funct3 == 3) { return "SLTIU\0"; }
-    else if (funct3 == 4) { return "XORI\0"; }
-    else if (funct3 == 5) {
-        if (funct7 == 0)       { return "SRLI\0"; }
-        else if (funct7 == 32) { return "SRAI\0"; }
-        else                   { return "\0"; }
-    }
-    else if (funct3 == 6) { return "ORI\0"; }
-    else if (funct3 == 7) { return "ANDI\0"; }
-    else if (funct3 == 1) { return "SLLI\0"; }
-    else { return "\0"; }
-}
-
-static char*
-arithmetic_r_instruction_to_str(const uint32_t instruction)
-{
-    const uint32_t funct3 = get_funct3(instruction);
-    const uint32_t funct7 = get_funct7(instruction);
-
-    if (funct3 == 0) {
-        if (funct7 == 0)       { return "ADD\0"; }
-        else if (funct7 == 32) { return "SUB\0"; }
-        else                   { return "\0"; }
-    }
-    else if (funct3 == 1) { return "SLL\0"; }
-    else if (funct3 == 2) { return "SLT\0"; }
-    else if (funct3 == 3) { return "SLTU\0"; }
-    else if (funct3 == 4) { return "XOR\0"; }
-    else if (funct3 == 5) {
-        if (funct7 == 0)       { return "SRL\0"; }
-        else if (funct7 == 32) { return "SRA\0"; }
-        else                   { return "\0"; }
-    }
-    else if (funct3 == 6) { return "OR\0"; }
-    else if (funct3 == 7) { return "AND\0"; }
-    else { return "\0"; }
-}
-
-static char*
-env_instruction_to_str(const uint32_t instruction)
-{
-    const uint32_t funct12 = i_type_get_immediate(instruction);
-
-    if (funct12 == 0)      { return "ECALL\0"; }
-    else if (funct12 == 1) { return "EBREAK\0"; }
-    else                   { return "\0"; }
-}
-
-static char*
-arithmetic_64_register_immediate_instruction_to_str(const uint32_t instruction)
-{
-    const uint32_t funct3 = get_funct3(instruction);
-    const uint32_t funct7 = get_funct7(instruction);
-
-    if (funct3 == 0)      { return "ADDIW"; }
-    else if (funct3 == 1) { return "SLLIW"; }
-    else if (funct3 == 5) {
-        if (funct7 == 0 )       { return "SRLIW"; }
-        else if (funct7 == 32 ) { return "SRAIW"; }
-        else                    { return "\0"; }
-    }
-    else { return "\0"; }
-}
-
-static char*
-arithmetic_64_register_register_instruction_to_str(const uint32_t instruction)
-{
-    const uint32_t funct3 = get_funct3(instruction);
-    const uint32_t funct7 = get_funct7(instruction);
-
-    if (funct3 == 0) {
-        if (funct7 == 0)       { return "ADDW\0"; }
-        else if (funct7 == 32) { return "SUBW\0"; }
-        else { return "\0"; }
-    }
-    else if (funct3 == 1) { return "SLLW\0"; }
-    else if (funct3 == 5) {
-        if (funct7 == 0)       { return "SRLW\0"; }
-        else if (funct7 == 32) { return "SRAW\0"; }
-        else                   { return "\0"; }
-    }
-    else { return "\0"; }
-}
-
-static char*
-instruction_to_str(const uint32_t instruction)
-{
-    if ((instruction & 0x7f) > 0x73 ) { return "\0"; }
-    else if ((instruction & 0x7f) == 0x37) { return "LUI\0"; }
-    else if ((instruction & 0x7f) == 0x17) { return "AUIPC\0"; }
-    else if ((instruction & 0x7f) == 0x6f) { return "JAL\0"; }
-    else if ((instruction & 0x7f) == 0x67) { return "JALR\0"; }
-    else if ((instruction & 0x7f) == 0x63) { return branch_instruction_to_str(instruction); }
-    else if ((instruction & 0x7f) == 0x04) { return load_instruction_to_str(instruction); }
-    else if ((instruction & 0x7f) == 0x23) { return store_instruction_to_str(instruction); }
-    else if ((instruction & 0x7f) == 0x13) { return arithmetic_i_instruction_to_str(instruction); }
-    else if ((instruction & 0x7f) == 0x33) { return arithmetic_r_instruction_to_str(instruction); }
-    else if ((instruction & 0x7f) == 0x0f) { return "FENCE\0"; }
-    else if ((instruction & 0x7f) == 0x73) { return env_instruction_to_str(instruction); }
-    else if ((instruction & 0x7f) == 0x1b) { return arithmetic_64_register_immediate_instruction_to_str(instruction); }
-    else if ((instruction & 0x7f) == 0x3b) { return arithmetic_64_register_register_instruction_to_str(instruction); }
-    else { return "\0"; }
-}
-*/
-
 __attribute__((used))
 static int32_t
 s_type_get_immediate(const uint32_t instruction)
 {
-    const uint32_t immediate40  = (instruction >> 7)  & 0x1f;
-    const uint32_t immediate115 = (instruction >> 25) & 0x7f; 
+    const uint32_t immediate40  = (instruction >> 7)  & 0b11111;
+    const uint32_t immediate115 = (instruction >> 25) & 0b1111111;
 
     uint32_t target_immediate = (immediate115  << 5) | immediate40;
     target_immediate = (target_immediate << 20) >> 20;
@@ -264,10 +108,10 @@ s_type_get_immediate(const uint32_t instruction)
 static int32_t
 b_type_get_immediate(const uint32_t instruction)
 {
-    const uint32_t immediate11  = (instruction >> 7)  & 0x01;
-    const uint32_t immediate41  = (instruction >> 8)  & 0x0f;
-    const uint32_t immediate105 = (instruction >> 25) & 0x3f;
-    const uint32_t immediate12  = (instruction >> 31) & 0x01;
+    const uint32_t immediate11  = (instruction >> 7)  & 0b1;
+    const uint32_t immediate41  = (instruction >> 8)  & 0b1111;
+    const uint32_t immediate105 = (instruction >> 25) & 0b111111;
+    const uint32_t immediate12  = (instruction >> 31) & 0b1;
 
     uint32_t target_immediate = (immediate12  << 12) |
                                 (immediate11  << 11) |
@@ -281,10 +125,10 @@ b_type_get_immediate(const uint32_t instruction)
 static uint32_t
 j_type_get_immediate(const uint32_t instruction)
 {
-    const uint32_t immediate20   = (instruction >> 31) & 0x01;
-    const uint32_t immediate101  = (instruction >> 21) & 0x3ff;
-    const uint32_t immediate11   = (instruction >> 20) & 0x01;
-    const uint32_t immediate1912 = (instruction >> 12) & 0xff;
+    const uint32_t immediate20   = (instruction >> 31) & 0b1;
+    const uint32_t immediate101  = (instruction >> 21) & 0b1111111111;
+    const uint32_t immediate11   = (instruction >> 20) & 0b1;
+    const uint32_t immediate1912 = (instruction >> 12) & 0b11111111;
 
     uint32_t target_immediate = (immediate20   << 20) |
                                 (immediate1912 << 12) |
@@ -304,13 +148,13 @@ get_register(const risc_v_emu_t* emu, const uint8_t reg)
 static uint32_t
 get_rs1(const uint32_t instruction)
 {
-    return (instruction >> 15) & 0x1f; // 0b11111
+    return (instruction >> 15) & 0b11111;
 }
 
 static uint32_t
 get_rs2(const uint32_t instruction)
 {
-    return (instruction >> 20) & 0x1f;
+    return (instruction >> 20) & 0b11111;
 }
 
 static uint32_t
@@ -330,13 +174,13 @@ get_register_rs2(risc_v_emu_t* emu, const uint32_t instruction)
 static uint32_t
 get_rd(const uint32_t instruction)
 {
-    return (instruction >> 7) & 0x1f;
+    return (instruction >> 7) & 0b11111;
 }
 
 static uint8_t
 get_opcode(const uint32_t instruction)
 {
-    return instruction & 0x7f;
+    return instruction & 0b1111111;
 }
 
 static uint32_t
