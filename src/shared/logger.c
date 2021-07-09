@@ -29,8 +29,15 @@ colorize_stop(char* output_buffer)
 }
 
 void
-ginger_log(uint32_t log_level, const char* fmt, ...)
+ginger_log(uint8_t log_level, const char* fmt, ...)
 {
+
+#ifdef EMU_MODE_RELEASE
+    if (log_level == INFO || log_level == DEBUG) {
+        return;
+    }
+#endif
+
     char log_buffer[LOG_LENGTH_MAX] = {0};
 
     strncat(log_buffer, "[", 2);
@@ -51,16 +58,18 @@ ginger_log(uint32_t log_level, const char* fmt, ...)
     colorize_stop(log_buffer);
     strncat(log_buffer, "] ", 3);
 
-    uint64_t free_space = LOG_LENGTH_MAX - strlen(log_buffer);
+    const uint64_t free_space = LOG_LENGTH_MAX - (strlen(log_buffer) + 1);
 
     char str_buffer[free_space];
     memset(str_buffer, 0, free_space);
 
-    va_list      ap;
+    va_list ap;
     va_start(ap, fmt);
     vsnprintf(str_buffer, free_space, fmt, ap);
     va_end(ap);
 
-    strncat(log_buffer, str_buffer, strlen(str_buffer));
+    // This might be slow.
+    strncat(log_buffer, str_buffer, free_space);
+
     printf("%s", log_buffer);
 }

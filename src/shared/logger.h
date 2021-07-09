@@ -10,6 +10,6 @@ enum log_level {
 };
 
 void
-ginger_log(uint32_t log_level, const char* fmt, ...);
+ginger_log(uint8_t log_level, const char* fmt, ...);
 
 #endif // LOGGER_H
