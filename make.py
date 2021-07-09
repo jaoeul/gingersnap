@@ -46,7 +46,10 @@ def compile_src(mode, target, src_dir, cflags, linker_flags):
             continue
 
         # Create build dir for module
-        subprocess.run(["mkdir", f"./build/{module}", "-p"])
+        result = subprocess.run(["mkdir", f"./build/{module}", "-p"])
+        print(result)
+        if result.returncode != 0:
+            exit(1)
 
         module_src = []
         for path in os.listdir(src_dir + "/" + module):
@@ -60,7 +63,10 @@ def compile_src(mode, target, src_dir, cflags, linker_flags):
                 compile_cmd = ["gcc"]
                 compile_cmd = compile_cmd + cflags
                 compile_cmd = compile_cmd + ["-c", src_dir + "/" + src, "-o", output_path]
-                print(subprocess.run(compile_cmd))
+                result = subprocess.run(compile_cmd)
+                print(result)
+                if result.returncode != 0:
+                    exit(1)
 
     # Link module objects to create the target binary.
     objects  = get_object_files(mode, modules)
@@ -76,10 +82,10 @@ if __name__ == "__main__":
     release_target = "release_gingersnap"
     test_target    = "test_gingersnap"
 
-    debug_cflags       = ["-g", "-Werror", "-Wall"];
+    debug_cflags       = ["-g", "-Werror", "-Wall", "-DEMU_MODE_DEBUG"];
     debug_linker_flags = ["-g", "-Werror", "-Wall"];
 
-    release_cflags       = ["-O2", "-Werror", "-Wall"];
+    release_cflags       = ["-O2", "-Werror", "-Wall", "-DEMU_MODE_RELEASE"];
     release_linker_flags = ["-O2", "-Werror", "-Wall"];
 
     # Default target is debug.
