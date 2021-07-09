@@ -60,9 +60,9 @@ print_permissions(uint8_t perms)
 
 // Print value of all memory with corresponding permissions of an emulator
 void
-print_emu_memory(risc_v_emu_t* emu)
+print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range)
 {
-    for (size_t i = 0; i < emu->mmu->memory_size - 1; i++) {
+    for (size_t i = start_adr; i < start_adr + range; i++) {
         printf("Address: 0x%lx\t", i);
         printf("Value: 0x%x\t", emu->mmu->memory[i]);
         printf("Perm: ");
