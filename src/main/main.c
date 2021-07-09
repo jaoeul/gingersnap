@@ -25,7 +25,10 @@ debug_emu(risc_v_emu_t* emu)
         // Get input from the user.
         char input_buf[MAX_DEBUG_COMMAND_LEN];
         memset(input_buf, 0, MAX_DEBUG_COMMAND_LEN);
-        fgets(input_buf, MAX_DEBUG_COMMAND_LEN, stdin);
+        if (!fgets(input_buf, MAX_DEBUG_COMMAND_LEN, stdin)) {
+            ginger_log(ERROR, "Could not get user input!\n");
+            abort();
+        }
 
         // We got no new command, resue the last one.
         if (input_buf[0] == '\n') {
@@ -43,14 +46,20 @@ debug_emu(risc_v_emu_t* emu)
             printf("Address: ");
             char adr_buf[MAX_DEBUG_COMMAND_LEN];
             memset(adr_buf, 0, MAX_DEBUG_COMMAND_LEN);
-            fgets(adr_buf, MAX_DEBUG_COMMAND_LEN, stdin);
+            if (!fgets(adr_buf, MAX_DEBUG_COMMAND_LEN, stdin)) {
+                ginger_log(ERROR, "Could not get user input!\n");
+                abort();
+            }
             const size_t mem_address = strtoul(adr_buf, NULL, 10);
 
             // Get addresses to show from user input.
             printf("Range: ");
             char range_buf[MAX_DEBUG_COMMAND_LEN];
             memset(range_buf, 0, MAX_DEBUG_COMMAND_LEN);
-            fgets(range_buf, MAX_DEBUG_COMMAND_LEN, stdin);
+            if (!fgets(range_buf, MAX_DEBUG_COMMAND_LEN, stdin)) {
+                ginger_log(ERROR, "Could not get user input!\n");
+                abort();
+            }
             const size_t mem_range = strtoul(range_buf, NULL, 10);
 
             print_emu_memory(emu, mem_address, mem_range);
