@@ -80,3 +80,21 @@ We are now able to compile source code to riscv64i elfs, the cpu architecture
 emulated by gingersnap.
 
 
+## Debugging and singlestepping the target executable
+
+Useful to find emulator bugs. Single step the executable in gdb and compare the
+how the registers change values in gdb and compare it to how they change in the
+emulator.
+
+```bash
+qemu-riscv64 -g 1234 ./<target_binary>
+
+# Switch to another terminal
+riscv64-unknown-linux-gnu-gdb
+```
+
+```gdb
+target remote localhost:1234
+break *<program_entry_point_address>
+run
+```
