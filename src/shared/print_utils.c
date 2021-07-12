@@ -7,8 +7,16 @@
 
 #include "../emu/risc_v_emu.h"
 
+#include "endianess_converter.h"
 #include "logger.h"
 #include "print_utils.h"
+
+enum {
+    BYTE_SIZE     = 1,
+    HALFWORD_SIZE = 2,
+    WORD_SIZE     = 4,
+    GIANT_SIZE    = 8,
+} ENUM_DATA_SIZE;
 
 void
 u64_binary_print(uint64_t u64)
@@ -58,13 +66,22 @@ print_permissions(uint8_t perms)
     }
 }
 
-// Print value of all memory with corresponding permissions of an emulator
+// Print value of memory with corresponding permissions of an emulator.
 void
-print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range)
+print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range,
+                 const char size_letter)
 {
-    for (size_t i = start_adr; i < start_adr + range; i++) {
-        printf("Address: 0x%lx\t", i);
-        printf("Value: 0x%x\t", emu->mmu->memory[i]);
+    uint8_t data_size = 0;
+
+    if (size_letter == 'b')      data_size = BYTE_SIZE;
+    else if (size_letter == 'h') data_size = HALFWORD_SIZE;
+    else if (size_letter == 'w') data_size = WORD_SIZE;
+    else if (size_letter == 'g') data_size = GIANT_SIZE;
+    else { ginger_log(ERROR, "Invalid format char!\n"); return; }
+
+    for (size_t i = start_adr; i < start_adr + (range * data_size); i += data_size) {
+        printf("0x%lx\t", i);
+        printf("Value: 0x%-20lx\t", byte_arr_to_u64(&emu->mmu->memory[i], data_size, LSB));
         printf("Perm: ");
         print_permissions(emu->mmu->permissions[i]);
         printf("\t");

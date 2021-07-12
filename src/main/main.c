@@ -16,7 +16,7 @@
 // emulator register state or go to the next instruction. If no debug command
 // was entered, we execute the last entered command, like GDB.
 __attribute__((used))
-    static void
+static void
 debug_emu(risc_v_emu_t* emu)
 {
     static char last_command[MAX_DEBUG_COMMAND_LEN];
@@ -39,7 +39,7 @@ debug_emu(risc_v_emu_t* emu)
         }
 
         // New command is memory command, and last one was not.
-        if (strstr(input_buf, "m")) {
+        if (strstr(input_buf, "x")) {
             memcpy(last_command, input_buf, MAX_DEBUG_COMMAND_LEN);
 
             // Get addresses to show from user input.
@@ -50,7 +50,16 @@ debug_emu(risc_v_emu_t* emu)
                 ginger_log(ERROR, "Could not get user input!\n");
                 abort();
             }
-            const size_t mem_address = strtoul(adr_buf, NULL, 10);
+            const size_t mem_address = strtoul(adr_buf, NULL, 16);
+
+            // Get data size letter.
+            printf("Format (b, h, w, g): ");
+            const char size_letter = fgetc(stdin);
+            fgetc(stdin); // Avoid having the '\n' interfering with the next read.
+            if (size_letter == '\0' || size_letter == (char)-1) {
+                ginger_log(ERROR, "Could not get user input!\n");
+                abort();
+            }
 
             // Get addresses to show from user input.
             printf("Range: ");
@@ -62,7 +71,7 @@ debug_emu(risc_v_emu_t* emu)
             }
             const size_t mem_range = strtoul(range_buf, NULL, 10);
 
-            print_emu_memory(emu, mem_address, mem_range);
+            print_emu_memory(emu, mem_address, mem_range, size_letter);
         }
 
         // Show emulator register state.
