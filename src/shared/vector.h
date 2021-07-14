@@ -12,7 +12,7 @@ typedef struct {
 } vector_t;
 
 vector_t*
-vector_create(size_t capacity, size_t entry_size);
+vector_create(size_t entry_size);
 
 void
 vector_destroy(vector_t* vector);

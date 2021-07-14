@@ -8,13 +8,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define VECTOR_INITIAL_CAPACITY 16
+
 vector_t*
-vector_create(size_t capacity, size_t entry_size)
+vector_create(size_t entry_size)
 {
     vector_t* vector   = calloc(1, sizeof(vector_t));
-    vector->data       = calloc(capacity, entry_size);
+    vector->data       = calloc(VECTOR_INITIAL_CAPACITY, entry_size);
     vector->length     = 0;
-    vector->capacity   = capacity;
+    vector->capacity   = VECTOR_INITIAL_CAPACITY;
     vector->entry_size = entry_size;
 
     return vector;
