@@ -8,18 +8,38 @@
 #include "../shared/print_utils.h"
 #include "../shared/vector.h"
 
-#define MAX_DEBUG_COMMAND_LEN 64
+#define MAX_LENGTH_DEBUG_CLI_COMMAND 64
+
+__attribute__((used))
+static const char* debug_instructions = ""        \
+    "Available CLI commands:\n"              \
+    " h - print this help\n"                      \
+    " x - Examine emulator memory.\n"             \
+    " s - Search for value in emulator memory.\n" \
+    " n - Execute next instruction.\n"            \
+    " r - Show emulator registers.\n"             \
+    " q - Quit debugging and exit the program.\n";
+
+__attribute__((used))
+static const char cli_commands[][MAX_LENGTH_DEBUG_CLI_COMMAND] = {
+    "h",
+    "x",
+    "s",
+    "n",
+    "r",
+    "q"
+};
 
 static void
 emu_debug_examine_memory(risc_v_emu_t* emu, char input_buf[], char last_command[])
 {
-    memcpy(last_command, input_buf, MAX_DEBUG_COMMAND_LEN);
+    memcpy(last_command, input_buf, MAX_LENGTH_DEBUG_CLI_COMMAND);
 
     // Get addresses to show from user input.
     printf("Address: ");
-    char adr_buf[MAX_DEBUG_COMMAND_LEN];
-    memset(adr_buf, 0, MAX_DEBUG_COMMAND_LEN);
-    if (!fgets(adr_buf, MAX_DEBUG_COMMAND_LEN, stdin)) {
+    char adr_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
+    memset(adr_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
+    if (!fgets(adr_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
         ginger_log(ERROR, "Could not get user input!\n");
         abort();
     }
@@ -36,9 +56,9 @@ emu_debug_examine_memory(risc_v_emu_t* emu, char input_buf[], char last_command[
 
     // Get addresses to show from user input.
     printf("Range: ");
-    char range_buf[MAX_DEBUG_COMMAND_LEN];
-    memset(range_buf, 0, MAX_DEBUG_COMMAND_LEN);
-    if (!fgets(range_buf, MAX_DEBUG_COMMAND_LEN, stdin)) {
+    char range_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
+    memset(range_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
+    if (!fgets(range_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
         ginger_log(ERROR, "Could not get user input!\n");
         abort();
     }
@@ -54,9 +74,9 @@ emu_debug_search_in_memory(risc_v_emu_t* emu)
     printf("Search for value: ");
 
     // Get value to search for from user input.
-    char search_buf[MAX_DEBUG_COMMAND_LEN];
-    memset(search_buf, 0, MAX_DEBUG_COMMAND_LEN);
-    if (!fgets(search_buf, MAX_DEBUG_COMMAND_LEN, stdin)) {
+    char search_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
+    memset(search_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
+    if (!fgets(search_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
         ginger_log(ERROR, "Could not get user input!\n");
         abort();
     }
@@ -84,29 +104,56 @@ emu_debug_search_in_memory(risc_v_emu_t* emu)
     }
 }
 
+static void
+strip_newline(char** string)
+{
+    size_t strip_size = strcspn(*string, "\n");
+    char stripped[strip_size];
+    memcpy(stripped, *string, strip_size);
+    *string = stripped;
+}
+
+static bool
+validate_debug_cli_command(char* cli_cmd)
+{
+    strip_newline(&cli_cmd);
+    const uint8_t nb_valid_cli_commands = sizeof(cli_commands) / MAX_LENGTH_DEBUG_CLI_COMMAND;
+    for (const char* i = cli_commands[0]; i < cli_commands[nb_valid_cli_commands]; i += MAX_LENGTH_DEBUG_CLI_COMMAND) {
+        if (strcmp(cli_cmd, i) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void
 debug_emu(risc_v_emu_t* emu)
 {
-    static char last_command[MAX_DEBUG_COMMAND_LEN];
+    static char last_command[MAX_LENGTH_DEBUG_CLI_COMMAND];
 
     for (;;) {
         printf("(debug) ");
 
         // Get input from the user.
-        char input_buf[MAX_DEBUG_COMMAND_LEN];
-        memset(input_buf, 0, MAX_DEBUG_COMMAND_LEN);
-        if (!fgets(input_buf, MAX_DEBUG_COMMAND_LEN, stdin)) {
+        char input_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
+        memset(input_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
+        if (!fgets(input_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
             ginger_log(ERROR, "Could not get user input!\n");
             abort();
         }
 
+        if (!validate_debug_cli_command(input_buf)) {
+            printf("%s", debug_instructions);
+            continue;
+        }
+
         // We got no new command, resue the last one.
         if (input_buf[0] == '\n') {
-            memcpy(input_buf, last_command, MAX_DEBUG_COMMAND_LEN);
+            memcpy(input_buf, last_command, MAX_LENGTH_DEBUG_CLI_COMMAND);
         }
         // We got a new command. Use it.
         else {
-            memcpy(last_command, input_buf, MAX_DEBUG_COMMAND_LEN);
+            memcpy(last_command, input_buf, MAX_LENGTH_DEBUG_CLI_COMMAND);
         }
 
         // New command is memory command.
@@ -125,15 +172,11 @@ debug_emu(risc_v_emu_t* emu)
         }
 
         // Execute next instruction.
-        if (strcmp(input_buf, "ni\n") == 0) {
+        if (strcmp(input_buf, "n\n") == 0) {
             break;
         }
 
-        if ((strcmp(input_buf, "exit\n") == 0) ||
-            (strcmp(input_buf, "Exit\n") == 0) ||
-            (strcmp(input_buf, "quit\n") == 0) ||
-            (strcmp(input_buf, "Quit\n") == 0) ||
-            (strcmp(input_buf, "q\n") == 0)) {
+        if (strcmp(input_buf, "q\n") == 0) {
             exit(0);
         }
     }
