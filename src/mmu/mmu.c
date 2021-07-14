@@ -6,8 +6,10 @@
 
 #include "mmu.h"
 
+#include "../shared/endianess_converter.h"
 #include "../shared/logger.h"
 #include "../shared/print_utils.h"
+#include "../shared/vector.h"
 
 static void
 dirty_state_print_blocks(dirty_state_t* state)
@@ -206,12 +208,43 @@ mmu_read(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_address, s
     memcpy(destination_buffer, mmu->memory + source_address, size);
 }
 
+// Search for specified value in guest memory. The size of the value is
+// specififed by `size_letter`. Valid size letters are b(byte), h(halfword),
+// w(word) or g(giant). If matching values are found, store their guest memory
+// addresses in a vector and return it. Otherwise, return NULL.
+static vector_t*
+mmu_search(mmu_t* mmu, const uint64_t needle, const char size_letter)
+{
+    uint8_t data_size = 0;
+    vector_t* hits    = vector_create(sizeof(size_t));
+
+    if (size_letter == 'b')      data_size = BYTE_SIZE;
+    else if (size_letter == 'h') data_size = HALFWORD_SIZE;
+    else if (size_letter == 'w') data_size = WORD_SIZE;
+    else if (size_letter == 'g') data_size = GIANT_SIZE;
+    else { ginger_log(ERROR, "Invalid size letter!\n"); return false; }
+
+    for (size_t i = 0; i < mmu->memory_size; i += data_size) {
+        uint64_t current_value = byte_arr_to_u64(&mmu->memory[i], data_size, LSB);
+        if (current_value == needle) {
+            vector_append(hits, &i);
+        }
+    }
+
+    if (vector_length(hits) > 0) {
+        return hits;
+    } else {
+        vector_destroy(hits);
+        return NULL;
+    }
+}
+
 mmu_t*
 mmu_create(size_t memory_size)
 {
     // *NOTE*
     //
-    // The base allocation address needs to be larger than the larger than
+    // The base allocation address needs to be larger than
     // the address of the last program header loaded into memory + its size.
     // This is to make sure that allocations made by the emulator, when running
     // the target binary, does not overwrite the binary itself.
@@ -239,6 +272,7 @@ mmu_create(size_t memory_size)
     mmu->set_permissions = mmu_set_permissions;
     mmu->write           = mmu_write;
     mmu->read            = mmu_read;
+    mmu->search          = mmu_search;
 
     mmu->dirty_state     = dirty_state_create(memory_size);
 

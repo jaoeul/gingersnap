@@ -1,6 +1,8 @@
 #ifndef MMU_H
 #define MMU_H
 
+#include "../shared/vector.h"
+
 // Amount of bytes in single block
 // TODO: Tune this value for performance
 #define DIRTY_BLOCK_SIZE  64;
@@ -39,14 +41,18 @@ struct dirty_state {
 };
 
 struct mmu {
-    size_t (*allocate)(mmu_t* mmu, size_t size);
-    void   (*set_permissions)(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size);
-    void   (*write)(mmu_t* mmu, size_t destination_address, const uint8_t* source_buffer, size_t size);
-    void   (*read)(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_address, size_t size);
+    size_t    (*allocate)(mmu_t* mmu, size_t size);
+    void      (*set_permissions)(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size);
+    void      (*write)(mmu_t* mmu, size_t destination_address, const uint8_t* source_buffer, size_t size);
+    void      (*read)(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_address, size_t size);
+    vector_t* (*search)(mmu_t* mmu, const uint64_t needle, const char size_letter);
 
     // The size of the emulator memory
     size_t memory_size;
 
+    // TODO: Check perfomance loss when using vector instead of uint8_t* as
+    // memory data type. Same goes for perms.
+    //
     // The memory of the emulator
     uint8_t* memory;
 

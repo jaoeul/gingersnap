@@ -11,13 +11,6 @@
 #include "logger.h"
 #include "print_utils.h"
 
-enum {
-    BYTE_SIZE     = 1,
-    HALFWORD_SIZE = 2,
-    WORD_SIZE     = 4,
-    GIANT_SIZE    = 8,
-} ENUM_DATA_SIZE;
-
 void
 u64_binary_print(uint64_t u64)
 {
@@ -77,7 +70,7 @@ print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range,
     else if (size_letter == 'h') data_size = HALFWORD_SIZE;
     else if (size_letter == 'w') data_size = WORD_SIZE;
     else if (size_letter == 'g') data_size = GIANT_SIZE;
-    else { ginger_log(ERROR, "Invalid format char!\n"); return; }
+    else { ginger_log(ERROR, "Invalid size letter!\n"); return; }
 
     for (size_t i = start_adr; i < start_adr + (range * data_size); i += data_size) {
         printf("0x%lx\t", i);
@@ -85,7 +78,6 @@ print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range,
         printf("Perm: ");
         print_permissions(emu->mmu->permissions[i]);
         printf("\t");
-        printf("In dirty block: ");
 
         // Calculate if address is in a dirty block
         const size_t block       = i / DIRTY_BLOCK_SIZE;
@@ -93,12 +85,11 @@ print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range,
         const size_t bit         = block % 64;
         const uint64_t shift_bit = 1;
         if ((emu->mmu->dirty_state->dirty_bitmaps[index] & (shift_bit << bit)) == 0) {
-            printf("NO");
+            printf("Block clean\n");
         }
         else {
-            printf("YES");
+            printf("Block dirty\n");
         }
-        printf("\n");
     }
 }
 

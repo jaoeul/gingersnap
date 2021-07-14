@@ -5,6 +5,13 @@
 
 #include "../emu/risc_v_emu.h"
 
+enum {
+    BYTE_SIZE     = 1,
+    HALFWORD_SIZE = 2,
+    WORD_SIZE     = 4,
+    GIANT_SIZE    = 8,
+} ENUM_DATA_SIZE;
+
 void
 u64_binary_print(uint64_t u64);
 
