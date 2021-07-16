@@ -47,12 +47,12 @@ load_elf(char* path, risc_v_emu_t* emu)
     }
     fclose(fileptr);
 
-    bool     is_lsb                         = false;
-    bool     is_64_bit                      = false;
-    size_t   program_header_size            = 0;
-    uint64_t program_header_offset          = 0;
-    uint64_t nb_program_headers             = 0;
-    uint8_t bytes_nb_program_headers[2]     = {0};
+    bool     is_lsb                     = false;
+    bool     is_64_bit                  = false;
+    size_t   program_header_size        = 0;
+    uint64_t program_header_offset      = 0;
+    uint64_t nb_program_headers         = 0;
+    uint8_t bytes_nb_program_headers[2] = {0};
 
     // If LSB elf file
     if (elf[5] == 1) {
@@ -74,8 +74,8 @@ load_elf(char* path, risc_v_emu_t* emu)
         uint8_t bytes_entry_point[4]            = {0};
         uint8_t bytes_program_header_offset[4]  = {0};
 
-        is_64_bit            = false;
-        program_header_size  = 0x20;
+        is_64_bit           = false;
+        program_header_size = 0x20;
 
         for (uint8_t i = 0; i < 4; i++) {
             bytes_entry_point[i] = elf[0x18 + i];
@@ -91,8 +91,8 @@ load_elf(char* path, risc_v_emu_t* emu)
     }
     // 64 bit elf
     else if (elf[4] == 2) {
-        uint8_t bytes_entry_point[8]            = {0};
-        uint8_t bytes_program_header_offset[8]  = {0};
+        uint8_t bytes_entry_point[8]           = {0};
+        uint8_t bytes_program_header_offset[8] = {0};
 
         is_64_bit           = true;
         program_header_size = 0x38;
@@ -211,20 +211,20 @@ load_elf(char* path, risc_v_emu_t* emu)
             for (size_t i = 0; i < 4; i++) {
                 bytes_align[i] = elf[(current_program_header + 0x1C) + i];
             }
-            program_header.offset            = byte_arr_to_u64(bytes_offset, sizeof(bytes_offset), is_lsb);
-            program_header.virtual_address   = byte_arr_to_u64(bytes_virtual_address, sizeof(bytes_virtual_address), is_lsb);
-            program_header.physical_address  = byte_arr_to_u64(bytes_physical_address, sizeof(bytes_physical_address), is_lsb);
-            program_header.file_size         = byte_arr_to_u64(bytes_file_size, sizeof(bytes_file_size), is_lsb);
-            program_header.memory_size       = byte_arr_to_u64(bytes_memory_size, sizeof(bytes_memory_size), is_lsb);
-            program_header.align             = byte_arr_to_u64(bytes_align, sizeof(bytes_align), is_lsb);
-            program_header.flags             = byte_arr_to_u64(bytes_flags, sizeof(bytes_flags), is_lsb);
+            program_header.offset           = byte_arr_to_u64(bytes_offset, sizeof(bytes_offset), is_lsb);
+            program_header.virtual_address  = byte_arr_to_u64(bytes_virtual_address, sizeof(bytes_virtual_address), is_lsb);
+            program_header.physical_address = byte_arr_to_u64(bytes_physical_address, sizeof(bytes_physical_address), is_lsb);
+            program_header.file_size        = byte_arr_to_u64(bytes_file_size, sizeof(bytes_file_size), is_lsb);
+            program_header.memory_size      = byte_arr_to_u64(bytes_memory_size, sizeof(bytes_memory_size), is_lsb);
+            program_header.align            = byte_arr_to_u64(bytes_align, sizeof(bytes_align), is_lsb);
+            program_header.flags            = byte_arr_to_u64(bytes_flags, sizeof(bytes_flags), is_lsb);
         }
 
-        // Sanity checks
-        if ((program_header.offset + program_header.file_size) > (emu->mmu->memory_size - 1)) {
+        // Sanity check.
+        if ((program_header.virtual_address + program_header.file_size) > (emu->mmu->memory_size - 1)) {
             ginger_log(ERROR, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
                     "would cause write outside of emulator memory!\n", __func__,
-                    program_header.file_size, program_header.offset);
+                    program_header.file_size, program_header.virtual_address);
             abort();
         }
 
@@ -251,17 +251,6 @@ load_elf(char* path, risc_v_emu_t* emu)
                    program_header.file_size, program_header.virtual_address);
         print_permissions(program_header.flags);
         printf("\n");
-
-        //printf("***\nProgram header: %lu\n", i);
-        //printf("offset: %lx\n", segment.offset);
-        //printf("v address: %lx\n", segment.virtual_address);
-        //printf("p address: %lx\n", segment.physical_address);
-        //printf("file size: %lx\n", segment.file_size);
-        //printf("mem size:%lx\n", segment.memory_size);
-        //printf("align: %lx\n", segment.align);
-        //printf("flags: %lx\n", segment.flags);
-        //print_permissions(segment.flags);
-        //printf("***\n");
     }
 
     free(elf);
