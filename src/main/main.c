@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "../emu/risc_v_emu.h"
-#include "../emu_debug/emu_debug.h"
+#include "../debug_cli/debug_cli.h"
 #include "../shared/elf_loader.h"
 #include "../shared/endianess_converter.h"
 #include "../shared/endianess_converter.h"

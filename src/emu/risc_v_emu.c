@@ -6,7 +6,6 @@
 
 #include "risc_v_emu.h"
 
-#include "../shared/binary_integers.h"
 #include "../shared/endianess_converter.h"
 #include "../shared/logger.h"
 #include "../shared/print_utils.h"
@@ -15,13 +14,14 @@
 uint64_t nb_executed_instructions = 0;
 
 // Risc V 32i + 64i Instructions and corresponding opcode.
-enum {
+enum ENUM_OPCODE {
+    OPCODE_FIRST,
     LUI                              = 0x37,
     AUIPC                            = 0x17,
     JAL                              = 0x6f,
     JALR                             = 0x67,
     BRANCH                           = 0x63,
-    LOAD                             = 0x04,
+    LOAD                             = 0x03,
     STORE                            = 0x23,
     ARITHMETIC_I_TYPE                = 0x13,
     ARITHMETIC_R_TYPE                = 0x33,
@@ -29,6 +29,7 @@ enum {
     ENV                              = 0x73,
     ARITHMETIC_64_REGISTER_IMMEDIATE = 0x1b,
     ARITHMETIC_64_REGISTER_REGISTER  = 0x3b,
+    OPCODE_LAST,
 };
 
 /* ========================================================================== */
@@ -102,7 +103,7 @@ s_type_get_immediate(const uint32_t instruction)
     uint32_t target_immediate = (immediate115  << 5) | immediate40;
     target_immediate = (target_immediate << 20) >> 20;
 
-    return target_immediate;
+    return (int32_t)target_immediate;
 }
 
 static int32_t
@@ -117,7 +118,7 @@ b_type_get_immediate(const uint32_t instruction)
                                 (immediate11  << 11) |
                                 (immediate105 << 5)  |
                                 (immediate41  << 1);
-    target_immediate = (target_immediate << 19) >> 19;
+    target_immediate = ((int32_t)target_immediate << 19) >> 19;
 
     return target_immediate;
 }
@@ -134,7 +135,7 @@ j_type_get_immediate(const uint32_t instruction)
                                 (immediate1912 << 12) |
                                 (immediate11   << 11) |
                                 (immediate101  << 1);
-    target_immediate = (target_immediate << 11) >> 11;
+    target_immediate = ((int32_t)target_immediate << 11) >> 11;
 
     return target_immediate;
 }
@@ -157,14 +158,14 @@ get_rs2(const uint32_t instruction)
     return (instruction >> 20) & 0b11111;
 }
 
-static uint32_t
+static uint64_t
 get_register_rs1(risc_v_emu_t* emu, const uint32_t instruction)
 {
     const uint32_t rs1 = get_rs1(instruction);
     return get_register(emu, rs1);
 }
 
-static uint32_t
+static uint64_t
 get_register_rs2(risc_v_emu_t* emu, const uint32_t instruction)
 {
     const uint32_t rs2 = get_rs2(instruction);
@@ -183,6 +184,17 @@ get_opcode(const uint32_t instruction)
     return instruction & 0b1111111;
 }
 
+static bool
+validate_opcode(risc_v_emu_t* emu, const uint8_t opcode)
+{
+    if (emu->instructions[opcode] != 0) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 static uint32_t
 get_next_instruction(const risc_v_emu_t* emu)
 {
@@ -195,13 +207,13 @@ get_next_instruction(const risc_v_emu_t* emu)
         }
         instruction_bytes[i] = emu->mmu->memory[emu->registers[REG_PC] + i];
     }
-    return (uint32_t)byte_arr_to_u64(instruction_bytes, 4, LSB);
+    return byte_arr_to_u64(instruction_bytes, 4, LSB);
 }
 
 static void
-set_register(risc_v_emu_t* emu, const uint8_t reg, const uint32_t value)
+set_register(risc_v_emu_t* emu, const uint8_t reg, const uint64_t value)
 {
-    ginger_log(DEBUG, "Setting register %s to 0x%x\n", reg_to_str(reg), value);
+    ginger_log(DEBUG, "Setting register %s to 0x%lx\n", reg_to_str(reg), value);
     emu->registers[reg] = value;
 }
 
@@ -224,7 +236,7 @@ increment_pc(risc_v_emu_t* emu)
 }
 
 static void
-set_rd(risc_v_emu_t* emu, const uint32_t instruction, const uint32_t value)
+set_rd(risc_v_emu_t* emu, const uint32_t instruction, const uint64_t value)
 {
     set_register(emu, get_rd(instruction), value);
 }
@@ -274,10 +286,10 @@ jal(risc_v_emu_t* emu, const uint32_t instruction)
 
     ginger_log(DEBUG, "Executing\tJAL %s 0x%x\n", reg_to_str(get_rd(instruction)), result);
 
-    set_register(emu, REG_PC, result);
-
     const uint32_t return_address = get_register(emu, REG_PC) + 4;
     set_register(emu, get_rd(instruction), return_address);
+
+    set_register(emu, REG_PC, result);
 
     // TODO: Make use of following if statement.
     //
@@ -299,9 +311,9 @@ jalr(risc_v_emu_t* emu, const uint32_t instruction)
     // Calculate target jump address.
     const int32_t  immediate    = i_type_get_immediate(instruction);
     const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const int32_t target       = (register_rs1 + immediate) & ~1;
+    const int32_t  target       = (register_rs1 + immediate) & ~1;
 
-    ginger_log(DEBUG, "Executing\tJALR %d\n", immediate);
+    ginger_log(DEBUG, "Executing\tJALR %s\n", reg_to_str(get_rs1(instruction)));
 
     // Save pc + 4 into register rd.
     set_register(emu, get_rd(instruction), get_register(emu, REG_PC) + 4);
@@ -410,10 +422,12 @@ lwu(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 ld(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    ginger_log(DEBUG, "Executing          LD\n");
     const uint32_t base   = get_register_rs1(emu, instruction);
     const uint32_t offset = i_type_get_immediate(instruction);
     const uint32_t target = base + offset;
+
+    ginger_log(DEBUG, "Executing\t\tLD %s 0x%x\n",
+               reg_to_str(get_rd(instruction)), target);
 
     uint8_t loaded_bytes[8] = {0};
     emu->mmu->read(emu->mmu, loaded_bytes, target, 8);
@@ -465,7 +479,7 @@ addi(risc_v_emu_t* emu, const uint32_t instruction)
     const int32_t  addend       = i_type_get_immediate(instruction);
     const uint32_t rs1          = get_rs1(instruction);
     const uint32_t register_rs1 = get_register(emu, rs1);
-    const uint32_t result       = register_rs1 + addend;
+    const uint64_t result       = register_rs1 + addend;
 
     ginger_log(DEBUG, "Executing\tADDI %s %s %d\n",
                reg_to_str(get_rd(instruction)),
@@ -1050,13 +1064,15 @@ execute_arithmetic_r_instruction(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 sb(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t target      = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
+    const uint32_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
     const uint8_t  store_value = get_register_rs2(emu, instruction) & 0xff;
 
     ginger_log(DEBUG, "SB\t%s, %u(%s)\n",
                reg_to_str(get_rs1(instruction)),
                store_value,
                reg_to_str(get_rs2(instruction)));
+
+    ginger_log(DEBUG, "Writing 0x%02x to 0x%x\n", store_value, target);
 
     emu->mmu->write(emu->mmu, target, &store_value, 1);
     increment_pc(emu);
@@ -1066,9 +1082,8 @@ static void
 sh(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SH\n");
-    const uint32_t target       = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    const uint64_t store_value  = get_register(emu, register_rs2) & 0xffff;
+    const uint32_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
+    const uint64_t store_value = get_register_rs2(emu, instruction) & 0xffff;
 
     // TODO: Update u64_to_byte_arr to be able to handle smaller integers,
     //       removing the need for 8 byte array here.
@@ -1084,9 +1099,8 @@ static void
 sw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SW\n");
-    const uint32_t target      = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
-    const uint32_t rs2         = get_register_rs2(emu, instruction);
-    const uint64_t store_value = get_register(emu, rs2) & 0xffffffff;
+    const uint32_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
+    const uint64_t store_value = get_register_rs2(emu, instruction) & 0xffffffff;
 
     uint8_t store_bytes[8] = {0};
 
@@ -1102,13 +1116,13 @@ sw(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 sd(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    ginger_log(DEBUG, "Executing          SD\n");
-    const uint32_t target      = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
-    const uint32_t rs2         = get_register_rs2(emu, instruction);
-    const uint64_t store_value = get_register(emu, rs2) & 0xffffffffffffffff;
+    const uint32_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
+    const uint64_t store_value = get_register_rs2(emu, instruction) & 0xffffffffffffffff;
 
     uint8_t store_bytes[8] = {0};
     u64_to_byte_arr(store_value, store_bytes, LSB);
+
+    ginger_log(DEBUG, "Executing\tSD 0x%x 0x%lx\n", target, store_value);
 
     // Write 8 bytes into guest memory at target address.
     emu->mmu->write(emu->mmu, target, store_bytes, 8);
@@ -1313,8 +1327,16 @@ risc_v_emu_execute_next_instruction(risc_v_emu_t* emu)
     const uint8_t  opcode      = get_opcode(instruction);
 
     ginger_log(DEBUG, "Number of executed instructions: %lu\n", nb_executed_instructions);
-    ginger_log(DEBUG, "Instruction        0x%08x\n", instruction);
-    ginger_log(DEBUG, "Opcode             0x%x\n", opcode);
+    ginger_log(DEBUG, "Instruction\t0x%08x\n", instruction);
+    ginger_log(DEBUG, "Opcode\t\t0x%x\n", opcode);
+
+    // Validate opcode - Can be removed for optimization purposes. Then we would
+    // simply get a segfault istead of an error message, when an illegal opcode
+    // is used.
+    if (!validate_opcode(emu, opcode)) {
+        ginger_log(ERROR, "Invalid opcode\t0x%x\n", opcode);
+        abort();
+    }
 
     // Execute the instruction.
     emu->instructions[opcode](emu, instruction);
