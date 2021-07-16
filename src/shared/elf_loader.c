@@ -27,7 +27,7 @@ load_elf(char* path, risc_v_emu_t* emu)
     long     elf_length;
 
     printf("==============================================\n");
-    printf(" - Loading elf %s\n", path);
+    printf(" Loading elf %s\n", path);
     printf("==============================================\n\n");
 
     fileptr = fopen(path, "rb");
@@ -57,11 +57,11 @@ load_elf(char* path, risc_v_emu_t* emu)
     // If LSB elf file
     if (elf[5] == 1) {
         is_lsb = true;
-        ginger_log(INFO, " - Elf is LSB\n");
+        ginger_log(INFO, "Elf is LSB\n");
     }
     // Else MSB elf file
     else if (elf[5] == 2) {
-        ginger_log(INFO, " - Elf is MSB\n");
+        ginger_log(INFO, "Elf is MSB\n");
         is_lsb = false;
     }
     else {
@@ -94,8 +94,8 @@ load_elf(char* path, risc_v_emu_t* emu)
         uint8_t bytes_entry_point[8]            = {0};
         uint8_t bytes_program_header_offset[8]  = {0};
 
-        is_64_bit            = true;
-        program_header_size  = 0x38;
+        is_64_bit           = true;
+        program_header_size = 0x38;
 
         for (uint8_t i = 0; i < 8; i++) {
             bytes_entry_point[i] = elf[0x18 + i];
@@ -115,9 +115,9 @@ load_elf(char* path, risc_v_emu_t* emu)
     }
     nb_program_headers = byte_arr_to_u64(bytes_nb_program_headers, 2, is_lsb);
 
-    ginger_log(INFO, " - Setting PC to              0x%x\n", emu->registers[REG_PC]);
-    ginger_log(INFO, " - Program header offset:     0x%lx\n", program_header_offset);
-    ginger_log(INFO, " - Number of program headers: %lu\n", nb_program_headers);
+    ginger_log(INFO, "Setting PC to              0x%x\n", emu->registers[REG_PC]);
+    ginger_log(INFO, "Program header offset:     0x%lx\n", program_header_offset);
+    ginger_log(INFO, "Number of program headers: %lu\n", nb_program_headers);
 
     // Parse program headers
     const size_t program_header_base = program_header_offset;
@@ -174,13 +174,13 @@ load_elf(char* path, risc_v_emu_t* emu)
             for (size_t i = 0; i < 4; i++) {
                 bytes_flags[i] = elf[(current_program_header + 0x04) + i];
             }
-            program_header.offset            = byte_arr_to_u64(bytes_offset, sizeof(bytes_offset), is_lsb);
-            program_header.virtual_address   = byte_arr_to_u64(bytes_virtual_address, sizeof(bytes_virtual_address), is_lsb);
-            program_header.physical_address  = byte_arr_to_u64(bytes_physical_address, sizeof(bytes_physical_address), is_lsb);
-            program_header.file_size         = byte_arr_to_u64(bytes_file_size, sizeof(bytes_file_size), is_lsb);
-            program_header.memory_size       = byte_arr_to_u64(bytes_memory_size, sizeof(bytes_memory_size), is_lsb);
-            program_header.align             = byte_arr_to_u64(bytes_align, sizeof(bytes_align), is_lsb);
-            program_header.flags             = byte_arr_to_u64(bytes_flags, sizeof(bytes_flags), is_lsb);
+            program_header.offset           = byte_arr_to_u64(bytes_offset, sizeof(bytes_offset), is_lsb);
+            program_header.virtual_address  = byte_arr_to_u64(bytes_virtual_address, sizeof(bytes_virtual_address), is_lsb);
+            program_header.physical_address = byte_arr_to_u64(bytes_physical_address, sizeof(bytes_physical_address), is_lsb);
+            program_header.file_size        = byte_arr_to_u64(bytes_file_size, sizeof(bytes_file_size), is_lsb);
+            program_header.memory_size      = byte_arr_to_u64(bytes_memory_size, sizeof(bytes_memory_size), is_lsb);
+            program_header.align            = byte_arr_to_u64(bytes_align, sizeof(bytes_align), is_lsb);
+            program_header.flags            = byte_arr_to_u64(bytes_flags, sizeof(bytes_flags), is_lsb);
         }
         else if (!is_64_bit) {
             uint8_t bytes_offset[4];
@@ -241,7 +241,7 @@ load_elf(char* path, risc_v_emu_t* emu)
         // Load the executable segments of the binary into the emulator
         // NOTE: This write dirties the executable memory. Might want to make it
         //       clean before starting the emulator
-        emu->mmu->write(emu->mmu, program_header.virtual_address, elf, program_header.file_size);
+        emu->mmu->write(emu->mmu, program_header.virtual_address, &elf[program_header.offset], program_header.file_size);
 
         // Set memory loaded to readable and executable. Remove the earlier set write permission
         emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, PERM_READ | PERM_EXEC, program_header.file_size);
