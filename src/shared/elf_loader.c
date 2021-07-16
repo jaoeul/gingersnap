@@ -228,10 +228,10 @@ load_elf(char* path, risc_v_emu_t* emu)
             abort();
         }
 
-        //// We have to load the elf before memory is allocated in the emulator.
-        //   Thus we cannot check if a write would cause the emulator go out
-        //   of allocated memory. No memory should be allocated at this point.
-
+        // We have to load the elf before memory is allocated in the emulator.
+        // Thus we cannot check if a write would cause the emulator go out
+        // of allocated memory. No memory should be allocated at this point.
+        //
         // Set the permissions of the addresses where the loadable program
         // header will be loaded to writeable. We have to do this since the
         // memory we are about to write to is not yet allocated, and does not
@@ -243,8 +243,14 @@ load_elf(char* path, risc_v_emu_t* emu)
         //       clean before starting the emulator
         emu->mmu->write(emu->mmu, program_header.virtual_address, &elf[program_header.offset], program_header.file_size);
 
-        // Set memory loaded to readable and executable. Remove the earlier set write permission
-        emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, PERM_READ | PERM_EXEC, program_header.file_size);
+        // Set correct perms of loaded program header.
+        emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, program_header.flags, program_header.file_size);
+
+        // TODO: Make permissions print out part of ginger_log().
+        ginger_log(INFO, "Wrote program header %lu of size 0x%lx to virtual address 0x%lx with perms ", i,
+                   program_header.file_size, program_header.virtual_address);
+        print_permissions(program_header.flags);
+        printf("\n");
 
         //printf("***\nProgram header: %lu\n", i);
         //printf("offset: %lx\n", segment.offset);
