@@ -11,22 +11,28 @@
 #define MAX_LENGTH_DEBUG_CLI_COMMAND 64
 #define MAX_NB_BREAKPOINTS           256
 
-static const char* debug_instructions = ""        \
-    "Available CLI commands:\n"              \
-    " h - Print this help.\n"                      \
-    " x - Examine emulator memory.\n"             \
-    " s - Search for value in emulator memory.\n" \
-    " n - Execute next instruction.\n"            \
-    " r - Show emulator registers.\n"             \
+static const char* debug_instructions = ""                  \
+    "Available CLI commands:\n"                             \
+    " x - Examine emulator memory.\n"                       \
+    " s - Search for value in emulator memory.\n"           \
+    " n - Execute next instruction.\n"                      \
+    " r - Show emulator registers.\n"                       \
+    " b - Set breakpoint.\n"                                \
+    " d - Show all breakpoints.\n"                          \
+    " c - Run emulator until breakpoint or program exit.\n" \
+    " h - Print this help.\n";                              \
     " q - Quit debugging and exit this program.\n";
 
 __attribute__((used))
 static const char cli_commands[][MAX_LENGTH_DEBUG_CLI_COMMAND] = {
-    "h",
     "x",
     "s",
     "n",
     "r",
+    "b",
+    "d",
+    "c",
+    "h",
     "q"
 };
 
@@ -212,11 +218,6 @@ debug_emu(risc_v_emu_t* emu)
             emu_debug_examine_memory(emu, input_buf, last_command);
         }
 
-        // Show emulator register state.
-        if (strstr(input_buf, "r")) {
-            print_emu_registers(emu);
-        }
-
         // Search for a value in emulator memory.
         if (strstr(input_buf, "s")) {
             emu_debug_search_in_memory(emu);
@@ -227,23 +228,32 @@ debug_emu(risc_v_emu_t* emu)
             emu->execute(emu);
         }
 
+        // Show emulator register state.
+        if (strstr(input_buf, "r")) {
+            print_emu_registers(emu);
+        }
+
+        // Set breakpoint.
+        if (strstr(input_buf, "b")) {
+            emu_debug_set_breakpoint(emu, breakpoints);
+        }
+
+        // Show breakpoints.
+        if (strstr(input_buf, "d")) {
+            emu_debug_show_breakpoints(emu, breakpoints);
+        }
+
         // Run until we hit a breakpoint or exit.
         if (strstr(input_buf, "c")) {
             emu_debug_run_until_breakpoint(emu, breakpoints);
         }
 
-        if (strstr(input_buf, "b")) {
-            emu_debug_set_breakpoint(emu, breakpoints);
-        }
-
-        if (strstr(input_buf, "d")) {
-            emu_debug_show_breakpoints(emu, breakpoints);
-        }
-
+        // Show debug help.
         if (strstr(input_buf, "h")) {
             printf("%s", debug_instructions);
         }
 
+        // Quit debugging.
         if (strcmp(input_buf, "q\n") == 0) {
             exit(0);
         }
