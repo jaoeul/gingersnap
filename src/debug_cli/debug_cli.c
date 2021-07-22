@@ -20,7 +20,7 @@ static const char* debug_instructions = ""                  \
     " b - Set breakpoint.\n"                                \
     " d - Show all breakpoints.\n"                          \
     " c - Run emulator until breakpoint or program exit.\n" \
-    " h - Print this help.\n";                              \
+    " h - Print this help.\n"                               \
     " q - Quit debugging and exit this program.\n";
 
 __attribute__((used))
@@ -203,7 +203,6 @@ debug_emu(risc_v_emu_t* emu)
             ginger_log(ERROR, "Could not get user input!\n");
             abort();
         }
-
         // We got no new command, resue the last one.
         if (input_buf[0] == '\n') {
             memcpy(input_buf, last_command, MAX_LENGTH_DEBUG_CLI_COMMAND);
@@ -212,47 +211,38 @@ debug_emu(risc_v_emu_t* emu)
         else {
             memcpy(last_command, input_buf, MAX_LENGTH_DEBUG_CLI_COMMAND);
         }
-
         // New command is memory command.
         if (strstr(input_buf, "x")) {
             emu_debug_examine_memory(emu, input_buf, last_command);
         }
-
         // Search for a value in emulator memory.
         if (strstr(input_buf, "s")) {
             emu_debug_search_in_memory(emu);
         }
-
         // Execute next instruction.
         if (strstr(input_buf, "n")) {
             emu->execute(emu);
         }
-
         // Show emulator register state.
         if (strstr(input_buf, "r")) {
             print_emu_registers(emu);
         }
-
         // Set breakpoint.
         if (strstr(input_buf, "b")) {
             emu_debug_set_breakpoint(emu, breakpoints);
         }
-
         // Show breakpoints.
         if (strstr(input_buf, "d")) {
             emu_debug_show_breakpoints(emu, breakpoints);
         }
-
         // Run until we hit a breakpoint or exit.
         if (strstr(input_buf, "c")) {
             emu_debug_run_until_breakpoint(emu, breakpoints);
         }
-
         // Show debug help.
         if (strstr(input_buf, "h")) {
             printf("%s", debug_instructions);
         }
-
         // Quit debugging.
         if (strcmp(input_buf, "q\n") == 0) {
             exit(0);
