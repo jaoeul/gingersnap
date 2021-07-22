@@ -140,7 +140,7 @@ j_type_get_immediate(const uint32_t instruction)
     return target_immediate;
 }
 
-static uint32_t
+uint32_t
 get_register(const risc_v_emu_t* emu, const uint8_t reg)
 {
     return emu->registers[reg];
