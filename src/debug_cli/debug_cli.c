@@ -140,7 +140,7 @@ emu_debug_set_breakpoint(risc_v_emu_t* emu, vector_t* breakpoints)
 {
     printf("Set breakpoint at address: ");
 
-    // Get value to search for from user input.
+    // Get breakpoint address from user.
     char break_adr_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
     memset(break_adr_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
     if (!fgets(break_adr_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
