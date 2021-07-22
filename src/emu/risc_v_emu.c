@@ -619,7 +619,11 @@ execute_arithmetic_i_instruction(risc_v_emu_t* emu, const uint32_t instruction)
         xori(emu, instruction);
     }
     else if (funct3 == 5) {
-        if (funct7 == 0) {
+
+        // NOTE: According to the risc v specification, SRLI should equal funct7 == 0.
+        //       This does not seem to be the case, according to our custom objdump.
+        //       Somehow,, srli can show up with funct7 set to 1. This should not happen.
+        if (funct7 == 0 || funct7 == 1) {
             srli(emu, instruction);
         }
         else if (funct7 == 32) {
