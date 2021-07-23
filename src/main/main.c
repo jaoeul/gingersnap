@@ -34,7 +34,11 @@ main(int argc, char** argv)
     // Load the elf into emulator memory.
     // Virtual addresses in the elf program headers corresponds directly to
     // addresses in the emulators memory.
-    load_elf("./target", emu);
+    // TODO: getopt
+    if (argv[1] == NULL) {
+        abort();
+    }
+    load_elf(argv[1], emu);
 
     // Create a stack which starts at the current_allocation address of the emulator
     uint64_t stack = emu->mmu->allocate(emu->mmu, stack_size);
@@ -67,11 +71,6 @@ main(int argc, char** argv)
     emu->stack_push(emu, argv_end, 8);
     emu->stack_push(emu, argv1, 8);
     emu->stack_push(emu, argv0, 8);
-
-    if (argc > 1) {
-        print_emu_memory_allocated(emu);
-        print_emu_registers(emu);
-    }
 
     ginger_log(INFO, "Current allocation address: 0x%lx\n", emu->mmu->current_allocation);
 
