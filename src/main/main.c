@@ -5,6 +5,7 @@
 
 #include "../emu/risc_v_emu.h"
 #include "../debug_cli/debug_cli.h"
+#include "../shared/cli.h"
 #include "../shared/elf_loader.h"
 #include "../shared/endianess_converter.h"
 #include "../shared/endianess_converter.h"
@@ -13,11 +14,11 @@
 #include "../shared/vector.h"
 
 static void
-run_emu(risc_v_emu_t* emu)
+run_emu(risc_v_emu_t* emu, cli_t* cli)
 {
     for (;;) {
 #ifdef EMU_MODE_DEBUG
-        debug_emu(emu);
+        debug_emu(emu, cli);
 #endif
         emu->execute(emu);
     }
@@ -74,7 +75,11 @@ main(int argc, char** argv)
 
     ginger_log(INFO, "Current allocation address: 0x%lx\n", emu->mmu->current_allocation);
 
-    run_emu(emu);
+    // Create debugging cli.
+    cli_t* debug_cli = emu_debug_create_cli(emu);
+
+    // Start the emulator.
+    run_emu(emu, debug_cli);
 
     ginger_log(INFO, "Destroying emu structs!\n");
     emu->destroy(emu);
