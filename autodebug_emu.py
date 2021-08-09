@@ -2,12 +2,22 @@
 
 # This script steps through a target executable using both gingersnap and gdb.
 # If cpu registers differ at any point, an error is thrown and execution is halted.
+#
+# We use qemu to run the target executable, since it is compiled for risc v.
+# We provide qemu with the -S option, to stop and wait for a debugger to connect.
+# We then connect to qemu with gdb.
+# Now we can automate singlestepping and comparing registers! \o/
 
 # We use pwntools to connect to emulator and gdb's stdin/stdout.
 from pwn import *
 from subprocess import Popen, PIPE, STDOUT
 
 import os
+
+# The registers we care about. Could omit the stack pointer(sp) here.
+cmp_regs = [ "ra", "sp", "gp", "tp", "t0", "t1", "t2", "fp", "s1", "a0", "a1",
+             "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6",
+             "s7", "s8", "s9", "s1", "s1", "t3", "t4", "t5", "t6", "pc"]
 
 def kill_proc(proc_name):
     proc = Popen(['ps', '-A'], stdout=PIPE)
@@ -20,40 +30,9 @@ def kill_proc(proc_name):
 def gdb_get_regs(gdb_proc) -> list:
     gdb_proc.sendline("info registers")
     gdb_proc.recvuntil("(gdb) ")
-
     gdb_regs = []
-    gdb_regs.append(gdb_proc.recvline_contains("ra").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("sp").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("gp").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("tp").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("t0").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("t1").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("t2").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("fp").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s1").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("a0").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("a1").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("a2").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("a3").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("a4").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("a5").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("a6").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("a7").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s2").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s3").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s4").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s5").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s6").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s7").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s8").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s9").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s10").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("s11").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("t3").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("t4").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("t5").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("t6").decode().split()[:2])
-    gdb_regs.append(gdb_proc.recvline_contains("pc").decode().split()[:2])
+    for reg in cmp_regs:
+        gdb_regs.append(gdb_proc.recvline_contains(reg).decode().split()[:2])
     return gdb_regs
 
 def gdb_next_instruction(gdb_proc):
@@ -78,39 +57,10 @@ def gdb_attach_to_qemu():
 
 def emu_get_regs(emu_proc) -> list:
     emu_proc.sendline("info registers")
+    emu_proc.recvuntil("(debug) ")
     emu_regs = []
-    emu_regs.append(emu_proc.recvline_contains("ra").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("sp").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("gp").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("tp").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("t0").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("t1").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("t2").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("fp").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s1").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("a0").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("a1").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("a2").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("a3").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("a4").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("a5").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("a6").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("a7").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s2").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s3").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s4").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s5").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s6").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s7").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s8").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s9").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s10").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("s11").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("t3").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("t4").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("t5").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("t6").decode().split()[:2])
-    emu_regs.append(emu_proc.recvline_contains("pc").decode().split()[:2])
+    for reg in cmp_regs:
+        emu_regs.append(emu_proc.recvline_contains(reg).decode().split()[:2])
     return emu_regs
 
 def emu_next_instruction(emu_proc):
