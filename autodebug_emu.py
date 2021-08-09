@@ -4,7 +4,7 @@
 # If cpu registers differ at any point, an error is thrown and execution is halted.
 #
 # We use qemu to run the target executable, since it is compiled for risc v.
-# We provide qemu with the -S option, to stop and wait for a debugger to connect.
+# We provide qemu with the -g option, to stop and wait for a debugger to connect.
 # We then connect to qemu with gdb.
 # Now we can automate singlestepping and comparing registers! \o/
 
