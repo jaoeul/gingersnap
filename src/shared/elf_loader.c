@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "endianess_converter.h"
 #include "elf_loader.h"
@@ -8,13 +9,13 @@
 #include "print_utils.h"
 
 typedef struct {
-    size_t offset;
-    size_t virtual_address;
-    size_t physical_address;
-    size_t file_size;
-    size_t memory_size;
-    size_t align;
-    size_t flags;
+    size_t offset;           // Offset in elf file to the start of the program header.
+    size_t virtual_address;  // Where in memory the program header should be loaded.
+    size_t physical_address; // Where in physical memory the program header should be loaded.
+    size_t file_size;        // The size of the program header on disk.
+    size_t memory_size;      // The size of the program header in memory.
+    size_t align;            // The alignment of the program header.
+    size_t flags;            // Permissions of the programr header.
 } program_header_t;
 
 // Parse an elf file and load it into the memory of an emulator.
@@ -26,9 +27,7 @@ load_elf(char* path, risc_v_emu_t* emu)
     uint8_t* elf;
     long     elf_length;
 
-    printf("==============================================\n");
-    printf(" Loading elf %s\n", path);
-    printf("==============================================\n\n");
+    ginger_log(INFO, "Loading elf %s\n", path);
 
     fileptr = fopen(path, "rb");
     if (!fileptr) {
@@ -236,15 +235,29 @@ load_elf(char* path, risc_v_emu_t* emu)
         // header will be loaded to writeable. We have to do this since the
         // memory we are about to write to is not yet allocated, and does not
         // have WRITE permissions set.
-        emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, PERM_WRITE, program_header.file_size);
+        emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, PERM_WRITE, program_header.memory_size);
 
         // Load the executable segments of the binary into the emulator
         // NOTE: This write dirties the executable memory. Might want to make it
         //       clean before starting the emulator
         emu->mmu->write(emu->mmu, program_header.virtual_address, &elf[program_header.offset], program_header.file_size);
 
+        // Fill padding with zeros.
+        const size_t padding_len = program_header.memory_size > program_header.file_size;
+        if (padding_len) {
+            uint8_t padding[padding_len];
+            memset(padding, 0, padding_len);
+            emu->mmu->write(emu->mmu, program_header.virtual_address + program_header.file_size, padding, padding_len);
+        }
+
         // Set correct perms of loaded program header.
-        emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, program_header.flags, program_header.file_size);
+        emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, program_header.flags, program_header.memory_size);
+
+        // Update the allocation pointer to an 12 bit aligned address, for every program header we load, if we load the
+        // executable to addresses beyond it. This has not yet been tested.
+        if (emu->mmu->curr_alloc_adr < program_header.virtual_address + program_header.file_size) {
+            emu->mmu->curr_alloc_adr = (program_header.virtual_address + program_header.file_size + 0xfff) & ~0xfff;
+        }
 
         // TODO: Make permissions print out part of ginger_log().
         ginger_log(INFO, "Wrote program header %lu of size 0x%lx to virtual address 0x%lx with perms ", i,
