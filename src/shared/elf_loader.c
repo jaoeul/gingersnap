@@ -243,8 +243,8 @@ load_elf(char* path, risc_v_emu_t* emu)
         emu->mmu->write(emu->mmu, program_header.virtual_address, &elf[program_header.offset], program_header.file_size);
 
         // Fill padding with zeros.
-        const size_t padding_len = program_header.memory_size > program_header.file_size;
-        if (padding_len) {
+        const int padding_len = program_header.memory_size - program_header.file_size;
+        if (padding_len > 0) {
             uint8_t padding[padding_len];
             memset(padding, 0, padding_len);
             emu->mmu->write(emu->mmu, program_header.virtual_address + program_header.file_size, padding, padding_len);
