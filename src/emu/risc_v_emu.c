@@ -338,6 +338,7 @@ lb(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
+// Load half word
 static void
 lh(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -355,16 +356,22 @@ lh(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
+// Load word
 static void
 lw(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    ginger_log(DEBUG, "Executing          LW\n");
     const uint32_t target = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
+
+    ginger_log(DEBUG, "Executing\tLW\n");
+    ginger_log(DEBUG, "Loading 4 bytes from address: 0x%lx\n", target);
 
     // Read 4 bytes from target guest address into buffer.
     uint8_t loaded_bytes[4] = {0};
     emu->mmu->read(emu->mmu, loaded_bytes, target, 4);
-    uint32_t loaded_value = (uint32_t)byte_arr_to_u64(loaded_bytes, 4, LSB);
+
+    // Sign extend.
+    int32_t loaded_value = (int32_t)(uint32_t)byte_arr_to_u64(loaded_bytes, 4, LSB);
+    ginger_log(DEBUG, "Got value %d\n", loaded_value);
 
     set_rd(emu, instruction, loaded_value);
     increment_pc(emu);
@@ -479,13 +486,13 @@ addi(risc_v_emu_t* emu, const uint32_t instruction)
     const int32_t  addend       = i_type_get_immediate(instruction);
     const uint32_t rs1          = get_rs1(instruction);
     const uint32_t register_rs1 = get_register(emu, rs1);
-    const uint64_t result       = register_rs1 + addend;
+    const uint64_t result       = (int64_t)register_rs1 + addend; // Sign extend to 64 bit.
 
     ginger_log(DEBUG, "Executing\tADDI %s %s %d\n",
                reg_to_str(get_rd(instruction)),
                reg_to_str(rs1),
                addend);
-    ginger_log(DEBUG, "Result: %d\n", result);
+    ginger_log(DEBUG, "Result: %ld\n", result);
 
     set_rd(emu, instruction, result);
     increment_pc(emu);

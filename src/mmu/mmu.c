@@ -63,8 +63,7 @@ dirty_state_create(size_t memory_size)
     state->dirty_blocks = calloc(nb_max_blocks, sizeof(*state->dirty_blocks));
     state->index_dirty_blocks = 0;
 
-    state->dirty_bitmaps = calloc(nb_max_bitmaps,
-                                  sizeof(*state->dirty_bitmaps));
+    state->dirty_bitmaps = calloc(nb_max_bitmaps, sizeof(*state->dirty_bitmaps));
     state->nb_max_dirty_bitmaps = nb_max_bitmaps;
 
     state->make_dirty = dirty_state_make_dirty;
@@ -81,53 +80,47 @@ dirty_state_destroy(dirty_state_t* dirty_state)
     free(dirty_state);
 }
 
-// TODO: Might delete
+// mmu:        The mmu.
+// start_adr:  Offset in the emulators memory to the address where permissions will be set.
+// permission: uint8_t representation of the permission to write.
+// size:       The amount of bytes of which the specified permission will be set.
 static void
-mmu_set_permissions(mmu_t* mmu, size_t start_address, uint8_t permission,
-                    size_t size)
+mmu_set_permissions(mmu_t* mmu, size_t start_adr, uint8_t permission, size_t size)
 {
-    if (start_address + size >= mmu->memory_size) {
-        ginger_log(ERROR, "[%s]Address is to high!\n", __func__);
-        return;
-    }
-    if (start_address < 0) {
-        ginger_log(ERROR, "[%s]Address can't be below 0!\n", __func__);
+    if (start_adr + size >= mmu->memory_size) {
+        ginger_log(ERROR, "[%s] Address is to high!\n", __func__);
         return;
     }
 
     // Set the provided address to the specified permission
     // TODO: Remove this cast to unsigned char*
-    memset((unsigned char*)mmu->permissions + start_address, permission, size);
+    memset((unsigned char*)mmu->permissions + start_adr, permission, size);
 }
 
-
-// Allocate memory for emulator. Returns the guest address of the allocated
-// memory
+// Allocate memory for emulator. Returns the virtual guest address of the allocated memory.
 static size_t
 mmu_allocate(mmu_t* mmu, size_t size)
 {
-    // 16-byte align the allocation to make it more cache friendly
+    // 16-byte align the allocation to make it more cache friendly.
     size_t aligned_size = (size + 0xf) & ~0xf;
 
-    // Get base for new allocation
-    size_t base = mmu->current_allocation;
-
-    // Guest memory is already full
-    if (base >= mmu->memory_size) {
+    // Guest memory is already full.
+    if (mmu->curr_alloc_adr >= mmu->memory_size) {
         ginger_log(ERROR, "[%s] Error! Emulator memory already full!\n", __func__);
         abort();
-        return 1;
     }
 
-    // Check if new allocation runs the emulator out of memory
-    if ((mmu->current_allocation + aligned_size) >= mmu->memory_size) {
+    // Check if new allocation runs the emulator out of memory.
+    if (mmu->curr_alloc_adr + aligned_size >= mmu->memory_size) {
         ginger_log(ERROR, "[%s] Emulator is out of memory!\n", __func__);
         abort();
-        return 1;
     }
 
-    // Update current allocation size
-    mmu->current_allocation += aligned_size;
+    // We want to return the virtual address of the allocation, so save it.
+    const size_t base = mmu->curr_alloc_adr;
+
+    // Update current allocation size.
+    mmu->curr_alloc_adr += aligned_size;
 
     // Set permissions of newly allocated memory to unitialized and writeable.
     // Keep extra memory added by the alignment as uninitialized.
@@ -136,45 +129,46 @@ mmu_allocate(mmu_t* mmu, size_t size)
     return base;
 }
 
-
-// Guest write function. Function does intentionally not checked for writes
-// outside of the guest allocated memory or memory given to the emulator
-//
 // TODO: Should we check for write outside of allocated memory?
 static void
-mmu_write(mmu_t* mmu, size_t destination_address, const uint8_t* source_buffer, size_t size)
+mmu_write(mmu_t* mmu, size_t dst_adr, const uint8_t* src_buffer, size_t size)
 {
+    if (dst_adr + size > mmu->curr_alloc_adr) {
+        ginger_log(WARNING, "[%s] Write outside of emulator memory!\n", __func__);
+    }
+
     // Check permission of memory we are about to write to. If any of the addresses has the PERM_READ_AFTER_WRITE bit
     // set, we will remove it from all of them. If none of the addresses has it set, we will skip it.
     //
     // If any of the addresses we are about to write to is not writeable, return NULL.
     bool has_read_after_write = false;
     for (int i = 0; i < size; i++) {
-        // If the RAW bit is set
-        size_t current_address = destination_address + i;
-        uint8_t current_perm = mmu->permissions[current_address];
 
-        if ((current_perm & PERM_RAW) !=0) {
+        // Offset to the dst address from start of emulator memory.
+        const size_t curr_adr = dst_adr + i;
+        const uint8_t curr_perm = mmu->permissions[curr_adr];
+
+        // If the RAW bit is set
+        if ((curr_perm & PERM_RAW) !=0) {
             has_read_after_write = true;
         }
 
         // If write permission is not set
-        if ((current_perm & PERM_WRITE) == 0) {
-            ginger_log(ERROR, "[%s] Address 0x%lx not writeable. Has perm ",
-                    __func__, current_address);
-            print_permissions(current_perm);
+        if ((curr_perm & PERM_WRITE) == 0) {
+            ginger_log(ERROR, "[%s] Address 0x%lx not writeable. Has perm ", __func__, curr_adr);
+            print_permissions(curr_perm);
             printf("\n");
             return;
         }
     }
 
     // Write the data
-    ginger_log(INFO, "[%s] Writing 0x%lx bytes to address 0x%lx\n", __func__, size, destination_address);
-    memcpy(mmu->memory + destination_address, source_buffer, size);
+    ginger_log(INFO, "[%s] Writing 0x%lx bytes to address 0x%lx\n", __func__, size, dst_adr);
+    memcpy(mmu->memory + dst_adr, src_buffer, size);
 
     // Mark blocks corresponding to addresses written to as dirty
-    size_t start_block = destination_address / DIRTY_BLOCK_SIZE;
-    size_t end_block   = (destination_address + size) / DIRTY_BLOCK_SIZE;
+    size_t start_block = dst_adr / DIRTY_BLOCK_SIZE;
+    size_t end_block   = (dst_adr + size) / DIRTY_BLOCK_SIZE;
     for (size_t i = start_block; i <= end_block; i++) {
         mmu->dirty_state->make_dirty(mmu->dirty_state, i);
     }
@@ -184,10 +178,10 @@ mmu_write(mmu_t* mmu, size_t destination_address, const uint8_t* source_buffer, 
         for (int i = 0; i < size; i++) {
             // Remove the RAW bit TODO: Find out if this really is needed, we
             // might gain performance by removing it
-            *(mmu->permissions + destination_address + i) &= ~PERM_RAW;
+            *(mmu->permissions + dst_adr + i) &= ~PERM_RAW;
 
             // Set permission of written memory to readable.
-            *(mmu->permissions + destination_address + i) |= PERM_READ;
+            *(mmu->permissions + dst_adr + i) |= PERM_READ;
         }
     }
 }
@@ -197,15 +191,16 @@ mmu_write(mmu_t* mmu, size_t destination_address, const uint8_t* source_buffer, 
 // checked to allow for illegal reads which will be detected and recorded as a
 // crash.
 static void
-mmu_read(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_address, size_t size)
+mmu_read(mmu_t* mmu, uint8_t* dst_buffer, const size_t src_adr, size_t size)
 {
     // If permission denied
     for (int i = 0; i < size; i++) {
-        if ((*(mmu->permissions + source_address + i) & PERM_READ) == 0) {
-            return;
+        if ((*(mmu->permissions + src_adr + i) & PERM_READ) == 0) {
+            ginger_log(ERROR, "Illegal read!\n");
+            //abort();
         }
     }
-    memcpy(destination_buffer, mmu->memory + source_address, size);
+    memcpy(dst_buffer, mmu->memory + src_adr, size);
 }
 
 // Search for specified value in guest memory. The size of the value is
@@ -225,8 +220,8 @@ mmu_search(mmu_t* mmu, const uint64_t needle, const char size_letter)
     else { ginger_log(ERROR, "Invalid size letter!\n"); return false; }
 
     for (size_t i = 0; i < mmu->memory_size; i += data_size) {
-        uint64_t current_value = byte_arr_to_u64(&mmu->memory[i], data_size, LSB);
-        if (current_value == needle) {
+        uint64_t curr_value = byte_arr_to_u64(&mmu->memory[i], data_size, LSB);
+        if (curr_value == needle) {
             vector_append(hits, &i);
         }
     }
@@ -242,19 +237,6 @@ mmu_search(mmu_t* mmu, const uint64_t needle, const char size_letter)
 mmu_t*
 mmu_create(size_t memory_size)
 {
-    // *NOTE*
-    //
-    // The base allocation address needs to be larger than
-    // the address of the last program header loaded into memory + its size.
-    // This is to make sure that allocations made by the emulator, when running
-    // the target binary, does not overwrite the binary itself.
-    const size_t base_allocation_address = 0x100000;
-
-    if (memory_size <= base_allocation_address) {
-        ginger_log(ERROR, "[%s]Emulator needs more memory!\n", __func__);
-        return NULL;
-    }
-
     mmu_t* mmu = calloc(1, sizeof(mmu_t));
     if (!mmu) {
         return NULL;
@@ -263,18 +245,28 @@ mmu_create(size_t memory_size)
     mmu->memory_size        = memory_size;
     mmu->memory             = calloc(mmu->memory_size, sizeof(uint8_t));
     mmu->permissions        = calloc(mmu->memory_size, sizeof(uint8_t));
-    mmu->current_allocation = base_allocation_address;
-    if (!mmu->memory || !mmu->permissions) {
-        return NULL;
+    mmu->dirty_state        = dirty_state_create(memory_size);
+
+    if (!mmu->memory || !mmu->permissions || !mmu->dirty_state) {
+        ginger_log(ERROR, "[%s:%u] Out of memory!\n", __func__, __LINE__);
+        abort();
     }
 
+    // The base allocation address needs to be larger than
+    // the address of the last program header loaded into memory + its size.
+    // This is to make sure that allocations made by the emulator, when running
+    // the target binary, does not overwrite the binary itself.
+    //
+    // The executable itself resides in address space 0 and the initial value of
+    // curr_allac_adr.
+    mmu->curr_alloc_adr = 1024 * 1024;
+
+    // API functions.
     mmu->allocate        = mmu_allocate;
     mmu->set_permissions = mmu_set_permissions;
     mmu->write           = mmu_write;
     mmu->read            = mmu_read;
     mmu->search          = mmu_search;
-
-    mmu->dirty_state     = dirty_state_create(memory_size);
 
     return mmu;
 }

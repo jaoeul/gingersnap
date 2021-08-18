@@ -11,7 +11,16 @@
 #include "../shared/print_utils.h"
 #include "../shared/vector.h"
 
-#define MAX_NB_BREAKPOINTS           256
+#define MAX_NB_BREAKPOINTS 256
+#define MAX_LEN_REG_STR    4
+
+// Required amount of characters to display the larges integer supported by an
+// 64 bit system.
+#define MAX_NB_EXAMINE_ADDRESSES 19
+
+static const char reg_strs[][MAX_LEN_REG_STR] = { "ra", "sp", "gp", "tp", "t0", "t1", "t2", "fp", "s1", "a0", "a1",
+                                                  "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6",
+                                                  "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6", "pc" };
 
 static const char* debug_instructions = ""                  \
     "Available CLI commands:\n"                             \
@@ -25,10 +34,78 @@ static const char* debug_instructions = ""                  \
     " h - Print this help.\n"                               \
     " q - Quit debugging and exit this program.\n";
 
-static void
-emu_debug_examine_memory(risc_v_emu_t* emu, char input_buf[], char last_command[])
+/*
+// Test if value is a valid ascii number.
+static bool
+is_number(const char num)
 {
-    memcpy(last_command, input_buf, MAX_LENGTH_DEBUG_CLI_COMMAND);
+    if (num > 47 && num < 58) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+// Test if value is a valid specifiers.
+static bool
+is_specifier(const char* specifiers, const char test, int nb_specifiers)
+{
+    for (int i = 0; i < nb_specifiers; i ++) {
+        if (specifiers[i] == test){
+            return true;
+        }
+    }
+    return false;
+}
+*/
+
+// TODO: Make this work.
+//       Display emulotor memory contents.
+static void
+emu_debug_examine_memory(risc_v_emu_t* emu, const char* input_buf)
+{
+    /*
+    // Parse the command.
+    //
+    // High level algorithm:
+    //
+    // If x is followed by a '/'
+    //     if '/' is followed by a number
+    //         get the formating specifier
+    //
+    // print provided memory address with the provided specifiers and the
+    // correct amount (formatting specifier defaults to hex and amount
+    // defaults to 1)
+    ginger_log(INFO, "[%s] Got command %s\n", __func__, input_buf);
+
+    char valid_specifiers[] = {'o', 'x', 'd', 'u', 't', 'f', 'a', 'i', 'c', 's', 'z'};
+    int  nb_specifiers      = sizeof valid_specifiers / sizeof valid_specifiers[0];
+
+    if (input_buf[1] == '/') {
+        // Read decimal numbers until we get a valid formating specifier.
+        char number_buf[MAX_NB_EXAMINE_ADDRESSES] = {0};
+        for (size_t i = 2; i < MAX_NB_EXAMINE_ADDRESSES; i++) {
+
+            // If character is a not valid number or if it is not a valid specifier, break.
+            if (!is_number(input_buf[i]) || is_specifier(valid_specifiers, input_buf[i], nb_specifiers)) {
+                break;
+            }
+            // Else, append the decimal ascii char to the number_buf.
+            else {
+                number_buf[i - 2] = input_buf[i];
+            }
+        }
+        // Convert the amount of values to print from a char array to a uint64_t.
+        uint64_t nb_to_print = strtoul(number_buf, NULL, 10);
+        ginger_log(INFO, "nb_to_print: %lu\n", nb_to_print);
+    }
+
+    //const size_t mem_range = strtoul(range_buf, NULL, 10);
+    //print_emu_memory(emu, mem_address, mem_range, size_letter);
+    */
+
+    //memcpy(last_command, input_buf, MAX_LENGTH_DEBUG_CLI_COMMAND);
 
     // Get addresses to show from user input.
     printf("Address: ");
@@ -99,6 +176,7 @@ emu_debug_search_in_memory(risc_v_emu_t* emu)
     }
 }
 
+// TODO: Break on register watchpoints.
 static void
 emu_debug_run_until_breakpoint(risc_v_emu_t* emu, vector_t* breakpoints)
 {
@@ -124,9 +202,25 @@ emu_debug_show_breakpoints(risc_v_emu_t* emu, vector_t* breakpoints)
         return;
     }
 
-    printf("Breakpoints:\n");
+    printf("\nBreakpoints:\n");
     for (size_t i = 0; i < nb_breakpoints; i++) {
         printf("%zu\t0x%zx\n", i, *(size_t*)vector_get(breakpoints, i));
+    }
+}
+
+static void
+emu_debug_show_watchpoints(risc_v_emu_t* emu, vector_t* watchpoints)
+{
+    size_t nb_watchpoints = vector_length(watchpoints);
+    if (nb_watchpoints == 0) {
+        printf("No watchpoints\n");
+        return;
+    }
+
+    printf("\nWatchpoints:\n");
+    for (size_t i = 0; i < nb_watchpoints; i++) {
+        char* curr_watchpoint = vector_get(watchpoints, i);
+        printf("%zu\t%s\n", i, curr_watchpoint);
     }
 }
 
@@ -138,6 +232,7 @@ emu_debug_set_breakpoint(risc_v_emu_t* emu, vector_t* breakpoints)
     // Get breakpoint address from user.
     char break_adr_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
     memset(break_adr_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
+
     if (!fgets(break_adr_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
         ginger_log(ERROR, "Could not get user input!\n");
         abort();
@@ -157,16 +252,34 @@ emu_debug_set_breakpoint(risc_v_emu_t* emu, vector_t* breakpoints)
     vector_append(breakpoints, &break_adr);
 }
 
-static void
-emu_debug_print_help(void)
+static bool
+emu_debug_set_watchpoint(risc_v_emu_t* emu, vector_t* watchpoints)
 {
-    printf("%s", debug_instructions);
-}
+    printf("\nSet watchpoint on register: ");
 
-static void
-emu_debug_quit(void)
-{
-    exit(0);
+    // Get register to watch from user.
+    char watchpoint_buf[MAX_LEN_REG_STR];
+    memset(watchpoint_buf, 0, MAX_LEN_REG_STR);
+
+    if (!fgets(watchpoint_buf, MAX_LEN_REG_STR, stdin)) {
+        ginger_log(ERROR, "Could not get user input!\n");
+        abort();
+    }
+    // TODO: Dedup watchpoint vector.
+
+    // Strip newline.
+    size_t watch_len = strlen(watchpoint_buf);
+    watchpoint_buf[watch_len - 1] = '\0';
+
+    for (uint8_t i = 0; i < sizeof reg_strs / sizeof reg_strs[0]; i++) {
+        if (strncmp(watchpoint_buf, reg_strs[i], MAX_LEN_REG_STR) == 0) {
+            vector_append(watchpoints, (char*)watchpoint_buf);
+            printf("true\n");
+            return true;
+        }
+    }
+    printf("false\n");
+    return false;
 }
 
 cli_t*
@@ -175,48 +288,47 @@ emu_debug_create_cli(risc_v_emu_t* emu)
     struct cli_cmd debug_cli_commands[] = {
         {
             .cmd_str = "x",
-            .description = "Examine emulator memory.\n",
-            .cmd_fn = emu_debug_examine_memory
+            .description = "Examine emulator memory.\n"
         },
         {
             .cmd_str = "search memory",
-            .description = "Search for value in emulator memory.\n",
-            .cmd_fn = emu_debug_search_in_memory
+            .description = "Search for value in emulator memory.\n"
         },
         {
             .cmd_str = "next instruction",
-            .description = "Execute next instruction.\n",
-            .cmd_fn = emu->execute
+            .description = "Execute next instruction.\n"
         },
         {
-            .cmd_str = "show registers",
-            .description = "Show emulator registers.\n",
-            .cmd_fn = print_emu_registers
+            .cmd_str = "info registers",
+            .description = "Show emulator registers.\n"
         },
         {
             .cmd_str = "break",
-            .description = "Set breakpoint.\n",
-            .cmd_fn = emu_debug_set_breakpoint
+            .description = "Set breakpoint.\n"
+        },
+        {
+            .cmd_str = "watch",
+            .description = "Set register watchpoint.\n"
         },
         {
             .cmd_str = "show breakpoints",
-            .description = "Show all breakpoints.\n",
-            .cmd_fn = emu_debug_show_breakpoints
+            .description = "Show all breakpoints.\n"
+        },
+        {
+            .cmd_str = "show watchpoints",
+            .description = "Show all watchpoints.\n"
         },
         {
             .cmd_str = "continue",
-            .description = "Run emulator until breakpoint or program exit.\n",
-            .cmd_fn = emu_debug_run_until_breakpoint
+            .description = "Run emulator until breakpoint or program exit.\n"
         },
         {
             .cmd_str = "help",
-            .description = "Print this help.\n",
-            .cmd_fn = emu_debug_print_help
+            .description = "Print this help.\n"
         },
         {
             .cmd_str = "quit",
-            .description = "Quit debugging and exit this program.\n",
-            .cmd_fn = emu_debug_quit
+            .description = "Quit debugging and exit this program.\n"
         }
     };
 
@@ -224,7 +336,7 @@ emu_debug_create_cli(risc_v_emu_t* emu)
     cli_t* debug_cli = cli_create(prompt_str);
 
     for (int i = 0; i < sizeof(debug_cli_commands) / sizeof(debug_cli_commands[0]); i++) {
-        cli_add_command(debug_cli, debug_cli_commands[i]);
+        debug_cli->add_command(debug_cli, debug_cli_commands[i]);
     }
 
     return debug_cli;
@@ -233,69 +345,80 @@ emu_debug_create_cli(risc_v_emu_t* emu)
 void
 debug_emu(risc_v_emu_t* emu, cli_t* cli)
 {
-    //static char last_command[MAX_LENGTH_DEBUG_CLI_COMMAND];
-    //vector_t* breakpoints = vector_create(sizeof(uint64_t));
+    static char last_command[MAX_LENGTH_DEBUG_CLI_COMMAND];
+    vector_t*   breakpoints = vector_create(sizeof(uint64_t));
+    vector_t*   watchpoints = vector_create(sizeof(MAX_LEN_REG_STR));
 
     for (;;) {
+        printf("\n");
         cli->print_prompt(cli);
-        cli->get_user_input(cli);
 
-        /*
-        // Get input from the user.
-        char input_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
-        memset(input_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
-        if (!fgets(input_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
-            ginger_log(ERROR, "Could not get user input!\n");
-            abort();
-        }
+        // Can only return valid command string.
+        char* command_str = cli->get_command(cli);
 
-        debug_emu_complete_command(input_buf);
-
-
-        // We got no new command, resue the last one.
-        if (input_buf[0] == '\n') {
-            memcpy(input_buf, last_command, MAX_LENGTH_DEBUG_CLI_COMMAND);
-        }
-        // We got a new command. Use it.
-        else {
-            memcpy(last_command, input_buf, MAX_LENGTH_DEBUG_CLI_COMMAND);
+        // We got no new command.
+        if (!command_str) {
+            // If there is no previously entered command, skip this iteration.
+            if (strlen(last_command) > 1) {
+                command_str = calloc(MAX_LENGTH_DEBUG_CLI_COMMAND, sizeof(char));
+                memcpy(command_str, last_command, MAX_LENGTH_DEBUG_CLI_COMMAND);
+            }
+            // If we got no new command, and we have no previous command.
+            else {
+                continue;
+            }
         }
         // New command is memory command.
-        if (strstr(input_buf, "x")) {
-            emu_debug_examine_memory(emu, input_buf, last_command);
+        if (strncmp(command_str, "x", 1) == 0) {
+            emu_debug_examine_memory(emu, command_str);
         }
         // Search for a value in emulator memory.
-        if (strstr(input_buf, "s")) {
+        else if (strncmp(command_str, "search memory", 13) == 0) {
             emu_debug_search_in_memory(emu);
         }
         // Execute next instruction.
-        if (strstr(input_buf, "n")) {
+        else if (strncmp(command_str, "next instruction", 16) == 0) {
             emu->execute(emu);
         }
         // Show emulator register state.
-        if (strstr(input_buf, "r")) {
+        else if (strncmp(command_str, "info registers", 14) == 0) {
             print_emu_registers(emu);
         }
         // Set breakpoint.
-        if (strstr(input_buf, "b")) {
+        else if (strncmp(command_str, "break", 5) == 0) {
             emu_debug_set_breakpoint(emu, breakpoints);
         }
+        // Set register watchpoint.
+        else if (strncmp(command_str, "watch", 5) == 0) {
+            emu_debug_set_watchpoint(emu, watchpoints);
+        }
         // Show breakpoints.
-        if (strstr(input_buf, "d")) {
+        else if (strncmp(command_str, "show breakpoints", 16) == 0) {
             emu_debug_show_breakpoints(emu, breakpoints);
         }
+        // Show watchpoints.
+        else if (strncmp(command_str, "show watchpoints", 16) == 0) {
+            emu_debug_show_watchpoints(emu, watchpoints);
+        }
         // Run until we hit a breakpoint or exit.
-        if (strstr(input_buf, "c")) {
+        else if (strncmp(command_str, "continue", 8) == 0) {
             emu_debug_run_until_breakpoint(emu, breakpoints);
         }
         // Show debug help.
-        if (strstr(input_buf, "h")) {
+        else if (strncmp(command_str, "help", 4) == 0) {
             printf("%s", debug_instructions);
         }
         // Quit debugging.
-        if (strcmp(input_buf, "q\n") == 0) {
+        else if (strncmp(command_str, "quit", 4) == 0) {
             exit(0);
         }
-        */
+
+        // Save executed command as previous command.
+        memcpy(last_command, command_str, MAX_LENGTH_DEBUG_CLI_COMMAND);
+
+        // Free the heap allocated user input string.
+        cli->free_user_input(command_str);
     }
+    vector_destroy(breakpoints);
+    vector_destroy(watchpoints);
 }

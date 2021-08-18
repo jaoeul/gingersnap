@@ -16,12 +16,14 @@
 #define WHITE  "\033[0;37m"
 #define RESET  "\033[0m"
 
+__attribute__((used))
 static void
 colorize_start(char* output_buffer, const char* color)
 {
     strncat(output_buffer, color, 8);
 }
 
+__attribute__((used))
 static void
 colorize_stop(char* output_buffer)
 {
@@ -31,13 +33,9 @@ colorize_stop(char* output_buffer)
 void
 ginger_log(uint8_t log_level, const char* fmt, ...)
 {
-
 #ifdef EMU_MODE_RELEASE
-    if (log_level == INFO || log_level == DEBUG) {
         return;
-    }
 #endif
-
     char log_buffer[LOG_LENGTH_MAX] = {0};
 
     strncat(log_buffer, "[", 2);
@@ -49,6 +47,10 @@ ginger_log(uint8_t log_level, const char* fmt, ...)
     else if (log_level == DEBUG) {
         colorize_start(log_buffer, BLUE);
         strncat(log_buffer, "DEBUG", 6);
+    }
+    else if (log_level == WARNING) {
+        colorize_start(log_buffer, YELLOW);
+        strncat(log_buffer, "WARNING", 8);
     }
     else if (log_level == ERROR) {
         colorize_start(log_buffer, RED);

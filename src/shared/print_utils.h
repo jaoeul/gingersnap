@@ -22,8 +22,10 @@ void
 print_permissions(uint8_t perms);
 
 void
-print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range,
-                 const char size_letter);
+print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range, const char size_letter);
+
+void
+print_emu_memory_all(risc_v_emu_t* emu);
 
 void
 print_emu_memory_allocated(risc_v_emu_t* emu);

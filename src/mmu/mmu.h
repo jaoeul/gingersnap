@@ -42,9 +42,9 @@ struct dirty_state {
 
 struct mmu {
     size_t    (*allocate)(mmu_t* mmu, size_t size);
-    void      (*set_permissions)(mmu_t* mmu, size_t start_address, uint8_t permission, size_t size);
-    void      (*write)(mmu_t* mmu, size_t destination_address, const uint8_t* source_buffer, size_t size);
-    void      (*read)(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_address, size_t size);
+    void      (*set_permissions)(mmu_t* mmu, size_t start_adress, uint8_t permission, size_t size);
+    void      (*write)(mmu_t* mmu, size_t destination_adress, const uint8_t* source_buffer, size_t size);
+    void      (*read)(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_adress, size_t size);
     vector_t* (*search)(mmu_t* mmu, const uint64_t needle, const char size_letter);
 
     // The size of the emulator memory
@@ -63,7 +63,7 @@ struct mmu {
     // for the guest.
     //
     // memory[current_allocation - 1] == last allocated address in guest memory
-    size_t current_allocation;
+    size_t curr_alloc_adr;
 
     dirty_state_t* dirty_state;
 };

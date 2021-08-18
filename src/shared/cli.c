@@ -10,13 +10,13 @@
 #include "../shared/logger.h"
 #include "../shared/vector.h"
 
-#define MAX_NB_BREAKPOINTS           256
+#define NO_MOVE_ARROW 0
 
-enum ARROW_KEYS {
-    ARROW_UP    = 1,
-    ARROW_DOWN  = 2,
-    ARROW_RIGHT = 3,
-    ARROW_LEFT  = 4
+enum ESCAPE_SEQUENCE {
+    ARROW_UP    = NO_MOVE_ARROW,
+    ARROW_DOWN  = NO_MOVE_ARROW,
+    ARROW_RIGHT = 1,
+    ARROW_LEFT  = -1
 };
 
 // Used to store the original terminal attributes when we enter raw mode.
@@ -43,34 +43,30 @@ cli_enable_raw_mode()
 
     raw.c_lflag &= ~ICANON; // Turn off line buffering (canonical mode).
     raw.c_lflag &= ~ECHO;   // Don't echo characters to the terminal output.
-    //raw.c_lflag &= ~ECHOE;
 
     // Apply new terminal attributes.
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
-// Entering an arrow key sends 3 chars. Esc, [, and
-// either one of the values in the below switch case.
+// The only escape sequence we care about are arrow key presses.
+// Entering an arrow key sends 3 chars. Esc(27), [(91), and either one of the values
+// in the below switch case.
 static int
-cli_is_arrow_key(const char key)
+cli_handle_escape_sequence(const char esc_seq1)
 {
-    if (key == 27) {
-        char char2 = getc(stdin);
-        if (char2 == 91) {
-            char char3 = getc(stdin);
-            switch (char3) {
+    char esc_seq2 = getc(stdin);
+    char esc_seq3 = getc(stdin);
+    if (esc_seq1 == 27) {
+        if (esc_seq2 == 91) {
+            switch (esc_seq3) {
                 case 65:
                     return ARROW_UP;
-                    break;
                 case 66:
                     return ARROW_DOWN;
-                    break;
                 case 67:
                     return ARROW_RIGHT;
-                    break;
                 case 68:
                     return ARROW_LEFT;
-                    break;
             }
         }
     }
@@ -104,7 +100,7 @@ cli_str_starts_with(const char* string, const char* substr)
     const size_t string_len = strlen(string);
     const size_t substr_len = strlen(substr);
 
-    if (string_len > substr_len) {
+    if (string_len >= substr_len) {
         if (memcmp(substr, string, substr_len) == 0) {
             return true;
         }
@@ -134,8 +130,10 @@ cli_str_matching_chars(const char* str1, const char* str2)
     return nb_matching_chars;
 }
 
+// Return true if exactly one matching command was found and completed,
+// otherwise return false.
 // Used for tab completion and to execute the correct command if only a substring is given.
-static void
+static bool
 cli_complete_command(const cli_t* cli, const char* substr, char** completion)
 {
     uint8_t nb_cli_commands = vector_length(cli->commands);
@@ -154,20 +152,21 @@ cli_complete_command(const cli_t* cli, const char* substr, char** completion)
 
     // Note which commands were hit, and how many.
     for (uint8_t i = 0; i < nb_cli_commands; i++) {
-        if (cli_str_starts_with((char*)vector_get(cli->commands, i), to_complete)) {
+        const struct cli_cmd* curr_cmd = vector_get(cli->commands, i);
+        if (cli_str_starts_with(curr_cmd->cmd_str, to_complete)) {
             hits[nb_hits++] = i;
         }
     }
 
+    // Single hit. Go ahead and complete the command.
     if (nb_hits == 1) {
-        // Single hit. Go ahead and complete the command.
-        const char* hit_command = (char*)vector_get(cli->commands, hits[0]);
-        size_t matched_str_len = strspn(hit_command, to_complete);
-        sprintf(*completion, "%s", hit_command + matched_str_len);
-        return;
+        const struct cli_cmd* hit_command = vector_get(cli->commands, hits[0]);
+        const size_t matched_str_len = strspn(hit_command->cmd_str, to_complete);
+        sprintf(*completion, "%s", hit_command->cmd_str + matched_str_len);
+        return true;
     }
+    // Multiple hits. Complete command as far as possible.
     else if (nb_hits > 1) {
-        // Multiple hits. Complete command as far as possible.
         size_t  nb_common_chars = MAX_LENGTH_DEBUG_CLI_COMMAND;
         uint8_t match_idx       = 0;
 
@@ -177,8 +176,9 @@ cli_complete_command(const cli_t* cli, const char* substr, char** completion)
                 if (i == j) {
                     continue;
                 }
-                size_t nb_curr_match = cli_str_matching_chars((char*)vector_get(cli->commands, hits[i]),
-                                                              (char*)vector_get(cli->commands, hits[j]));
+                const struct cli_cmd* cmd_i = vector_get(cli->commands, hits[i]);
+                const struct cli_cmd* cmd_j = vector_get(cli->commands, hits[j]);
+                const size_t nb_curr_match  = cli_str_matching_chars(cmd_i->cmd_str, cmd_j->cmd_str);
                 if (nb_curr_match < nb_common_chars) {
                     nb_common_chars = nb_curr_match;
                     match_idx = hits[i];
@@ -188,34 +188,28 @@ cli_complete_command(const cli_t* cli, const char* substr, char** completion)
 
         // Get the common chars.
         char matched_chars[nb_common_chars + 1];
-        memcpy(matched_chars, (char*)vector_get(cli->commands, match_idx), nb_common_chars);
+        struct cli_cmd* matched_cmd = vector_get(cli->commands, match_idx);
+        memcpy(matched_chars, matched_cmd->cmd_str, nb_common_chars);
         matched_chars[nb_common_chars] = '\0';
 
         // How much of the matched string have already been inputed, and can be ignored?
         size_t ignore = strlen(to_complete);
         sprintf(*completion, "%s", matched_chars + ignore);
     }
+    return false;
 }
 
 static void
 cli_show_completions(cli_t* cli, const char* substr)
 {
-    uint8_t nb_cli_commands = vector_length(cli->commands);
-    size_t  substr_len = strlen(substr);
-    char    to_complete[substr_len + 1];
-
-    // Copy substr and its nullbyte to to_complete.
-    memcpy(to_complete, substr, substr_len + 1);
-
-    // Strip newline from to_complete.
-    size_t to_complete_len = strlen(to_complete) + 1;
-    to_complete[to_complete_len] = '\0';
+    const uint8_t nb_cli_commands = vector_length(cli->commands);
 
     // Show which commands were hit.
     printf("\n");
     for (uint8_t i = 0; i < nb_cli_commands; i++) {
-        if (cli_str_starts_with((char*)vector_get(cli->commands, i), to_complete)) {
-            printf("%s\n", (char*)vector_get(cli->commands, i));
+        const struct cli_cmd* curr_cmd = vector_get(cli->commands, i);
+        if (cli_str_starts_with(curr_cmd->cmd_str, substr)) {
+            printf("%s\n", curr_cmd->cmd_str);
         }
     }
     printf("\n");
@@ -229,6 +223,7 @@ cli_print_prompt(cli_t* cli)
     fflush(stdout);
 }
 
+// TODO: Use this when CLI cursor movement is supported.
 __attribute__((used))
 static bool
 cli_str_insert_char(const char* input, const char ins_char, const size_t idx, char** output)
@@ -244,26 +239,103 @@ cli_str_insert_char(const char* input, const char ins_char, const size_t idx, ch
     return true;
 }
 
+// TODO: Use this to move the CLI cursor on arrow keypress.
+//       Moves the terminal cursor to coordinate x, y.
+__attribute__((used))
 static void
-cli_get_user_input(cli_t* cli)
+cli_gotoxy(const size_t x, const size_t y)
+{
+#ifdef __linux__
+    cli_disable_raw_mode();
+    printf("\033[%zu;%zuH", x, y);
+    fflush(stdout);
+    cli_enable_raw_mode();
+#else
+    ginger_log(ERROR, "%s() implementation missing!\n", __func__);
+    fflush(stdout);
+#endif
+}
+
+// If substr is found at exactly one place in the vector, return the index.
+// Else, return -1.
+static int
+cli_str_search_exact_match(vector_t* commands, const char* substr)
+{
+    const uint8_t nb_cli_commands = vector_length(commands);
+    uint8_t       nb_hits         = 0;
+    size_t        hit_idx         = 0;
+
+    // Note how many strings were hit.
+    for (uint8_t i = 0; i < nb_cli_commands; i++) {
+        const struct cli_cmd* curr_cmd = vector_get(commands, i);
+        if (cli_str_starts_with(curr_cmd->cmd_str, substr)) {
+            hit_idx = i;
+            nb_hits++;
+        }
+    }
+
+    if (nb_hits == 1) {
+        return hit_idx;
+    }
+    else {
+        return -1;
+    }
+}
+
+// Returns heap allocated user input string. Support command autocompletion.
+static char*
+cli_get_command(cli_t* cli)
 {
     char   input_buf[MAX_LENGTH_DEBUG_CLI_COMMAND] = {0};
-    size_t nb_read   = 0;
+    size_t nb_read   = 0; // Increments on character input or autocompletion.
     char   prev_char = '\0';
 
+    // Raw mode gives us more control over the terminal, enabling us to detect
+    // kchar2eypresses before a newline registerd.
     cli_enable_raw_mode();
+
+    // Run until user is finished inputting characters.
     for (;;) {
         char curr_char = '\0';
         size_t read_result = read(STDIN_FILENO, &curr_char, 1);
         if (read_result != 1 || curr_char == '\0') {
             ginger_log(ERROR, "Could not read char from stdin!\n");
-            return;
+            return NULL;
         }
 
-        if (cli_is_arrow_key(curr_char) != 0) {
-            // Ignore the arrow keys. Might want to change this to make the user
-            // able to manouver the cursor left and right when editing the debug
-            // command.
+        // Debug.
+        //printf("%d\n", curr_char);
+
+        // Escape, expect an following escape sequence.
+        if (curr_char == '\033') {
+            const int arrow_action = cli_handle_escape_sequence(curr_char);
+            (void)arrow_action;
+            // TODO: Fix cursor positioning on arrow key presses.
+            //       Use a curr_pos variable instead of nb_read.
+            /*
+            if (arrow_action == NO_MOVE_ARROW) {
+                continue;
+            }
+            // If we got an arrow key press to the right or to the left, we
+            // update the curr_pos variable accordingly.
+            // No need to manouver the cursor if there is no input string.
+            if (nb_read == 0) {
+                continue;
+            }
+            // Do not move cursor to the right if it is positioned at the end
+            // of the string.
+            if (curr_pos == nb_read && arrow_action == ARROW_RIGHT) {
+                continue;
+            }
+            // Do not move cursor to the left if it is positioned at the start
+            // of the string.
+            if (curr_pos == 0 && arrow_action == ARROW_LEFT) {
+                continue;
+            }
+            curr_pos += arrow_action;
+            cli_gotoxy(1, curr_pos);
+            continue;
+            */
             continue;
         }
         else if (prev_char == '\t' && curr_char == '\t') {
@@ -278,51 +350,102 @@ cli_get_user_input(cli_t* cli)
             // Do the autocompletion here.
             char* completion = calloc(MAX_LENGTH_DEBUG_CLI_COMMAND, sizeof(char));
             cli_complete_command(cli, input_buf, &completion);
-            printf("%s", completion);
-            // Add the completion to the input_buf.
+
+            // Add the completion to input_buf.
             const size_t comp_len = strlen(completion);
-            strncat(input_buf, completion, comp_len);
+            strcat(input_buf, completion);
             nb_read += comp_len;
-            fflush(stdout);
             free(completion);
         }
-        else if (curr_char == '\n') {
-            printf("\n");
-            fflush(stdout);
-            return;
+        else if (curr_char == 10) {
+            // Got enter. Consider the user input complete.
+            if (nb_read == 0) {
+                return NULL;
+            }
+            const int match = cli_str_search_exact_match(cli->commands, input_buf);
+            if (match != -1) {
+                char* completion = calloc(MAX_LENGTH_DEBUG_CLI_COMMAND, sizeof(char));
+                cli_complete_command(cli, input_buf, &completion);
+
+                // Add the completion to input_buf.
+                const size_t comp_len = strlen(completion);
+                strcat(input_buf, completion);
+                nb_read += comp_len;
+                free(completion);
+
+                // Return the completed command a heap allocated string.
+                input_buf[nb_read] = '\0';
+                char* user_input = calloc(nb_read, sizeof(char));
+                memcpy(user_input, input_buf, nb_read);
+                cli_disable_raw_mode();
+                return user_input;
+            }
+            else {
+                printf("\nCommand not found!\n");
+                fflush(stdout);
+            }
         }
         else if (curr_char == 127) {
             // Handle backspace.
             if (nb_read > 0) {
-                char spaces[nb_read + 1];
-                memset(spaces, 32, nb_read);
-                spaces[nb_read] = '\0';
-                printf("\r%s%s", cli->prompt_str, spaces);
-                nb_read--;
-                input_buf[nb_read] = '\0';
+                // Remove the last char by printing a space in its place, and
+                // then setting the character to '\0'.
+                input_buf[nb_read - 1] = ' ';
                 printf("\r%s%s", cli->prompt_str, input_buf);
-                fflush(stdout);
+                input_buf[nb_read - 1] = '\0';
+                nb_read--;
             }
-            continue;
         }
-        // TODO: Fix stack buffer overflow.
-        else {
-            printf("%c", curr_char);
-            fflush(stdout);
+        else if (curr_char >= 32 || curr_char <= 127) {
+            if (nb_read >= MAX_LENGTH_DEBUG_CLI_COMMAND - 1) {
+                continue;
+            }
+            // Valid printable character.
             input_buf[nb_read++] = curr_char;
         }
+
+        // Print the current user input string.
+        printf("\r%s%s", cli->prompt_str, input_buf);
+        fflush(stdout);
+
+        // Save the read char in order to detect double tab.
         prev_char = curr_char;
     }
     cli_disable_raw_mode();
 }
 
-/* --------------------------------------------------- Public ------------------------------------------------------- */
+// Frees the heap allocated user input string.
+static void
+cli_free_user_input(char* user_input)
+{
+    free(user_input);
+}
 
-void
+
+static void
 cli_add_command(const cli_t* cli, struct cli_cmd command)
 {
     vector_append(cli->commands, &command);
 }
+
+/*
+static bool
+cli_execute_command(const cli_t* cli, const char* command, void* arg)
+{
+    const int match = cli_str_search_exact_match(cli->commands, command);
+    if (match == -1) {
+        printf("\nCommand %s not found!\n", command);
+        return false;
+    }
+
+    // Execute the given command.
+    const struct cli_cmd* target_cmd = vector_get(cli->commands, match);
+    target_cmd->cmd_fn(arg);
+    return true;
+}
+*/
+
+/* --------------------------------------------------- Public ------------------------------------------------------- */
 
 cli_t*
 cli_create(const char* prompt_str)
@@ -334,8 +457,10 @@ cli_create(const char* prompt_str)
     cli->commands   = vector_create(sizeof(struct cli_cmd));
 
     // Set the function pointers for the API.
-    cli->print_prompt   = cli_print_prompt;
-    cli->get_user_input = cli_get_user_input;
+    cli->print_prompt    = cli_print_prompt;
+    cli->get_command     = cli_get_command;
+    cli->free_user_input = cli_free_user_input;
+    cli->add_command     = cli_add_command;
 
     return cli;
 }
