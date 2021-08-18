@@ -67,39 +67,29 @@ def emu_next_instruction(emu_proc):
     emu_proc.sendline("next instruction")
     emu_proc.recvuntil("(debug) ")
 
-def compare_regs(emu_regs, gdb_regs) -> bool:
+def compare_regs(emu_regs, gdb_regs, emu_regs_prev, gdb_regs_prev) -> list:
     if len(emu_regs) != len(gdb_regs):
         print("Unequal number of registers")
-        return False
+        exit(1)
 
+    diff = [("emu", "gdb")]
     for i in range(0, len(emu_regs)):
         if emu_regs[i] != gdb_regs[i]:
-
-            # We don't care if the stack pointer differs.
-            if "sp" in emu_regs[i][0] and "sp" in gdb_regs[i][0]:
-                continue
-            print("regs not equal")
-            print(f"emu pc {emu_regs[-1]}, gdb pc {gdb_regs[-1]}")
-            print(f"emu reg {emu_regs[i]}, gdb reg {gdb_regs[i]}")
-            return False
-    return True
+            tup = (emu_regs[i], gdb_regs[i])
+            diff.append(tup)
+    return diff
 
 if __name__ == "__main__":
 
     # General setup.
-    context.binary    = "./debug_gingersnap"
-    context.os        = "linux"
-    context.arch      = "amd64"
-    context.terminal  = ["tmux", "split", "-h"]
     context.log_level = "error"#"DEBUG"
 
-    # Kill processes from earlier debugging session if there are any.
-    print("Killing existing qemu processes.")
+    print("Killing stray processes.")
     kill_proc("qemu-riscv64")
+    kill_proc("riscv64-unknown-elf-gdb")
 
-    # Spawn emulator process
     print("Spawning emulator process.")
-    emu_args = ["./debug_gingersnap", "./target"]
+    emu_args = ["./release_gingersnap", "./target"]
     emu_proc = process(emu_args)
     emu_proc.recvuntil("(debug) ")
 
@@ -111,13 +101,28 @@ if __name__ == "__main__":
     print("Attaching gdb to qemu process.")
     gdb_proc = gdb_attach_to_qemu()
 
+    gdb_regs_prev = []
+    emu_regs_prev = []
+    last_diff     = [()] # List of tuples.
     while 1:
         gdb_regs = gdb_get_regs(gdb_proc)
         emu_regs = emu_get_regs(emu_proc)
-        if not compare_regs(emu_regs, gdb_regs):
-            exit(1)
+
+        diff = compare_regs(emu_regs, gdb_regs, emu_regs_prev, gdb_regs_prev)
+
+        # No need to compare first and second instructions.
+        if diff != last_diff and len(emu_regs_prev) != 0:
+            print(f"\nemu prev pc: {emu_regs_prev[-1]}, gdb prev pc: {gdb_regs_prev[-1]}")
+            for _ in diff:
+                print(_)
+            input()
+
         emu_next_instruction(emu_proc)
         gdb_next_instruction(gdb_proc)
+
+        gdb_regs_prev = gdb_regs
+        emu_regs_prev = emu_regs
+        last_diff     = diff
 
     gdb_proc.interactive()
     emu_proc.interactive()
