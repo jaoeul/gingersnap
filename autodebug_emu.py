@@ -104,6 +104,7 @@ if __name__ == "__main__":
     gdb_regs_prev = []
     emu_regs_prev = []
     last_diff     = [()] # List of tuples.
+    user_in       = ""
     while 1:
         gdb_regs = gdb_get_regs(gdb_proc)
         emu_regs = emu_get_regs(emu_proc)
@@ -111,11 +112,11 @@ if __name__ == "__main__":
         diff = compare_regs(emu_regs, gdb_regs, emu_regs_prev, gdb_regs_prev)
 
         # No need to compare first and second instructions.
-        if diff != last_diff and len(emu_regs_prev) != 0:
+        if (diff != last_diff and len(emu_regs_prev) != 0) or user_in == "s":
             print(f"\nemu prev pc: {emu_regs_prev[-1]}, gdb prev pc: {gdb_regs_prev[-1]}")
             for _ in diff:
                 print(_)
-            input()
+            user_in = input()
 
         emu_next_instruction(emu_proc)
         gdb_next_instruction(gdb_proc)
