@@ -130,28 +130,28 @@ j_type_get_immediate(const uint32_t instruction)
     const uint32_t immediate11   = (instruction >> 20) & 0b1;
     const uint32_t immediate1912 = (instruction >> 12) & 0b11111111;
 
-    uint32_t target_immediate = (immediate20   << 20) |
+    int32_t target_immediate = (immediate20   << 20) |
                                 (immediate1912 << 12) |
                                 (immediate11   << 11) |
                                 (immediate101  << 1);
-    target_immediate = ((int32_t)target_immediate << 11) >> 11;
+    target_immediate = (target_immediate << 11) >> 11;
 
     return target_immediate;
 }
 
-uint32_t
+uint64_t
 get_register(const risc_v_emu_t* emu, const uint8_t reg)
 {
     return emu->registers[reg];
 }
 
-static uint32_t
+static uint64_t
 get_rs1(const uint32_t instruction)
 {
     return (instruction >> 15) & 0b11111;
 }
 
-static uint32_t
+static uint64_t
 get_rs2(const uint32_t instruction)
 {
     return (instruction >> 20) & 0b11111;
@@ -160,7 +160,7 @@ get_rs2(const uint32_t instruction)
 static uint64_t
 get_register_rs1(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t rs1 = get_rs1(instruction);
+    const uint64_t rs1 = get_rs1(instruction);
     return get_register(emu, rs1);
 }
 
@@ -171,7 +171,7 @@ get_register_rs2(risc_v_emu_t* emu, const uint32_t instruction)
     return get_register(emu, rs2);
 }
 
-static uint32_t
+static uint64_t
 get_rd(const uint32_t instruction)
 {
     return (instruction >> 7) & 0b11111;
@@ -216,14 +216,14 @@ set_register(risc_v_emu_t* emu, const uint8_t reg, const uint64_t value)
     emu->registers[reg] = value;
 }
 
-static uint32_t
+static uint64_t
 get_pc(const risc_v_emu_t* emu)
 {
     return get_register(emu, REG_PC);
 }
 
 static void
-set_pc(risc_v_emu_t* emu, const uint32_t value)
+set_pc(risc_v_emu_t* emu, const uint64_t value)
 {
     set_register(emu, REG_PC, value);
 }
@@ -262,9 +262,9 @@ lui(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 auipc(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const int32_t addend  = (int32_t)(instruction & 0xfffff000);
-    const int32_t result  = (int32_t)get_pc(emu) + addend;
-    const uint8_t  ret_reg = get_rd(instruction);
+    const int32_t addend  = instruction & 0xfffff000;
+    const int64_t result  = (int64_t)get_pc(emu) + addend;
+    const uint8_t ret_reg = get_rd(instruction);
 
     ginger_log(DEBUG, "Executing\t\tAUIPC\t%s,0x%x\n", reg_to_str(ret_reg), addend);
 
@@ -280,12 +280,12 @@ jal(risc_v_emu_t* emu, const uint32_t instruction)
     // When an unsigned int and an int are added together, the int is first
     // converted to unsigned int before the addition takes place. This makes
     // the following addition work.
-    const uint32_t jump_offset = j_type_get_immediate(instruction);
-    const uint32_t result      = get_register(emu, REG_PC) + jump_offset;
+    const int32_t  jump_offset = j_type_get_immediate(instruction);
+    const uint64_t result      = get_register(emu, REG_PC) + jump_offset;
 
-    ginger_log(DEBUG, "Executing\tJAL %s 0x%x\n", reg_to_str(get_rd(instruction)), result);
+    ginger_log(DEBUG, "Executing\tJAL %s 0x%lx\n", reg_to_str(get_rd(instruction)), result);
 
-    const uint32_t return_address = get_register(emu, REG_PC) + 4;
+    const uint64_t return_address = get_register(emu, REG_PC) + 4;
     set_register(emu, get_rd(instruction), return_address);
 
     set_register(emu, REG_PC, result);
@@ -308,9 +308,9 @@ static void
 jalr(risc_v_emu_t* emu, const uint32_t instruction)
 {
     // Calculate target jump address.
-    const int32_t  immediate    = i_type_get_immediate(instruction);
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const int32_t  target       = (register_rs1 + immediate) & ~1;
+    const int32_t  immediate = i_type_get_immediate(instruction);
+    const uint64_t rs1       = get_register_rs1(emu, instruction);
+    const int64_t  target    = (rs1 + immediate) & ~1;
 
     ginger_log(DEBUG, "Executing\tJALR %s\n", reg_to_str(get_rs1(instruction)));
 
@@ -326,13 +326,13 @@ static void
 lb(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          LB\n");
-    const uint32_t target   = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
+    const uint64_t target = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
     // Read 1 byte from target guest address into buffer.
     uint8_t loaded_bytes[1] = {0};
     emu->mmu->read(emu->mmu, loaded_bytes, target, 1);
 
-    int32_t loaded_value = (int32_t)byte_arr_to_u64(loaded_bytes, 1, LSB);
+    int64_t loaded_value = byte_arr_to_u64(loaded_bytes, 1, LSB);
 
     set_rd(emu, instruction, loaded_value);
     increment_pc(emu);
@@ -343,14 +343,14 @@ static void
 lh(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          LH\n");
-    const uint32_t target   = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
+    const uint64_t target = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
     // Read 2 bytes from target guest address into buffer.
     uint8_t loaded_bytes[2] = {0};
     emu->mmu->read(emu->mmu, loaded_bytes, target, 2);
 
     // Sign-extend.
-    int32_t loaded_value = (int32_t)(uint32_t)byte_arr_to_u64(loaded_bytes, 2, LSB);
+    int64_t loaded_value = byte_arr_to_u64(loaded_bytes, 2, LSB);
 
     set_rd(emu, instruction, loaded_value);
     increment_pc(emu);
@@ -360,7 +360,7 @@ lh(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 lw(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t target = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
+    const uint64_t target = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "Executing\tLW\n");
     ginger_log(DEBUG, "Loading 4 bytes from address: 0x%lx\n", target);
@@ -370,7 +370,7 @@ lw(risc_v_emu_t* emu, const uint32_t instruction)
     emu->mmu->read(emu->mmu, loaded_bytes, target, 4);
 
     // Sign extend.
-    int32_t loaded_value = (int32_t)(uint32_t)byte_arr_to_u64(loaded_bytes, 4, LSB);
+    int64_t loaded_value = byte_arr_to_u64(loaded_bytes, 4, LSB);
     ginger_log(DEBUG, "Got value %d\n", loaded_value);
 
     set_rd(emu, instruction, loaded_value);
@@ -381,9 +381,9 @@ lw(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 ld(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t base   = get_register_rs1(emu, instruction);
-    const uint32_t offset = i_type_get_immediate(instruction);
-    const uint32_t target = base + offset;
+    const uint64_t base   = get_register_rs1(emu, instruction);
+    const uint64_t offset = i_type_get_immediate(instruction);
+    const uint64_t target = base + offset;
 
     ginger_log(DEBUG, "Executing\t\tLD %s 0x%x\n",
                reg_to_str(get_rd(instruction)), target);
@@ -401,13 +401,13 @@ static void
 lbu(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          LBU\n");
-    const uint32_t target = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
+    const uint64_t target = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
     // Read 1 byte from target guest address into buffer.
     uint8_t loaded_bytes[1] = {0};
     emu->mmu->read(emu->mmu, loaded_bytes, target, 1);
 
-    uint32_t loaded_value = (uint32_t)byte_arr_to_u64(loaded_bytes, 1, LSB);
+    uint64_t loaded_value = (uint64_t)byte_arr_to_u64(loaded_bytes, 1, LSB);
 
     set_rd(emu, instruction, loaded_value);
     increment_pc(emu);
@@ -425,7 +425,7 @@ lhu(risc_v_emu_t* emu, const uint32_t instruction)
     emu->mmu->read(emu->mmu, loaded_bytes, target, 2);
 
     // Zero-extend to 32 bit.
-    uint32_t loaded_value = (uint32_t)byte_arr_to_u64(loaded_bytes, 2, LSB);
+    uint64_t loaded_value = (uint64_t)byte_arr_to_u64(loaded_bytes, 2, LSB);
 
     set_rd(emu, instruction, loaded_value);
     increment_pc(emu);
@@ -436,13 +436,13 @@ static void
 lwu(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          LWU\n");
-    const uint32_t base   = get_register_rs1(emu, instruction);
-    const uint32_t offset = i_type_get_immediate(instruction);
-    const uint32_t target = base + offset;
+    const uint64_t base   = get_register_rs1(emu, instruction);
+    const uint64_t offset = i_type_get_immediate(instruction);
+    const uint64_t target = base + offset;
 
     uint8_t loaded_bytes[4] = {0};
     emu->mmu->read(emu->mmu, loaded_bytes, target, 4);
-    const uint64_t result = (uint64_t)byte_arr_to_u64(loaded_bytes, 4, LSB);
+    const uint64_t result = byte_arr_to_u64(loaded_bytes, 4, LSB);
 
     set_rd(emu, instruction, result);
     increment_pc(emu);
@@ -487,14 +487,13 @@ static void
 addi(risc_v_emu_t* emu, const uint32_t instruction)
 {
 
-    const int32_t  addend       = i_type_get_immediate(instruction);
-    const uint32_t rs1          = get_rs1(instruction);
-    const uint32_t register_rs1 = get_register(emu, rs1);
-    const uint64_t result       = (int64_t)register_rs1 + addend; // Sign extend to 64 bit.
+    const int32_t  addend = i_type_get_immediate(instruction);
+    const uint64_t rs1    = get_register_rs1(emu, instruction);
+    const uint64_t result = rs1 + addend;
 
     ginger_log(DEBUG, "Executing\tADDI %s %s %d\n",
                reg_to_str(get_rd(instruction)),
-               reg_to_str(rs1),
+               reg_to_str(get_rs1(instruction)),
                addend);
     ginger_log(DEBUG, "Result: %ld\n", result);
 
@@ -538,8 +537,8 @@ static void
 xori(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          XORI\n");
-    const uint32_t immediate = (uint32_t)i_type_get_immediate(instruction);
-    const uint32_t result = get_register_rs1(emu, instruction) ^ immediate;
+    const uint32_t immediate = i_type_get_immediate(instruction);
+    const uint64_t result    = get_register_rs1(emu, instruction) ^ immediate;
     set_rd(emu, instruction, result);
     increment_pc(emu);
 }
@@ -548,8 +547,8 @@ static void
 ori(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          ORI\n");
-    const uint32_t immediate = (uint32_t)i_type_get_immediate(instruction);
-    const uint32_t result = get_register_rs1(emu, instruction) | immediate;
+    const uint32_t immediate = i_type_get_immediate(instruction);
+    const uint64_t result    = get_register_rs1(emu, instruction) | immediate;
     set_rd(emu, instruction, result);
     increment_pc(emu);
 }
@@ -557,8 +556,8 @@ ori(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 andi(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t immediate = (uint32_t)i_type_get_immediate(instruction);
-    const uint32_t result    = get_register_rs1(emu, instruction) & immediate;
+    const uint32_t immediate = i_type_get_immediate(instruction);
+    const uint64_t result    = get_register_rs1(emu, instruction) & immediate;
     const uint8_t  ret_reg   = get_rd(instruction);
 
     ginger_log(DEBUG, "ANDI\t%s, %s, %u\n",
@@ -573,8 +572,8 @@ andi(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 slli(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t shamt  = i_type_get_immediate(instruction) & 0x3f;
-    const uint32_t result = get_register_rs1(emu, instruction) << shamt;
+    const uint32_t shamt   = i_type_get_immediate(instruction) & 0x3f;
+    const uint64_t result  = get_register_rs1(emu, instruction) << shamt;
     const uint8_t  ret_reg = get_rd(instruction);
 
     ginger_log(DEBUG, "SLLI\t%s, %s, 0x%x\n",
@@ -591,7 +590,7 @@ srli(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SRLI\n");
     const uint32_t shamt  = i_type_get_immediate(instruction) & 0x3f;
-    const uint32_t result = get_register_rs1(emu, instruction) >> shamt;
+    const uint64_t result = get_register_rs1(emu, instruction) >> shamt;
     set_rd(emu, instruction, result);
     increment_pc(emu);
 }
@@ -601,7 +600,7 @@ srai(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SRAI\n");
     const uint32_t shamt  = i_type_get_immediate(instruction) & 0x3f;
-    const uint32_t result = (uint64_t)((int64_t)get_register_rs1(emu, instruction) >> shamt);
+    const uint64_t result = ((int64_t)get_register_rs1(emu, instruction) >> shamt);
     set_rd(emu, instruction, result);
     increment_pc(emu);
 }
@@ -704,10 +703,9 @@ addiw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          ADDIW\n");
     const uint32_t immediate = i_type_get_immediate(instruction);
-    const uint32_t rs1       = get_register_rs1(emu, instruction);
+    const int64_t rs1        = get_register_rs1(emu, instruction);
 
-    // FIXME: Carefully monitor casting logic of following line.
-    const int64_t result = (uint64_t)((int64_t)rs1 + immediate);
+    const uint64_t result = rs1 + immediate;
     set_register(emu, get_rd(instruction), result);
     increment_pc(emu);
 }
@@ -716,8 +714,8 @@ static void
 slliw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SLLIW\n");
-    const uint32_t shamt = i_type_get_immediate(instruction) & 0x1f;
-    const uint32_t result = get_register_rs1(emu, instruction) << shamt;
+    const uint32_t shamt  = i_type_get_immediate(instruction) & 0x1f;
+    const uint64_t result = get_register_rs1(emu, instruction) << shamt;
     set_register(emu, get_rd(instruction), result);
     increment_pc(emu);
 }
@@ -726,8 +724,8 @@ static void
 srliw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SRLIW\n");
-    const uint32_t shamt = i_type_get_immediate(instruction) & 0x1f;
-    const uint32_t result = get_register_rs1(emu, instruction) >> shamt;
+    const uint32_t shamt  = i_type_get_immediate(instruction) & 0x1f;
+    const uint64_t result = get_register_rs1(emu, instruction) >> shamt;
     set_register(emu, get_rd(instruction), result);
     increment_pc(emu);
 }
@@ -736,9 +734,9 @@ static void
 sraiw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SRAIW\n");
-    const uint32_t shamt = i_type_get_immediate(instruction) & 0x1f;
-    const uint32_t result = get_register_rs1(emu, instruction) >> shamt;
-    set_register(emu, get_rd(instruction), (int32_t)result);
+    const uint32_t shamt  = i_type_get_immediate(instruction) & 0x1f;
+    const int64_t  result = get_register_rs1(emu, instruction) >> shamt;
+    set_register(emu, get_rd(instruction), result);
     increment_pc(emu);
 }
 
@@ -778,13 +776,10 @@ static void
 addw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          ADDW\n");
-    const uint32_t rs1  = get_register_rs1(emu, instruction);
-    const uint32_t rs2  = get_register_rs2(emu, instruction);
-    const uint32_t src1 = get_register(emu, rs1);
-    const uint32_t src2 = get_register(emu, rs2);
+    const uint64_t rs1  = get_register_rs1(emu, instruction);
+    const uint64_t rs2  = get_register_rs2(emu, instruction);
 
-    // Close your eyes!
-    const uint64_t result = (uint64_t)(int64_t)(int32_t)(src1 + src2);
+    const uint64_t result = (int64_t)(rs1 + rs2);
 
     set_rd(emu, instruction, result);
     increment_pc(emu);
@@ -794,12 +789,10 @@ static void
 subw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SUBW\n");
-    const uint32_t rs1  = get_register_rs1(emu, instruction);
-    const uint32_t rs2  = get_register_rs2(emu, instruction);
-    const uint32_t src1 = get_register(emu, rs1);
-    const uint32_t src2 = get_register(emu, rs2);
+    const uint64_t rs1  = get_register_rs1(emu, instruction);
+    const uint64_t rs2  = get_register_rs2(emu, instruction);
 
-    const uint64_t result = (uint64_t)(int64_t)(int32_t)(src1 - src2);
+    const uint64_t result = (int64_t)(rs1 - rs2);
 
     set_rd(emu, instruction, result);
     increment_pc(emu);
@@ -809,11 +802,10 @@ static void
 sllw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SLLW\n");
-    const uint32_t rs1   = get_register_rs1(emu, instruction);
-    const uint32_t src   = get_register(emu, rs1);
-    const uint32_t shamt = get_register_rs2(emu, instruction) & 0x1f;
+    const uint64_t rs1   = get_register_rs1(emu, instruction);
+    const uint64_t shamt = get_register_rs2(emu, instruction) & 0x1f;
 
-    const uint64_t result = (uint64_t)(int64_t)(int32_t)(src << shamt);
+    const uint64_t result = (int64_t)(rs1 << shamt);
 
     set_rd(emu, instruction, result);
     increment_pc(emu);
@@ -823,11 +815,10 @@ static void
 srlw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SRLW\n");
-    const uint32_t rs1   = get_register_rs1(emu, instruction);
-    const uint32_t src   = get_register(emu, rs1);
-    const uint32_t shamt = get_register_rs2(emu, instruction) & 0x1f;
+    const uint64_t rs1   = get_register_rs1(emu, instruction);
+    const uint64_t shamt = get_register_rs2(emu, instruction) & 0x1f;
 
-    const uint64_t result = (uint64_t)(int64_t)(int32_t)(src >> shamt);
+    const uint64_t result = (int64_t)(rs1 >> shamt);
 
     set_rd(emu, instruction, result);
     increment_pc(emu);
@@ -837,11 +828,10 @@ static void
 sraw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SRAW\n");
-    const uint32_t rs1   = get_register_rs1(emu, instruction);
-    const uint32_t src   = get_register(emu, rs1);
-    const uint32_t shamt = get_register_rs2(emu, instruction) & 0x1f;
+    const uint64_t rs1   = get_register_rs1(emu, instruction);
+    const uint64_t shamt = get_register_rs2(emu, instruction) & 0x1f;
 
-    const uint64_t result = (uint64_t)(int64_t)((int32_t)src >> shamt);
+    const uint64_t result = (int64_t)(rs1 >> shamt);
 
     set_rd(emu, instruction, result);
     increment_pc(emu);
@@ -893,9 +883,9 @@ execute_arithmetic_64_register_register_instructions(risc_v_emu_t* emu, const ui
 static void
 add(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    const uint32_t result       = register_rs1 + register_rs2;
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t result       = register_rs1 + register_rs2;
 
     ginger_log(DEBUG, "ADD\t%s, %s, %s\n",
                reg_to_str(get_rd(instruction)),
@@ -909,9 +899,9 @@ add(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 sub(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    const uint32_t result       = register_rs1 - register_rs2;
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t result       = register_rs1 - register_rs2;
     const uint8_t  ret_reg      = get_rd(instruction);
 
     ginger_log(DEBUG, "Executing\tSUB\t%s, %s, %s\n",
@@ -927,9 +917,9 @@ static void
 sll(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SLL\n");
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t shift_value  = get_register_rs2(emu, instruction) & 0xf1;
-    const uint32_t result       = register_rs1 << shift_value;
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t shift_value  = get_register_rs2(emu, instruction) & 0xf1;
+    const uint64_t result       = register_rs1 << shift_value;
     set_rd(emu, instruction, result);
     increment_pc(emu);
 }
@@ -938,8 +928,8 @@ static void
 slt(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SLT\n");
-    const int32_t register_rs1 = (int32_t)get_register_rs1(emu, instruction);
-    const int32_t register_rs2 = (int32_t)get_register_rs2(emu, instruction);
+    const int64_t register_rs1 = get_register_rs1(emu, instruction);
+    const int64_t register_rs2 = get_register_rs2(emu, instruction);
 
     if (register_rs1 < register_rs2) {
         set_rd(emu, instruction, 1);
@@ -954,8 +944,8 @@ static void
 sltu(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SLTU\n");
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
 
     if (register_rs1 < register_rs2) {
         set_rd(emu, instruction, 1);
@@ -970,8 +960,8 @@ static void
 xor(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          XOR\n");
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
     set_rd(emu, instruction, register_rs1 ^ register_rs2);
     increment_pc(emu);
 }
@@ -980,9 +970,9 @@ static void
 srl(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SRL\n");
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t shift_value  = get_register_rs2(emu, instruction) & 0xf1;
-    const uint32_t result       = register_rs1 >> shift_value;
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t shift_value  = get_register_rs2(emu, instruction) & 0xf1;
+    const uint64_t result       = register_rs1 >> shift_value;
     set_rd(emu, instruction, result);
     increment_pc(emu);
 }
@@ -991,9 +981,9 @@ static void
 sra(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SRA\n");
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t shift_value  = get_register_rs2(emu, instruction) & 0xf1;
-    const uint32_t result       = (uint32_t)((int32_t)register_rs1 >> shift_value);
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t shift_value  = get_register_rs2(emu, instruction) & 0xf1;
+    const uint64_t result       = ((int32_t)register_rs1 >> shift_value);
     set_rd(emu, instruction, result);
     increment_pc(emu);
 }
@@ -1002,8 +992,8 @@ static void
 or(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          OR\n");
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
     set_rd(emu, instruction, register_rs1 | register_rs2);
     increment_pc(emu);
 }
@@ -1012,8 +1002,8 @@ static void
 and(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          AND\n");
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
     set_rd(emu, instruction, register_rs1 & register_rs2);
     increment_pc(emu);
 }
@@ -1079,7 +1069,7 @@ execute_arithmetic_r_instruction(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 sb(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
+    const uint64_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
     const uint8_t  store_value = get_register_rs2(emu, instruction) & 0xff;
 
     ginger_log(DEBUG, "SB\t%s, %u(%s)\n",
@@ -1087,7 +1077,7 @@ sb(risc_v_emu_t* emu, const uint32_t instruction)
                store_value,
                reg_to_str(get_rs2(instruction)));
 
-    ginger_log(DEBUG, "Writing 0x%02x to 0x%x\n", store_value, target);
+    ginger_log(DEBUG, "Writing 0x%02x to 0x%lx\n", store_value, target);
 
     emu->mmu->write(emu->mmu, target, &store_value, 1);
     increment_pc(emu);
@@ -1097,7 +1087,7 @@ static void
 sh(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SH\n");
-    const uint32_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
+    const uint64_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
     const uint64_t store_value = get_register_rs2(emu, instruction) & 0xffff;
 
     // TODO: Update u64_to_byte_arr to be able to handle smaller integers,
@@ -1113,14 +1103,14 @@ sh(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 sw(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
+    const uint64_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
     const uint64_t store_value = get_register_rs2(emu, instruction) & 0xffffffff;
 
     uint8_t store_bytes[8] = {0};
 
     // TODO: Reuse variables above instead of running the functions again.
     ginger_log(DEBUG, "Executing\tSW %s, %d\n", reg_to_str(get_rs1(instruction)), s_type_get_immediate(instruction));
-    ginger_log(DEBUG, "Target adr: 0x%x\n", target);
+    ginger_log(DEBUG, "Target adr: 0x%lx\n", target);
     ginger_log(DEBUG, "Storing value: 0x%lx\n", store_value);
 
     // TODO: Update u64_to_byte_arr to be able to handle smaller integers,
@@ -1135,13 +1125,13 @@ sw(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 sd(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
+    const uint64_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
     const uint64_t store_value = get_register_rs2(emu, instruction) & 0xffffffffffffffff;
 
     uint8_t store_bytes[8] = {0};
     u64_to_byte_arr(store_value, store_bytes, LSB);
 
-    ginger_log(DEBUG, "Executing\tSD 0x%x 0x%lx\n", target, store_value);
+    ginger_log(DEBUG, "Executing\tSD 0x%lx 0x%lx\n", target, store_value);
 
     // Write 8 bytes into guest memory at target address.
     emu->mmu->write(emu->mmu, target, store_bytes, 8);
@@ -1178,9 +1168,9 @@ static void
 beq(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          BEQ\n");
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    const uint32_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
 
     if (register_rs1 == register_rs2) {
         set_pc(emu, target);
@@ -1193,9 +1183,9 @@ beq(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 bne(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    const uint32_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BNE\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
@@ -1216,9 +1206,9 @@ static void
 blt(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          BLT\n");
-    const int32_t register_rs1 = (int32_t)get_register_rs1(emu, instruction);
-    const int32_t register_rs2 = (int32_t)get_register_rs2(emu, instruction);
-    const uint32_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const int64_t  register_rs1 = get_register_rs1(emu, instruction);
+    const int64_t  register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t target       = get_pc(emu) + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BLT\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
@@ -1237,9 +1227,9 @@ static void
 bltu(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          BLTU\n");
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    const uint32_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BLTU\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
@@ -1258,9 +1248,9 @@ static void
 bge(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          BGE\n");
-    const int32_t register_rs1 = (int32_t)get_register_rs1(emu, instruction);
-    const int32_t register_rs2 = (int32_t)get_register_rs2(emu, instruction);
-    const uint32_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const int64_t register_rs1 = get_register_rs1(emu, instruction);
+    const int64_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BGE\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
@@ -1279,9 +1269,9 @@ bge(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 bgeu(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t register_rs1 = get_register_rs1(emu, instruction);
-    const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    const uint32_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const uint64_t register_rs1 = get_register_rs1(emu, instruction);
+    const uint64_t register_rs2 = get_register_rs2(emu, instruction);
+    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BGEU\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
