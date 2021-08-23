@@ -477,7 +477,7 @@ execute_load_instruction(risc_v_emu_t* emu, const uint32_t instruction)
     }
 }
 
-// Add immediate. Adding a register by 0 and storing it in another register is
+// Add immediate. Adding a register with 0 and storing it in another register is
 // the riscvi implementation of mv.
 static void
 addi(risc_v_emu_t* emu, const uint32_t instruction)
@@ -1000,7 +1000,7 @@ or(risc_v_emu_t* emu, const uint32_t instruction)
     ginger_log(DEBUG, "Executing          OR\n");
     const uint32_t register_rs1 = get_register_rs1(emu, instruction);
     const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    set_rd(emu, instruction, get_register(emu, register_rs1) | get_register(emu, register_rs2));
+    set_rd(emu, instruction, register_rs1 | register_rs2);
     increment_pc(emu);
 }
 
@@ -1010,7 +1010,7 @@ and(risc_v_emu_t* emu, const uint32_t instruction)
     ginger_log(DEBUG, "Executing          AND\n");
     const uint32_t register_rs1 = get_register_rs1(emu, instruction);
     const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    set_rd(emu, instruction, get_register(emu, register_rs1) & get_register(emu, register_rs2));
+    set_rd(emu, instruction, register_rs1 & register_rs2);
     increment_pc(emu);
 }
 
@@ -1337,6 +1337,7 @@ risc_v_emu_execute_next_instruction(risc_v_emu_t* emu)
     const uint32_t instruction = get_next_instruction(emu);
     const uint8_t  opcode      = get_opcode(instruction);
 
+    ginger_log(DEBUG, "PC: 0x%x\n", get_pc(emu));
     ginger_log(DEBUG, "Number of executed instructions: %lu\n", nb_executed_instructions);
     ginger_log(DEBUG, "Instruction\t0x%08x\n", instruction);
     ginger_log(DEBUG, "Opcode\t\t0x%x\n", opcode);
