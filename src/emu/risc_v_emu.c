@@ -401,7 +401,7 @@ static void
 lbu(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          LBU\n");
-    const uint32_t target   = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
+    const uint32_t target = get_register_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
     // Read 1 byte from target guest address into buffer.
     uint8_t loaded_bytes[1] = {0};
@@ -698,16 +698,16 @@ execute_env_instructions(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
+// Used to implement the sext.w (sign extend word) pseudo instruction.
 static void
 addiw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          ADDIW\n");
-    const uint32_t immediate = (uint32_t)i_type_get_immediate(instruction);
+    const uint32_t immediate = i_type_get_immediate(instruction);
     const uint32_t rs1       = get_register_rs1(emu, instruction);
-    const uint32_t addend    = get_register(emu, rs1);
 
     // FIXME: Carefully monitor casting logic of following line.
-    const int64_t result = (uint64_t)((int64_t)addend + immediate);
+    const int64_t result = (uint64_t)((int64_t)rs1 + immediate);
     set_register(emu, get_rd(instruction), result);
     increment_pc(emu);
 }
@@ -972,7 +972,7 @@ xor(risc_v_emu_t* emu, const uint32_t instruction)
     ginger_log(DEBUG, "Executing          XOR\n");
     const uint32_t register_rs1 = get_register_rs1(emu, instruction);
     const uint32_t register_rs2 = get_register_rs2(emu, instruction);
-    set_rd(emu, instruction, get_register(emu, register_rs1) ^ get_register(emu, register_rs2));
+    set_rd(emu, instruction, register_rs1 ^ register_rs2);
     increment_pc(emu);
 }
 
