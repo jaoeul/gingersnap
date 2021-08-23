@@ -48,12 +48,6 @@ get_funct7(const uint32_t instruction)
     return (instruction >> 25) & 0b1111111;
 }
 
-static int32_t
-i_type_get_immediate(const uint32_t instruction)
-{
-    return (int32_t)instruction >> 20;
-}
-
 static char*
 reg_to_str(const uint8_t reg)
 {
@@ -93,7 +87,12 @@ reg_to_str(const uint8_t reg)
     else { return '\0'; }
 }
 
-__attribute__((used))
+static int32_t
+i_type_get_immediate(const uint32_t instruction)
+{
+    return (int32_t)instruction >> 20;
+}
+
 static int32_t
 s_type_get_immediate(const uint32_t instruction)
 {
@@ -101,7 +100,7 @@ s_type_get_immediate(const uint32_t instruction)
     const uint32_t immediate115 = (instruction >> 25) & 0b1111111;
 
     uint32_t target_immediate = (immediate115  << 5) | immediate40;
-    target_immediate = (target_immediate << 20) >> 20;
+    target_immediate = ((int32_t)target_immediate << 20) >> 20;
 
     return (int32_t)target_immediate;
 }
@@ -322,6 +321,7 @@ jalr(risc_v_emu_t* emu, const uint32_t instruction)
     set_pc(emu, target);
 }
 
+// Load byte.
 static void
 lb(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -338,7 +338,7 @@ lb(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
-// Load half word
+// Load half word.
 static void
 lh(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -356,7 +356,7 @@ lh(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
-// Load word
+// Load word.
 static void
 lw(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -377,6 +377,26 @@ lw(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
+// Load double word.
+static void
+ld(risc_v_emu_t* emu, const uint32_t instruction)
+{
+    const uint32_t base   = get_register_rs1(emu, instruction);
+    const uint32_t offset = i_type_get_immediate(instruction);
+    const uint32_t target = base + offset;
+
+    ginger_log(DEBUG, "Executing\t\tLD %s 0x%x\n",
+               reg_to_str(get_rd(instruction)), target);
+
+    uint8_t loaded_bytes[8] = {0};
+    emu->mmu->read(emu->mmu, loaded_bytes, target, 8);
+    const uint64_t result = byte_arr_to_u64(loaded_bytes, 8, LSB);
+
+    set_rd(emu, instruction, result);
+    increment_pc(emu);
+}
+
+// Load byte unsigned.
 static void
 lbu(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -393,6 +413,7 @@ lbu(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
+// Load hald word unsigned.
 static void
 lhu(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -410,6 +431,7 @@ lhu(risc_v_emu_t* emu, const uint32_t instruction)
     increment_pc(emu);
 }
 
+// Load word unsigned.
 static void
 lwu(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -421,24 +443,6 @@ lwu(risc_v_emu_t* emu, const uint32_t instruction)
     uint8_t loaded_bytes[4] = {0};
     emu->mmu->read(emu->mmu, loaded_bytes, target, 4);
     const uint64_t result = (uint64_t)byte_arr_to_u64(loaded_bytes, 4, LSB);
-
-    set_rd(emu, instruction, result);
-    increment_pc(emu);
-}
-
-static void
-ld(risc_v_emu_t* emu, const uint32_t instruction)
-{
-    const uint32_t base   = get_register_rs1(emu, instruction);
-    const uint32_t offset = i_type_get_immediate(instruction);
-    const uint32_t target = base + offset;
-
-    ginger_log(DEBUG, "Executing\t\tLD %s 0x%x\n",
-               reg_to_str(get_rd(instruction)), target);
-
-    uint8_t loaded_bytes[8] = {0};
-    emu->mmu->read(emu->mmu, loaded_bytes, target, 8);
-    const uint64_t result = byte_arr_to_u64(loaded_bytes, 8, LSB);
 
     set_rd(emu, instruction, result);
     increment_pc(emu);
@@ -629,7 +633,7 @@ execute_arithmetic_i_instruction(risc_v_emu_t* emu, const uint32_t instruction)
 
         // NOTE: According to the risc v specification, SRLI should equal funct7 == 0.
         //       This does not seem to be the case, according to our custom objdump.
-        //       Somehow,, srli can show up with funct7 set to 1. This should not happen.
+        //       Somehow, srli can show up with funct7 set to 1. This should not happen.
         if (funct7 == 0 || funct7 == 1) {
             srli(emu, instruction);
         }
@@ -1109,11 +1113,15 @@ sh(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 sw(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    ginger_log(DEBUG, "Executing          SW\n");
     const uint32_t target      = get_register_rs1(emu, instruction) + s_type_get_immediate(instruction);
     const uint64_t store_value = get_register_rs2(emu, instruction) & 0xffffffff;
 
     uint8_t store_bytes[8] = {0};
+
+    // TODO: Reuse variables above instead of running the functions again.
+    ginger_log(DEBUG, "Executing\tSW %s, %d\n", reg_to_str(get_rs1(instruction)), s_type_get_immediate(instruction));
+    ginger_log(DEBUG, "Target adr: 0x%x\n", target);
+    ginger_log(DEBUG, "Storing value: 0x%lx\n", store_value);
 
     // TODO: Update u64_to_byte_arr to be able to handle smaller integers,
     //       removing the need for 8 byte array here.
