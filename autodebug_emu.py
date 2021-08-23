@@ -80,7 +80,6 @@ def compare_regs(emu_regs, gdb_regs, emu_regs_prev, gdb_regs_prev) -> list:
     return diff
 
 if __name__ == "__main__":
-
     # General setup.
     context.log_level = "error"#"DEBUG"
 

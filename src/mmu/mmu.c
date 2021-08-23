@@ -196,7 +196,7 @@ mmu_read(mmu_t* mmu, uint8_t* dst_buffer, const size_t src_adr, size_t size)
     // If permission denied
     for (int i = 0; i < size; i++) {
         if ((*(mmu->permissions + src_adr + i) & PERM_READ) == 0) {
-            ginger_log(ERROR, "Illegal read!\n");
+            ginger_log(ERROR, "Illegal read at address: 0x%lx\n", src_adr + i);
             //abort();
         }
     }

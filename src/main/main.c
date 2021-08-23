@@ -25,8 +25,16 @@ run_emu(risc_v_emu_t* emu, cli_t* cli)
 int
 main(int argc, char** argv)
 {
-    const size_t emu_total_mem = (1024 * 1024) * 256;//0x40007ffed0;
-    risc_v_emu_t* emu = risc_v_emu_create(emu_total_mem);
+    const size_t  emu_total_mem   = (1024 * 1024) * 256;//0x40007ffed0;
+    risc_v_emu_t* emu             = risc_v_emu_create(emu_total_mem);
+    const char    target_name[]   = "target";
+    const size_t  target_name_len = strlen(target_name);
+
+    // TODO: Support multiple target arguments.
+    //       Do not use any arguments for now.
+    const int     target_argc     = 1;
+    const char    target_arg[]    = { 0 };
+    const size_t  target_arg_len  = strlen(target_arg);
 
     // Load the elf into emulator memory.
     // Virtual addresses in the elf program headers corresponds directly to
@@ -54,12 +62,12 @@ main(int argc, char** argv)
     // Populate program name memory segment.
     uint64_t program_name_adr = emu->mmu->allocate(emu->mmu, 4096);
     ginger_log(INFO, "program_name_adr: 0x%lx\n", program_name_adr);
-    emu->mmu->write(emu->mmu, program_name_adr, (uint8_t*)"target\0", 6);
+    emu->mmu->write(emu->mmu, program_name_adr, (uint8_t*)target_name, target_name_len);
 
     // Populate arg1 name memory segment.
     uint64_t argv1_adr = emu->mmu->allocate(emu->mmu, 4096);
     ginger_log(INFO, "argv1_adr: 0x%lx\n", argv1_adr);
-    emu->mmu->write(emu->mmu, argv1_adr, (uint8_t*)"arg1\0", 4);
+    emu->mmu->write(emu->mmu, argv1_adr, (uint8_t*)target_arg, target_arg_len);
 
     // Push initial values onto the stack
     ginger_log(INFO, "Building initial stack at guest address: 0x%x\n", emu->registers[REG_SP]);
@@ -72,7 +80,7 @@ main(int argc, char** argv)
 
     u64_to_byte_arr(argv1_adr, argv1, LSB);
     u64_to_byte_arr(program_name_adr, argv0, LSB);
-    u64_to_byte_arr(1, arg_c, LSB); // Number of arguments to the target executable.
+    u64_to_byte_arr(target_argc, arg_c, LSB); // Number of arguments to the target executable.
 
     // Push the required values onto the stack as 64 bit values.
     emu->stack_push(emu, auxp, 8);     // 0u64
