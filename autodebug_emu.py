@@ -105,8 +105,18 @@ if __name__ == "__main__":
     last_diff     = [()] # List of tuples.
     user_in       = ""
     while 1:
-        gdb_regs = gdb_get_regs(gdb_proc)
-        emu_regs = emu_get_regs(emu_proc)
+        try:
+            gdb_regs = gdb_get_regs(gdb_proc)
+        except:
+            print("Could not get gdb regs. Exiting.")
+            kill_proc("qemu-riscv64")
+            exit(1)
+        try:
+            emu_regs = emu_get_regs(emu_proc)
+        except:
+            print("Could not get emu regs. Exiting.")
+            kill_proc("qemu-riscv64")
+            exit(1)
 
         diff = compare_regs(emu_regs, gdb_regs, emu_regs_prev, gdb_regs_prev)
 
@@ -116,6 +126,8 @@ if __name__ == "__main__":
             for _ in diff:
                 print(_)
             user_in = input()
+        elif len(emu_regs_prev) != 0:
+            print(f"emu pc: {emu_regs_prev[-1]}, gdb pc: {gdb_regs_prev[-1]}: OK")
 
         emu_next_instruction(emu_proc)
         gdb_next_instruction(gdb_proc)
