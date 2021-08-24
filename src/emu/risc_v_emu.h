@@ -66,6 +66,6 @@ struct risc_v_emu {
 
 risc_v_emu_t* risc_v_emu_create(size_t memory_size);
 
-uint64_t get_register(const risc_v_emu_t* emu, const uint8_t reg);
+uint32_t get_register(const risc_v_emu_t* emu, const uint8_t reg);
 
 #endif // EMU_H
