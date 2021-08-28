@@ -11,6 +11,7 @@
 enum emu_exit_reason {
     EMU_EXIT_REASON_NO_EXIT,
     EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED = 1,
+    EMU_EXIT_FSTAT_BAD_FD,
 };
 
 // This enum is not used to store register state. It is only used as indices

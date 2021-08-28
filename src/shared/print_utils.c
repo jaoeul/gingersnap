@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "../emu/risc_v_emu.h"
@@ -172,4 +173,31 @@ print_byte_array(uint8_t bytes[], size_t nb_bytes)
         printf("0x%02x ", bytes[i]);
     }
     printf("\n");
+}
+
+void
+print_fstat(struct stat statbuf)
+{
+    printf("st_dev: 0x%0lx\n", statbuf.st_dev);
+    printf("st_ino: 0x%lx\n", statbuf.st_ino);
+    printf("st_mode: 0x%x\n", statbuf.st_mode);
+    printf("st_nlink: 0x%lx\n", statbuf.st_nlink);
+    printf("st_uid: 0x%x\n", statbuf.st_uid);
+    printf("st_gid: 0x%x\n", statbuf.st_gid);
+    printf("st_rdev: 0x%lx\n", statbuf.st_rdev);
+    printf("st_size: %ld\n", statbuf.st_size);
+    printf("st_blksize: %ld\n", statbuf.st_blksize);
+    printf("st_blocks: %ld\n", statbuf.st_blocks);
+
+    // Time of last access.
+    printf("statbuf.st_atim.tv_sec: %ld\n", statbuf.st_atim.tv_sec);
+    printf("statbuf.st_atim.tv_nsec: %ld\n", statbuf.st_atim.tv_nsec);
+
+    // Time of last modification.
+    printf("statbuf.st_mtim.tv_sec: %ld\n", statbuf.st_mtim.tv_sec);
+    printf("statbuf.st_mtim.tv_nsec: %ld\n", statbuf.st_mtim.tv_nsec);
+
+    // Time of last status change.
+    printf("statbuf.st_ctim.tv_sec: %ld\n", statbuf.st_ctim.tv_sec);
+    printf("statbuf.st_ctim.tv_nsec: %ld\n", statbuf.st_ctim.tv_nsec);
 }

@@ -2,6 +2,7 @@
 #define PRINT_UTILS_H
 
 #include <stdint.h>
+#include <sys/stat.h>
 
 #include "../emu/risc_v_emu.h"
 
@@ -35,5 +36,8 @@ print_emu_registers(risc_v_emu_t* emu);
 
 void
 print_byte_array(uint8_t bytes[], size_t nb_bytes);
+
+void
+print_fstat(struct stat statbuf);
 
 #endif // PRINT_UTILS_H
