@@ -69,7 +69,7 @@ struct mmu {
 };
 
 mmu_t*
-mmu_create(size_t memory_size);
+mmu_create(const size_t memory_size, const size_t base_alloc_adr);
 
 void
 mmu_destroy(mmu_t* mmu);

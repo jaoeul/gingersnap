@@ -253,10 +253,14 @@ load_elf(char* path, risc_v_emu_t* emu)
         // Set correct perms of loaded program header.
         emu->mmu->set_permissions(emu->mmu, program_header.virtual_address, program_header.flags, program_header.memory_size);
 
-        // Update the allocation pointer to an 12 bit aligned address, for every program header we load, if we load the
-        // executable to addresses beyond it. This has not yet been tested.
-        if (emu->mmu->curr_alloc_adr < program_header.virtual_address + program_header.file_size) {
-            emu->mmu->curr_alloc_adr = (program_header.virtual_address + program_header.file_size + 0xfff) & ~0xfff;
+        // Update program break and emu->curr_alloc_adr to a 4KiB aligned address.
+        //
+        // Updating the `curr_alloc_adr` here makes sure that the stack will never overwrite
+        // the program headers, as long as it does not exceed `emu->stack_size`.
+        const uint64_t program_hdr_end = ((program_header.virtual_address + program_header.memory_size) + 0xfff) & ~0xfff;
+        if (emu->brk_adr <= program_hdr_end && emu->mmu->curr_alloc_adr <= program_hdr_end) {
+            emu->brk_adr             = program_hdr_end;
+            emu->mmu->curr_alloc_adr = program_hdr_end;
         }
 
         // TODO: Make permissions print out part of ginger_log().

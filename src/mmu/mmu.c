@@ -1,3 +1,16 @@
+/**
+ * Guest memory layout:
+ *
+ * =============================================================
+ * |  Program headers  | Guest stack (1MiB) |    Guest heap    |
+ * =============================================================
+ *                     ^                    ^
+ *                     emu->brk_adr         Initial value of curr_alloc_adr
+ *                                          |
+ *                                          Initial stack pointer
+ */
+
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -235,7 +248,7 @@ mmu_search(mmu_t* mmu, const uint64_t needle, const char size_letter)
 }
 
 mmu_t*
-mmu_create(size_t memory_size)
+mmu_create(const size_t memory_size, const size_t base_alloc_adr)
 {
     mmu_t* mmu = calloc(1, sizeof(mmu_t));
     if (!mmu) {
@@ -252,14 +265,14 @@ mmu_create(size_t memory_size)
         abort();
     }
 
-    // The base allocation address needs to be larger than
-    // the address of the last program header loaded into memory + its size.
-    // This is to make sure that allocations made by the emulator, when running
-    // the target binary, does not overwrite the binary itself.
+    // The base allocation address needs to be higher than the program brk address and the
+    // size of the stack. The elf loader makes sure that we do not overwrite guest allocated
+    // memory when loading the elf. And by setting the initial curr_alloc_adr to the address
+    // of where the stack starts, we make sure that the stack does not overwrite guest allocated
+    // memory, since it grows downwards.
     //
-    // The executable itself resides in address space 0 and the initial value of
-    // curr_allac_adr.
-    mmu->curr_alloc_adr = 1024 * 1024;
+    //
+    mmu->curr_alloc_adr = base_alloc_adr;
 
     // API functions.
     mmu->allocate        = mmu_allocate;

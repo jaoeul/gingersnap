@@ -13,30 +13,51 @@
 #include "../shared/print_utils.h"
 #include "../shared/vector.h"
 
-struct emu_exit_stats {
+struct emu_exit_counters {
     uint64_t unsupported_syscall;
+    uint64_t fstat_bad_fd;
     uint64_t unknown_exit_reason;
 };
 
-static void
-run_emu(risc_v_emu_t* emu, cli_t* cli)
-{
-    struct emu_exit_stats exit_stats = {0};
+// TODO: Atomic increments.
+//       Globas stats struct.
+struct emu_exit_counters g_counter;
 
+static void
+inc_exit_counter(const int counter)
+{
+    switch(counter) {
+        case EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
+            g_counter.unsupported_syscall++;
+            break;
+
+        case EMU_EXIT_FSTAT_BAD_FD:
+            g_counter.fstat_bad_fd++;
+            break;
+
+        default:
+            g_counter.unknown_exit_reason++;
+            break;
+    }
+}
+
+static void
+run_emu(risc_v_emu_t* emu, cli_t* cli, const bool debug)
+{
     for (;;) {
         // Exit reason. Set when emulator exits.
         if (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
-            debug_emu(emu, cli);
+
+            // FIXME: Debug does not halt on unknown syscall.
+            if (debug) {
+                debug_emu(emu, cli);
+            }
             emu->execute(emu);
         }
-        // Handle emu exit.
+        // Handle emu exit and break out of the run loop.
         else {
-            switch(emu->exit_reason) {
-            case EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
-                exit_stats.unsupported_syscall++;
-            default:
-                exit_stats.unknown_exit_reason++;
-            }
+            inc_exit_counter(emu->exit_reason);
+            break;
         }
     }
 }
@@ -44,7 +65,7 @@ run_emu(risc_v_emu_t* emu, cli_t* cli)
 int
 main(int argc, char** argv)
 {
-    const size_t  emu_total_mem   = (1024 * 1024) * 256;//0x40007ffed0;
+    const size_t  emu_total_mem   = (1024 * 1024) * 256;
     risc_v_emu_t* emu             = risc_v_emu_create(emu_total_mem);
     const char    target_name[]   = "target";
     const size_t  target_name_len = strlen(target_name);
@@ -52,7 +73,7 @@ main(int argc, char** argv)
     // TODO: Support multiple target arguments.
     //       Do not use any arguments for now.
     const int     target_argc     = 1;
-    const char    target_arg[]    = { 0 };
+    const char    target_arg[]    = {0};
     const size_t  target_arg_len  = strlen(target_arg);
 
     // Load the elf into emulator memory.
@@ -63,19 +84,19 @@ main(int argc, char** argv)
         abort();
     }
     load_elf(argv[1], emu);
+    ginger_log(INFO, "program brk: 0x%lx\n", emu->brk_adr);
 
     // Create a stack which starts at the curr_allocation address of the emulator.
     // Stack is 1MiB.
-    const size_t   stack_size  = (1024 * 1024);
-    const uint64_t stack_start = emu->mmu->allocate(emu->mmu, stack_size);
+    const uint64_t stack_start = emu->mmu->allocate(emu->mmu, emu->stack_size);
 
     // Stack grows downwards, so we set the stack pointer to starting address of the
     // stack + the stack size. As variables are allocated on the stack, their size
     // is subtracted from the stack pointer.
-    emu->registers[REG_SP] = stack_start + stack_size;
+    emu->registers[REG_SP] = stack_start + emu->stack_size;
 
     ginger_log(INFO, "Stack start: 0x%lx\n", stack_start);
-    ginger_log(INFO, "Stack size:  0x%lx\n", stack_size);
+    ginger_log(INFO, "Stack size:  0x%lx\n", emu->stack_size);
     ginger_log(INFO, "Stack ptr:   0x%lx\n", emu->registers[REG_SP]);
 
     // Populate program name memory segment.
@@ -119,11 +140,17 @@ main(int argc, char** argv)
     cli_t* debug_cli = emu_debug_create_cli(emu);
 
     // Start the emulator.
-    run_emu(emu, debug_cli);
+    const bool debug = false;
+    run_emu(emu, debug_cli, debug);
 
     ginger_log(INFO, "Freeing allocated data!\n");
     cli_destroy(debug_cli);
     emu->destroy(emu);
+
+    printf("\nCounters\n");
+    printf("unsupported_syscall: %lu\n", g_counter.unsupported_syscall);
+    printf("fstat_bad_fd: %lu\n", g_counter.fstat_bad_fd);
+    printf("unknown_exit_reason: %lu\n", g_counter.unknown_exit_reason);
 
     return 0;
 }

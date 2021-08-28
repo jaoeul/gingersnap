@@ -8,6 +8,7 @@
 #include "risc_v_emu.h"
 #include "syscall.h"
 
+#include "../shared/logger.h"
 #include "../shared/print_utils.h"
 
 void
@@ -98,7 +99,16 @@ handle_syscall(risc_v_emu_t* emu, const uint64_t num)
             // Return success.
             set_register(emu, REG_A0, 0);
         }
+        break;
+
+    // brk. Extend the processe data segment.
+    case 214:
+        ginger_log(ERROR, "brk not yet implemented!\n");
+        exit(1);
+        break;
+
     default:
         emu->exit_reason = EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED;
+        break;
     }
 }

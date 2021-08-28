@@ -1408,7 +1408,8 @@ risc_v_emu_create(size_t memory_size)
         return NULL;
     }
 
-    emu->mmu = mmu_create(memory_size);
+    emu->stack_size = 1024 * 1024; // 1MiB stack.
+    emu->mmu = mmu_create(memory_size, emu->stack_size);
     if (!emu->mmu) {
         ginger_log(ERROR, "[%s]Could not create mmu!\n", __func__);
         risc_v_emu_destroy(emu);

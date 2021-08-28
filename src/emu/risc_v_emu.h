@@ -67,6 +67,8 @@ struct risc_v_emu {
 
     uint64_t registers[33];
 
+    uint64_t stack_size;
+
     // File handle table. Indexed by file descriptors.
     vector_t* files;
 
@@ -75,6 +77,9 @@ struct risc_v_emu {
 
     // Exit reason.
     int exit_reason;
+
+    // Program break.
+    uint64_t brk_adr;
 };
 
 risc_v_emu_t* risc_v_emu_create(size_t memory_size);
