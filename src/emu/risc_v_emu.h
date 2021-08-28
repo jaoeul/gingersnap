@@ -6,6 +6,12 @@
 #include <stdint.h>
 
 #include "../mmu/mmu.h"
+#include "../shared/vector.h"
+
+enum emu_exit_reason {
+    EMU_EXIT_REASON_NO_EXIT,
+    EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED = 1,
+};
 
 // This enum is not used to store register state. It is only used as indices
 // for access to correct offset in the emulator register array.
@@ -60,12 +66,19 @@ struct risc_v_emu {
 
     uint64_t registers[33];
 
+    // File handle table. Indexed by file descriptors.
+    vector_t* files;
+
     // Memory management unit
     mmu_t* mmu;
+
+    // Exit reason.
+    int exit_reason;
 };
 
 risc_v_emu_t* risc_v_emu_create(size_t memory_size);
 
 uint64_t get_register(const risc_v_emu_t* emu, const uint8_t reg);
+void set_register(risc_v_emu_t* emu, const uint8_t reg, const uint64_t value);
 
 #endif // EMU_H

@@ -5,10 +5,12 @@
 #include <stdbool.h>
 
 #include "risc_v_emu.h"
+#include "syscall.h"
 
 #include "../shared/endianess_converter.h"
 #include "../shared/logger.h"
 #include "../shared/print_utils.h"
+#include "../shared/vector.h"
 
 // TODO: Remove globals.
 uint64_t nb_executed_instructions = 0;
@@ -209,7 +211,7 @@ get_next_instruction(const risc_v_emu_t* emu)
     return byte_arr_to_u64(instruction_bytes, 4, LSB);
 }
 
-static void
+void
 set_register(risc_v_emu_t* emu, const uint8_t reg, const uint64_t value)
 {
     ginger_log(DEBUG, "Setting register %s to 0x%lx\n", reg_to_str(reg), value);
@@ -666,14 +668,18 @@ fence(risc_v_emu_t* emu, const uint32_t instruction)
     abort();
 }
 
+
+// Syscall.
 static void
-ecall(risc_v_emu_t* emu, const uint32_t instruction)
+ecall(risc_v_emu_t* emu)
 {
-    ginger_log(DEBUG, "Executing          ECALL\n");
-    ginger_log(ERROR, "ECALL instruction not implemented!\n");
-    abort();
+    const uint64_t syscall_num = get_register(emu, REG_A7);
+    ginger_log(DEBUG, "Executing\tECALL %lu\n", syscall_num);
+    handle_syscall(emu, syscall_num);
 }
 
+// The EBREAK instruction is used to return control to a debugging environment.
+// We will not need this since we will not be "debugging" the target executables.
 static void
 ebreak(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -688,7 +694,7 @@ execute_env_instructions(risc_v_emu_t* emu, const uint32_t instruction)
     ginger_log(DEBUG, "funct12 = %u\n", funct12);
 
     if (funct12 == 0) {
-        ecall(emu, instruction);
+        ecall(emu);
     }
     else if (funct12 == 1) {
         ebreak(emu, instruction);
@@ -704,7 +710,7 @@ addiw(risc_v_emu_t* emu, const uint32_t instruction)
     const uint32_t immediate = i_type_get_immediate(instruction);
     const uint64_t rs1       = get_register_rs1(emu, instruction);
 
-    // FIXME: Carefully monitor casting logic of following line.
+    // TODO: Carefully monitor casting logic of following line.
     const int64_t result = (uint64_t)((int64_t)rs1 + immediate);
     set_register(emu, get_rd(instruction), result);
     increment_pc(emu);
@@ -1401,13 +1407,28 @@ risc_v_emu_create(size_t memory_size)
         ginger_log(ERROR, "[%s]Could not create emu!\n", __func__);
         return NULL;
     }
-    emu->mmu = mmu_create(memory_size);
 
+    emu->mmu = mmu_create(memory_size);
     if (!emu->mmu) {
         ginger_log(ERROR, "[%s]Could not create mmu!\n", __func__);
         risc_v_emu_destroy(emu);
         return NULL;
     }
+
+    // TODO: Might delete.
+    emu->files = vector_create(sizeof(uint64_t));
+    if (!emu->files) {
+            ginger_log(ERROR, "[%s]Could not create file handle table!\n", __func__);
+            risc_v_emu_destroy(emu);
+            return NULL;
+    }
+    // Initial file descriptors.
+    uint64_t _stdin  = 0;
+    uint64_t _stdout = 1;
+    uint64_t _stderr = 2;
+    vector_append(emu->files, &_stdin);
+    vector_append(emu->files, &_stdout);
+    vector_append(emu->files, &_stderr);
 
     // API.
     emu->execute                                        = risc_v_emu_execute_next_instruction;
@@ -1429,6 +1450,8 @@ risc_v_emu_create(size_t memory_size)
     emu->instructions[ENV]                              = execute_env_instructions;
     emu->instructions[ARITHMETIC_64_REGISTER_IMMEDIATE] = execute_arithmetic_64_register_immediate_instructions;
     emu->instructions[ARITHMETIC_64_REGISTER_REGISTER]  = execute_arithmetic_64_register_register_instructions;
+
+    emu->exit_reason = EMU_EXIT_REASON_NO_EXIT;
 
     return emu;
 }

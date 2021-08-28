@@ -13,12 +13,31 @@
 #include "../shared/print_utils.h"
 #include "../shared/vector.h"
 
+struct emu_exit_stats {
+    uint64_t unsupported_syscall;
+    uint64_t unknown_exit_reason;
+};
+
 static void
 run_emu(risc_v_emu_t* emu, cli_t* cli)
 {
+    struct emu_exit_stats exit_stats = {0};
+
     for (;;) {
-        debug_emu(emu, cli);
-        emu->execute(emu);
+        // Exit reason. Set when emulator exits.
+        if (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
+            debug_emu(emu, cli);
+            emu->execute(emu);
+        }
+        // Handle emu exit.
+        else {
+            switch(emu->exit_reason) {
+            case EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
+                exit_stats.unsupported_syscall++;
+            default:
+                exit_stats.unknown_exit_reason++;
+            }
+        }
     }
 }
 
