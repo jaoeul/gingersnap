@@ -11,13 +11,38 @@
 #include "../shared/logger.h"
 #include "../shared/print_utils.h"
 
+static const bool GUEST_VERBOSE_PRINTS = true;
+
 void
 handle_syscall(risc_v_emu_t* emu, const uint64_t num)
 {
     switch(num) {
 
-    // write.
+    // write. Only stdout and stderr are supported.
     case 64:
+        {
+            const uint64_t fd            = get_reg(emu, REG_A0);
+            const uint64_t buf_guest_adr = get_reg(emu, REG_A1);
+            const uint64_t len           = get_reg(emu, REG_A2);
+
+            if (fd != 1 && fd != 2) {
+                ginger_log(ERROR, "Write syscall is only supported for stdout and stderr file descriptors!\n");
+                ginger_log(ERROR, "fd: %lu\n", fd);
+                exit(1);
+            }
+
+            if (!GUEST_VERBOSE_PRINTS) {
+                // Fake that all bytes were written.
+                set_reg(emu, REG_A0, len);
+                return;
+            }
+
+            uint8_t print_buf[len + 1];
+            memset(print_buf, 0, len + 1);
+            emu->mmu->read(emu->mmu, print_buf, buf_guest_adr, len);
+            ginger_log(INFO, "Guest wrote: %s", print_buf);
+            set_reg(emu, REG_A0, len);
+        }
         break;
 
     // fstat. Write information about a file into emulator memory. We only support stdin, stdout
