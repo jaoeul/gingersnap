@@ -42,7 +42,7 @@ def build_output_path(src_file):
 def compile_src(mode, target, src_dir, cflags, linker_flags):
     modules = os.listdir(src_dir)
     for module in modules:
-        if (mode == "debug" or mode == "release") and module == "tests":
+        if (mode == "debug" or mode == "release" or mode == "auto") and module == "tests":
             continue
 
         # Create build dir for module
@@ -79,13 +79,18 @@ def compile_src(mode, target, src_dir, cflags, linker_flags):
 
 if __name__ == "__main__":
     debug_target   = "debug_gingersnap"
+    auto_target    = "auto_gingersnap"
     release_target = "release_gingersnap"
     test_target    = "test_gingersnap"
 
-    debug_cflags       = ["-g", "-Werror", "-Wall", "-DEMU_MODE_DEBUG"];
+    debug_cflags       = ["-g", "-Werror", "-Wall", "-DEMU_DEBUG"];
     debug_linker_flags = ["-g", "-Werror", "-Wall"];
 
-    release_cflags       = ["-O2", "-Werror", "-Wall", "-DEMU_MODE_RELEASE"];
+    # For automatic singlestepping through the emulator and gdb simultaneously.
+    auto_cflags       = ["-g", "-Werror", "-Wall", "-DAUTO_DEBUG"];
+    auto_linker_flags = ["-g", "-Werror", "-Wall"];
+
+    release_cflags       = ["-O2", "-Werror", "-Wall", "-DEMU_RELEASE"];
     release_linker_flags = ["-O2", "-Werror", "-Wall"];
 
     # Default target is debug.
@@ -94,6 +99,8 @@ if __name__ == "__main__":
     else:
         if sys.argv[1] == "d":
             compile_src("debug", debug_target, "./src", debug_cflags, debug_linker_flags)
+        elif sys.argv[1] == "a":
+            compile_src("auto", auto_target, "./src", auto_cflags, auto_linker_flags)
         elif sys.argv[1] == "r":
             compile_src("release", release_target, "./src", release_cflags, release_linker_flags)
         elif sys.argv[1] == "t":

@@ -16,12 +16,16 @@ handle_syscall(risc_v_emu_t* emu, const uint64_t num)
 {
     switch(num) {
 
+    // write.
+    case 64:
+        break;
+
     // fstat. Write information about a file into emulator memory. We only support stdin, stdout
     // and stderr file descriptors for now.
     case 80:
         {
-            const uint64_t fd                = get_register(emu, REG_A0);
-            const uint64_t statbuf_guest_adr = get_register(emu, REG_A1);
+            const uint64_t fd                = get_reg(emu, REG_A0);
+            const uint64_t statbuf_guest_adr = get_reg(emu, REG_A1);
 
             printf("fstat syscall\n");
             printf("fd: %lu\n", fd);
@@ -97,14 +101,40 @@ handle_syscall(risc_v_emu_t* emu, const uint64_t num)
             emu->mmu->write(emu->mmu, statbuf_guest_adr, (uint8_t*)&statbuf, sizeof(statbuf));
 
             // Return success.
-            set_register(emu, REG_A0, 0);
+            set_reg(emu, REG_A0, 0);
         }
         break;
 
-    // brk. Extend the processe data segment.
+    // brk. Allocate/deallocate heap.
     case 214:
-        ginger_log(ERROR, "brk not yet implemented!\n");
-        exit(1);
+        {
+            const uint64_t brk_val = get_reg(emu, REG_A0);
+            printf("brk address: 0x%lx\n", brk_val);
+
+            if (brk_val == 0) {
+                set_reg(emu, REG_A0, emu->mmu->curr_alloc_adr);
+                return;
+            }
+
+            // How much memory to allocate?
+            const int64_t new_alloc_size = brk_val - emu->mmu->curr_alloc_adr;
+
+            // TODO: Support freeing memory.
+            if (new_alloc_size < 0) {
+                ginger_log(ERROR, "brk. We do currently not support freeing memory!\n");
+                exit(1);
+            }
+
+            if (emu->mmu->curr_alloc_adr + new_alloc_size > emu->mmu->memory_size) {
+                ginger_log(ERROR, "brk. New allocation would run the emulator out of total memory!\n");
+                exit(1);
+            }
+
+            const uint64_t heap_end = emu->mmu->allocate(emu->mmu, new_alloc_size) + new_alloc_size;
+
+            // Return the new brk address.
+            set_reg(emu, REG_A0, heap_end);
+        }
         break;
 
     default:

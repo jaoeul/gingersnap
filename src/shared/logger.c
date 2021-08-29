@@ -33,7 +33,7 @@ colorize_stop(char* output_buffer)
 void
 ginger_log(uint8_t log_level, const char* fmt, ...)
 {
-#ifdef EMU_MODE_RELEASE
+#ifdef AUTO_DEBUG
         return;
 #endif
     char log_buffer[LOG_LENGTH_MAX] = {0};

@@ -88,7 +88,7 @@ if __name__ == "__main__":
     kill_proc("riscv64-unknown-elf-gdb")
 
     print("Spawning emulator process.")
-    emu_args = ["./release_gingersnap", "./target"]
+    emu_args = ["./auto_gingersnap", "./target"]
     emu_proc = process(emu_args)
     emu_proc.recvuntil("(debug) ")
 

@@ -84,9 +84,9 @@ main(int argc, char** argv)
         abort();
     }
     load_elf(argv[1], emu);
-    ginger_log(INFO, "program brk: 0x%lx\n", emu->brk_adr);
+    ginger_log(INFO, "curr_alloc_adr: 0x%lx\n", emu->mmu->curr_alloc_adr);
 
-    // Create a stack which starts at the curr_allocation address of the emulator.
+    // Create a stack which starts at the curr_alloc_adr of the emulator.
     // Stack is 1MiB.
     const uint64_t stack_start = emu->mmu->allocate(emu->mmu, emu->stack_size);
 
@@ -140,7 +140,11 @@ main(int argc, char** argv)
     cli_t* debug_cli = emu_debug_create_cli(emu);
 
     // Start the emulator.
+#ifdef AUTO_DEBUG
+    const bool debug = true;
+#else
     const bool debug = false;
+#endif
     run_emu(emu, debug_cli, debug);
 
     ginger_log(INFO, "Freeing allocated data!\n");

@@ -258,8 +258,7 @@ load_elf(char* path, risc_v_emu_t* emu)
         // Updating the `curr_alloc_adr` here makes sure that the stack will never overwrite
         // the program headers, as long as it does not exceed `emu->stack_size`.
         const uint64_t program_hdr_end = ((program_header.virtual_address + program_header.memory_size) + 0xfff) & ~0xfff;
-        if (emu->brk_adr <= program_hdr_end && emu->mmu->curr_alloc_adr <= program_hdr_end) {
-            emu->brk_adr             = program_hdr_end;
+        if (emu->mmu->curr_alloc_adr <= program_hdr_end) {
             emu->mmu->curr_alloc_adr = program_hdr_end;
         }
 

@@ -183,7 +183,7 @@ emu_debug_run_until_breakpoint(risc_v_emu_t* emu, vector_t* breakpoints)
     for (;;) {
         emu->execute(emu);
         for (size_t i = 0; i < vector_length(breakpoints); i++) {
-            uint64_t curr_pc = get_register(emu, REG_PC);
+            uint64_t curr_pc = get_reg(emu, REG_PC);
 
             if (curr_pc == *(uint64_t*)vector_get(breakpoints, i)) {
                 ginger_log(INFO, "Hit breakpoint %zu\t0x%zx\n", i, curr_pc);

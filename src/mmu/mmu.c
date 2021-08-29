@@ -1,13 +1,23 @@
 /**
  * Guest memory layout:
  *
- * =============================================================
- * |  Program headers  | Guest stack (1MiB) |    Guest heap    |
- * =============================================================
- *                     ^                    ^
- *                     emu->brk_adr         Initial value of curr_alloc_adr
- *                                          |
- *                                          Initial stack pointer
+ * ===============================================================
+ * |  Program headers  | <-- Guest stack (1MiB) | Guest heap --> |
+ * ===============================================================
+ * ^                                            ^                ^
+ * |                                            |                |
+ * Address 0.                                   Initial stack pointer (grows downwards).
+ *                                              |                |
+ *                                              Initial curr_alloc_adr (grows upwards).
+ *                                                               |
+ *                                                               Address: mmu->memory_size.
+ *
+ * Note that instead of having the stack and the heap traditianally growing towards eachother,
+ * this emulator and mmu implements them differently. This is to avoid supporting emulation of big
+ * allocations, which would use the mmap syscall instead of brk/sbrk and to safely allow for
+ * allocatons of big chunks of memory on the heap without overwriting the stack. It will however
+ * lead to diffing values returned by the brk/sbrk syscall, but this should hopefully not impact
+ * program execution.
  */
 
 
@@ -146,8 +156,8 @@ mmu_allocate(mmu_t* mmu, size_t size)
 static void
 mmu_write(mmu_t* mmu, size_t dst_adr, const uint8_t* src_buffer, size_t size)
 {
-    if (dst_adr + size > mmu->curr_alloc_adr) {
-        ginger_log(WARNING, "[%s] Write outside of emulator memory!\n", __func__);
+    if (dst_adr + size > mmu->memory_size) {
+        ginger_log(WARNING, "[%s] Write outside of total emulator memory!\n", __func__);
     }
 
     // Check permission of memory we are about to write to. If any of the addresses has the PERM_READ_AFTER_WRITE bit

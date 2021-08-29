@@ -77,14 +77,11 @@ struct risc_v_emu {
 
     // Exit reason.
     int exit_reason;
-
-    // Program break.
-    uint64_t brk_adr;
 };
 
 risc_v_emu_t* risc_v_emu_create(size_t memory_size);
 
-uint64_t get_register(const risc_v_emu_t* emu, const uint8_t reg);
-void set_register(risc_v_emu_t* emu, const uint8_t reg, const uint64_t value);
+uint64_t get_reg(const risc_v_emu_t* emu, const uint8_t reg);
+void set_reg(risc_v_emu_t* emu, const uint8_t reg, const uint64_t value);
 
 #endif // EMU_H
