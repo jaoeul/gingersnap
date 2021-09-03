@@ -39,6 +39,19 @@ handle_syscall(risc_v_emu_t* emu, const uint64_t num)
 {
     switch(num) {
 
+    // close. Only stdin, stdout and stderr are supported.
+    case 57:
+        {
+            const uint64_t fd = get_reg(emu, REG_A0);
+            if (fd > 2) {
+                ginger_log(ERROR, "Close syscall is only supported for stdin, stdout and stderr file descriptors!\n");
+                ginger_log(ERROR, "fd: %lu\n", fd);
+            }
+            // Fake success.
+            set_reg(emu, REG_A0, 0);
+        }
+        break;
+
     // write. Only stdout and stderr are supported.
     case 64:
         {
