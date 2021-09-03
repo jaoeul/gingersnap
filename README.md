@@ -19,15 +19,13 @@ To run the fuzzcases deterministically we implement
 an CPU emulator. This lets us run any arbitrary binary
 compiled for the emulated architecture fully under
 our control. The riscv 64i CPU architecture is the
-platform of choise for this project. The emulator
+platform of choice for this project. The emulator
 is designed with multi-threading and affinity in mind,
 allowing us to run one emulator per cpu core.
 
 ## MMU
-We will need to be able to detect crashes. The MMU
-handles the memory required for the executable under test. It
-will implement byte-level permission, detecting when an
-illegal address has been accessed.
+The MMU (memory management unit) handles the memory required for the target executable.
+It implements byte-level permission, detecting when an illegal address has been accessed.
 
 ## Syscalls
 A binary that uses syscalls will not work in a pure CPU emulator.
