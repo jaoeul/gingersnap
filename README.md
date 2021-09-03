@@ -1,44 +1,58 @@
 Gingersnap shapshot fuzzer
 ==========================
 
-This is a work in progress.
+Disclaimer: This is a work in progress.
 
-The core idea of this project is to implement a fuzzer able to restart
-executables in a deterministic and efficient manner, providing new, mutated
-input for each test case, with the goal of ultimately crashing the program, or
-finding unexpected behavior. When a specific input triggers a crash, the fuzzer
-will note the input and proceed with the next input.
+The core idea of this project is to provide better harnessing and more efficient fuzzing
+of executables than that of traditional fuzzers, like AFL. Running the target executable
+in an emulator gives us full control, and by implementing the mmu ourselves, we gain
+bytewise granuality of memory permissions, allowing us to detect read or writes only
+one byte off.
+
+# Usage
+TODO :^)
 
 # Components
-
-## MMU
-We will need to be able to detect crashes. The MMU
-handles the memory required for the test binary. It
-will implement byte-level permission, detecting when an
-illegal address has been accessed.
 
 ## CPU emulator
 To run the fuzzcases deterministically we implement
 an CPU emulator. This lets us run any arbitrary binary
-compiled for the target emulated architecture fully under
-our control.
+compiled for the emulated architecture fully under
+our control. The riscv 64i CPU architecture is the
+platform of choise for this project. The emulator
+is designed with multi-threading and affinity in mind,
+allowing us to run one emulator per cpu core.
+
+## MMU
+We will need to be able to detect crashes. The MMU
+handles the memory required for the executable under test. It
+will implement byte-level permission, detecting when an
+illegal address has been accessed.
 
 ## Syscalls
 A binary that uses syscalls will not work in a pure CPU emulator.
 We can bypass this problem either by running the entire OS in the
 emulator, or by implementing a function of our own for every
-syscall called by the target binary.
+syscall called by the executable under test.
+
+## Snapshots
+A snapshot consists of cpu and mmu state.
 
 ## State reset functionality
-To restart the binary quickly in userspace, we simply revert the state of the
-CPU and memory to its initial state, present before execution started.
+To restart the target quickly in userspace, we simply reset the state of the
+CPU and mmu to its initial pre-fuzzed snapshot. This allows for great
+performance as resets scale linearly with number of cpu cores.
 
 ## Risc V
 The cpu emulator will implement the riscv 64i instruction set. Target
-executables need to be compiled for this architecture, and statically linked.
+executables need to be statically linked and compiled for this architecture.
 How to build a target with these properties are described below.
 
-# Usage
+# Building a target
+Gingersnap uses a cpu emulator, and does its work on machine instructions.
+This means that you do not need the source code for your target. However,
+if you would like to build a target for testing purposes, the below section
+describes how.
 
 ## Setup
 
@@ -78,7 +92,6 @@ qemu-riscv64 <name_of_exe>
 
 We are now able to compile source code to riscv64i elfs, the cpu architecture
 emulated by gingersnap.
-
 
 ## Debugging and singlestepping the target executable
 
