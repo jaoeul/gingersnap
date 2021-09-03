@@ -107,3 +107,11 @@ target remote localhost:1234
 break *<program_entry_point_address>
 run
 ```
+
+## Browse the instructions of the target
+Note that the `no-aliases` option shows only the canonical instructions, rather than
+pseudoinstructions.
+
+```bash
+riscv_build_toolchain/bin/riscv64-unknown-elf-objdump -M intel,no-aliases -D ./target | less
+```
