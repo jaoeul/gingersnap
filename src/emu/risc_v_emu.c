@@ -709,8 +709,8 @@ static void
 addiw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          ADDIW\n");
-    const uint32_t immediate = i_type_get_immediate(instruction);
-    const uint64_t rs1       = get_reg_rs1(emu, instruction);
+    const int32_t immediate = i_type_get_immediate(instruction);
+    const uint64_t rs1      = get_reg_rs1(emu, instruction);
 
     // TODO: Carefully monitor casting logic of following line.
     const uint64_t result = (int64_t)(rs1 + immediate);
@@ -812,10 +812,9 @@ sllw(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          SLLW\n");
     const uint64_t rs1   = get_reg_rs1(emu, instruction);
-    const uint64_t src   = get_reg(emu, rs1);
-    const uint64_t shamt = get_reg_rs2(emu, instruction) & 0x1f;
+    const uint64_t shamt = get_reg_rs2(emu, instruction) & 0b11111;
 
-    const uint64_t result = (uint64_t)(int64_t)(src << shamt);
+    const uint64_t result = (uint64_t)(int64_t)(rs1 << shamt);
 
     set_rd(emu, instruction, result);
     increment_pc(emu);
@@ -912,13 +911,15 @@ sub(risc_v_emu_t* emu, const uint32_t instruction)
 {
     const int64_t  register_rs1 = get_reg_rs1(emu, instruction);
     const int64_t  register_rs2 = get_reg_rs2(emu, instruction);
-    const uint64_t result       = register_rs1 - register_rs2;
+    const int64_t  result       = register_rs1 - register_rs2;
     const uint8_t  ret_reg      = get_rd(instruction);
 
     ginger_log(DEBUG, "Executing\tSUB\t%s, %s, %s\n",
                reg_to_str(ret_reg),
                reg_to_str(get_rs1(instruction)),
                reg_to_str(get_rs2(instruction)));
+
+    ginger_log(DEBUG, "%ld - %ld  = %ld -> %s\n", register_rs1, register_rs2, result, reg_to_str(ret_reg));
 
     set_rd(emu, instruction, result);
     increment_pc(emu);
