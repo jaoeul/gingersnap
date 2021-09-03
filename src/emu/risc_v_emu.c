@@ -483,8 +483,8 @@ execute_load_instruction(risc_v_emu_t* emu, const uint32_t instruction)
     }
 }
 
-// Add immediate. Adding a register with 0 and storing it in another register is
-// the riscvi implementation of mv.
+// Add immediate. Also used to implement the pseudoinstructions mv and li. Adding a
+// register with 0 and storing it in another register is the riscvi implementation of mv.
 static void
 addi(risc_v_emu_t* emu, const uint32_t instruction)
 {
@@ -910,8 +910,8 @@ add(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 sub(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint64_t register_rs1 = get_reg_rs1(emu, instruction);
-    const uint64_t register_rs2 = get_reg_rs2(emu, instruction);
+    const int64_t  register_rs1 = get_reg_rs1(emu, instruction);
+    const int64_t  register_rs2 = get_reg_rs2(emu, instruction);
     const uint64_t result       = register_rs1 - register_rs2;
     const uint8_t  ret_reg      = get_rd(instruction);
 
@@ -927,10 +927,16 @@ sub(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 sll(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    ginger_log(DEBUG, "Executing          SLL\n");
     const uint64_t register_rs1 = get_reg_rs1(emu, instruction);
-    const uint64_t shift_value  = get_reg_rs2(emu, instruction) & 0xf1;
+    const uint64_t shift_value  = get_reg_rs2(emu, instruction) & 0b111111;
     const uint64_t result       = register_rs1 << shift_value;
+
+    ginger_log(DEBUG, "Executing\tSLL\t%s, %s, %s\n", reg_to_str(get_rd(instruction)),
+               reg_to_str(get_rs1(instruction)), reg_to_str(get_rs2(instruction)));
+
+    ginger_log(DEBUG, "to shift: %lu, shift value: %lu, result: %lu\n", register_rs1, shift_value,
+               result);
+
     set_rd(emu, instruction, result);
     increment_pc(emu);
 }
