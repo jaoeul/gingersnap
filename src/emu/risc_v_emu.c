@@ -383,15 +383,13 @@ lw(risc_v_emu_t* emu, const uint32_t instruction)
 static void
 ld(risc_v_emu_t* emu, const uint32_t instruction)
 {
-    const uint64_t base   = get_reg_rs1(emu, instruction);
-    const uint32_t offset = i_type_get_immediate(instruction);
-    const uint64_t target = base + offset;
+    const uint64_t target = get_reg_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
-    ginger_log(DEBUG, "Executing\t\tLD %s 0x%x\n",
-               reg_to_str(get_rd(instruction)), target);
+    ginger_log(DEBUG, "Executing\t\tLD %s 0x%lx\n", reg_to_str(get_rd(instruction)), target);
 
     uint8_t loaded_bytes[8] = {0};
     emu->mmu->read(emu->mmu, loaded_bytes, target, 8);
+
     const uint64_t result = byte_arr_to_u64(loaded_bytes, 8, LSB);
 
     set_rd(emu, instruction, result);
