@@ -13,6 +13,27 @@
 
 static const bool GUEST_VERBOSE_PRINTS = true;
 
+// Linux kernel 64 stat struct.
+struct kernel_stat
+{
+    unsigned long long st_dev;
+    unsigned long long st_ino;
+    unsigned int st_mode;
+    unsigned int st_nlink;
+    unsigned int st_uid;
+    unsigned int st_gid;
+    unsigned long long st_rdev;
+    unsigned long long __pad1;
+    long long st_size;
+    int st_blksize;
+    int __pad2;
+    long long st_blocks;
+    struct timespec st_atim;
+    struct timespec st_mtim;
+    struct timespec st_ctim;
+    int __glibc_reserved[2];
+};
+
 void
 handle_syscall(risc_v_emu_t* emu, const uint64_t num)
 {
@@ -40,7 +61,7 @@ handle_syscall(risc_v_emu_t* emu, const uint64_t num)
             uint8_t print_buf[len + 1];
             memset(print_buf, 0, len + 1);
             emu->mmu->read(emu->mmu, print_buf, buf_guest_adr, len);
-            ginger_log(INFO, "Guest wrote: %s", print_buf);
+            ginger_log(INFO, "Guest wrote: %s\n", print_buf);
             set_reg(emu, REG_A0, len);
         }
         break;
@@ -56,66 +77,48 @@ handle_syscall(risc_v_emu_t* emu, const uint64_t num)
             printf("fd: %lu\n", fd);
             printf("statbuf: 0x%lx\n", statbuf_guest_adr);
 
-            struct stat statbuf; // From sys/stat.h.
-            memset(&statbuf, 0, sizeof(statbuf));
+            struct kernel_stat k_statbuf; // From sys/stat.h.
+            memset(&k_statbuf, 0, sizeof(k_statbuf));
 
             // Following magic values were retreived from running fstat on the host OS.
             // stdin
             if (fd == 0) {
-                statbuf.st_dev          = 0x17;
-                statbuf.st_ino          = 0x6;
-                statbuf.st_mode         = 0x2190;
-                statbuf.st_nlink        = 0x1;
-                statbuf.st_uid          = 0x3e8;
-                statbuf.st_gid          = 0x5;
-                statbuf.st_rdev         = 0x8803;
-                statbuf.st_size         = 0;
-                statbuf.st_blksize      = 1024;
-                statbuf.st_blocks       = 0;
-                statbuf.st_atim.tv_sec  = 0;
-                statbuf.st_atim.tv_nsec = 0;
-                statbuf.st_mtim.tv_sec  = 0;
-                statbuf.st_mtim.tv_nsec = 0;
-                statbuf.st_ctim.tv_sec  = 0;
-                statbuf.st_ctim.tv_nsec = 0;
+                k_statbuf.st_dev          = 0x17;
+                k_statbuf.st_ino          = 0x6;
+                k_statbuf.st_mode         = 0x2190;
+                k_statbuf.st_nlink        = 0x1;
+                k_statbuf.st_uid          = 0x3e8;
+                k_statbuf.st_gid          = 0x5;
+                k_statbuf.st_rdev         = 0x8803;
+                k_statbuf.st_size         = 0;
+                k_statbuf.st_blocks       = 0;
+                k_statbuf.st_blksize      = 1024;
             }
             // stdout
             else if (fd == 1) {
-                statbuf.st_dev          = 0x17;
-                statbuf.st_ino          = 0xe;
-                statbuf.st_mode         = 0x2190;
-                statbuf.st_nlink        = 0x1;
-                statbuf.st_uid          = 0x3e8;
-                statbuf.st_gid          = 0x5;
-                statbuf.st_rdev         = 0x880b;
-                statbuf.st_size         = 0;
-                statbuf.st_blksize      = 1024;
-                statbuf.st_blocks       = 0;
-                statbuf.st_atim.tv_sec  = 0;
-                statbuf.st_atim.tv_nsec = 0;
-                statbuf.st_mtim.tv_sec  = 0;
-                statbuf.st_mtim.tv_nsec = 0;
-                statbuf.st_ctim.tv_sec  = 0;
-                statbuf.st_ctim.tv_nsec = 0;
+                k_statbuf.st_dev          = 0x17;
+                k_statbuf.st_ino          = 0xe;
+                k_statbuf.st_mode         = 0x2190;
+                k_statbuf.st_nlink        = 0x1;
+                k_statbuf.st_uid          = 0x3e8;
+                k_statbuf.st_gid          = 0x5;
+                k_statbuf.st_rdev         = 0x880b;
+                k_statbuf.st_size         = 0;
+                k_statbuf.st_blocks       = 0;
+                k_statbuf.st_blksize      = 1024;
             }
             // stderr
             else if (fd == 2) {
-                statbuf.st_dev          = 0x17;
-                statbuf.st_ino          = 0xf;
-                statbuf.st_mode         = 0x2190;
-                statbuf.st_nlink        = 0x1;
-                statbuf.st_uid          = 0x3e8;
-                statbuf.st_gid          = 0x5;
-                statbuf.st_rdev         = 0x880c;
-                statbuf.st_size         = 0;
-                statbuf.st_blksize      = 1024;
-                statbuf.st_blocks       = 0;
-                statbuf.st_atim.tv_sec  = 0;
-                statbuf.st_atim.tv_nsec = 0;
-                statbuf.st_mtim.tv_sec  = 0;
-                statbuf.st_mtim.tv_nsec = 0;
-                statbuf.st_ctim.tv_sec  = 0;
-                statbuf.st_ctim.tv_nsec = 0;
+                k_statbuf.st_dev          = 0x17;
+                k_statbuf.st_ino          = 0xf;
+                k_statbuf.st_mode         = 0x2190;
+                k_statbuf.st_nlink        = 0x1;
+                k_statbuf.st_uid          = 0x3e8;
+                k_statbuf.st_gid          = 0x5;
+                k_statbuf.st_rdev         = 0x880c;
+                k_statbuf.st_size         = 0;
+                k_statbuf.st_blocks       = 0;
+                k_statbuf.st_blksize      = 1024;
             }
             else {
                 emu->exit_reason = EMU_EXIT_FSTAT_BAD_FD;
@@ -123,7 +126,7 @@ handle_syscall(risc_v_emu_t* emu, const uint64_t num)
             }
 
             // Write the statbuf into guest memory.
-            emu->mmu->write(emu->mmu, statbuf_guest_adr, (uint8_t*)&statbuf, sizeof(statbuf));
+            emu->mmu->write(emu->mmu, statbuf_guest_adr, (uint8_t*)&k_statbuf, sizeof(k_statbuf));
 
             // Return success.
             set_reg(emu, REG_A0, 0);
