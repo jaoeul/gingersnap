@@ -46,6 +46,7 @@ handle_syscall(risc_v_emu_t* emu, const uint64_t num)
             if (fd > 2) {
                 ginger_log(ERROR, "Close syscall is only supported for stdin, stdout and stderr file descriptors!\n");
                 ginger_log(ERROR, "fd: %lu\n", fd);
+                exit(1);
             }
             // Fake success.
             set_reg(emu, REG_A0, 0);
@@ -144,6 +145,11 @@ handle_syscall(risc_v_emu_t* emu, const uint64_t num)
             // Return success.
             set_reg(emu, REG_A0, 0);
         }
+        break;
+
+    // exit. Emulator gracefully called the exit syscall. Graceful exit.
+    case 93:
+        emu->exit_reason = EMU_EXIT_GRACEFUL;
         break;
 
     // brk. Allocate/deallocate heap.
