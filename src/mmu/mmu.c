@@ -209,13 +209,16 @@ mmu_write(mmu_t* mmu, size_t dst_adr, const uint8_t* src_buffer, size_t size)
     }
 }
 
-
 // Read from guest memory into buffer. Function is intentionally not bounds
 // checked to allow for illegal reads which will be detected and recorded as a
 // crash.
 static void
-mmu_read(mmu_t* mmu, uint8_t* dst_buffer, const size_t src_adr, size_t size)
+mmu_read(mmu_t* mmu, uint8_t* dst_buffer, const uint64_t src_adr, size_t size)
 {
+    // We could enable the user to crash as soon as invalid data is accessed. However, not doing it
+    // allows us to see where the execution goes even after an invalid read.
+    ginger_log(WARNING, "Address 0x%lx is outside of emulator total memory!\n", src_adr);
+
     // If permission denied
     for (int i = 0; i < size; i++) {
         if ((*(mmu->permissions + src_adr + i) & PERM_READ) == 0) {
