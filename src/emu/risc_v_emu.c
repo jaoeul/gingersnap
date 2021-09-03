@@ -490,7 +490,7 @@ addi(risc_v_emu_t* emu, const uint32_t instruction)
 {
     const int32_t  addend = i_type_get_immediate(instruction);
     const uint64_t rs1    = get_reg_rs1(emu, instruction);
-    const uint64_t result = (int64_t)rs1 + addend; // Sign extend to 64 bit.
+    const uint64_t result = (int64_t)(rs1 + addend); // Sign extend to 64 bit.
 
     ginger_log(DEBUG, "Executing\tADDI %s %s %d\n",
                reg_to_str(get_rd(instruction)),
@@ -538,8 +538,10 @@ static void
 xori(risc_v_emu_t* emu, const uint32_t instruction)
 {
     ginger_log(DEBUG, "Executing          XORI\n");
-    const uint32_t immediate = (uint32_t)i_type_get_immediate(instruction);
-    const uint64_t result = get_reg_rs1(emu, instruction) ^ immediate;
+    const int32_t immediate = i_type_get_immediate(instruction);
+
+    // Sign extend.
+    const uint64_t result = (int64_t)(get_reg_rs1(emu, instruction) ^ immediate);
     set_rd(emu, instruction, result);
     increment_pc(emu);
 }
@@ -711,7 +713,7 @@ addiw(risc_v_emu_t* emu, const uint32_t instruction)
     const uint64_t rs1       = get_reg_rs1(emu, instruction);
 
     // TODO: Carefully monitor casting logic of following line.
-    const int64_t result = (uint64_t)((int64_t)rs1 + immediate);
+    const uint64_t result = (int64_t)(rs1 + immediate);
     set_reg(emu, get_rd(instruction), result);
     increment_pc(emu);
 }
@@ -1344,6 +1346,7 @@ risc_v_emu_execute_next_instruction(risc_v_emu_t* emu)
     const uint32_t instruction = get_next_instruction(emu);
     const uint8_t  opcode      = get_opcode(instruction);
 
+    ginger_log(DEBUG, "=========================\n");
     ginger_log(DEBUG, "PC: 0x%x\n", get_pc(emu));
     ginger_log(DEBUG, "Number of executed instructions: %lu\n", nb_executed_instructions);
     ginger_log(DEBUG, "Instruction\t0x%08x\n", instruction);
