@@ -24,7 +24,7 @@ def get_object_files(mode, modules):
 
         # The test binary has its own main function. Never compile together with
         # the real application.
-        if (mode == "debug" or mode == "release") and module == "tests":
+        if (mode == "debug" or mode == "release" or mode == "auto") and module == "tests":
             continue
         elif mode == "test" and module == "main":
             continue

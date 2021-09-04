@@ -3,20 +3,29 @@
 
 #include "heap_str.h"
 
-heap_str_t*
-heap_str_create(const char str[])
+void
+heap_str_set(heap_str_t* heap_str, const char* str)
 {
     const size_t len     = strlen(str);
-    heap_str_t* heap_str = calloc(1, sizeof(heap_str_t));
-    heap_str->str    = calloc(len + 1, 1);
-    heap_str->len    = len;
+    heap_str->str        = calloc(len + 1, 1);
+    heap_str->len        = len;
     memcpy(heap_str->str, str, len);
-    return heap_str;
+}
+
+char*
+heap_str_get(heap_str_t* heap_str)
+{
+    return heap_str->str;
+}
+
+uint64_t
+heap_str_length(heap_str_t* heap_str)
+{
+    return heap_str->len;
 }
 
 void
 heap_str_destroy(heap_str_t* heap_str)
 {
     free(heap_str->str);
-    free(heap_str);
 }
