@@ -9,14 +9,20 @@
 #include "../shared/elf_loader.h"
 #include "../shared/endianess_converter.h"
 #include "../shared/endianess_converter.h"
+#include "../shared/heap_str.h"
 #include "../shared/logger.h"
 #include "../shared/print_utils.h"
 #include "../shared/vector.h"
+#include "../target/target.h"
+
+// Max length of an cli argument of the target executable.
+#define ARG_MAX 4096
 
 struct emu_exit_counters {
     uint64_t unsupported_syscall;
     uint64_t fstat_bad_fd;
     uint64_t unknown_exit_reason;
+    uint64_t graceful_exit;
 };
 
 // TODO: Atomic increments.
@@ -30,11 +36,12 @@ inc_exit_counter(const int counter)
         case EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
             g_counter.unsupported_syscall++;
             break;
-
         case EMU_EXIT_FSTAT_BAD_FD:
             g_counter.fstat_bad_fd++;
             break;
-
+        case EMU_EXIT_GRACEFUL:
+            g_counter.graceful_exit++;
+            break;
         default:
             g_counter.unknown_exit_reason++;
             break;
@@ -65,25 +72,25 @@ run_emu(risc_v_emu_t* emu, cli_t* cli, const bool debug)
 int
 main(int argc, char** argv)
 {
-    const size_t  emu_total_mem   = (1024 * 1024) * 256;
-    risc_v_emu_t* emu             = risc_v_emu_create(emu_total_mem);
-    const char    target_name[]   = "target";
-    const size_t  target_name_len = strlen(target_name);
+    const size_t  emu_total_mem  = (1024 * 1024) * 256;
+    risc_v_emu_t* emu            = risc_v_emu_create(emu_total_mem);
+    const int  target_argc       = 1;
 
-    // TODO: Support multiple target arguments.
-    //       Do not use any arguments for now.
-    const int     target_argc     = 1;
-    const char    target_arg[]    = {0};
-    const size_t  target_arg_len  = strlen(target_arg);
+    // Array of arguments to the target executable.
+    heap_str_t target_argv[target_argc];
+    memset(target_argv, 0, sizeof(target_argv));
 
-    // Load the elf into emulator memory.
-    // Virtual addresses in the elf program headers corresponds directly to
-    // addresses in the emulators memory.
-    // TODO: getopt
-    if (argv[1] == NULL) {
-        abort();
-    }
-    load_elf(argv[1], emu);
+    // First arg.
+    heap_str_t arg0;
+    heap_str_set(&arg0, "./target");
+    target_argv[0] = arg0;
+
+    // Create the a class, representing the target executable.
+    target_t* target = target_create(target_argc, target_argv);
+
+    // Load the elf and build the stack.
+    emu->setup(emu, target);
+
     ginger_log(INFO, "curr_alloc_adr: 0x%lx\n", emu->mmu->curr_alloc_adr);
 
     // Create a stack which starts at the curr_alloc_adr of the emulator.
@@ -99,36 +106,40 @@ main(int argc, char** argv)
     ginger_log(INFO, "Stack size:  0x%lx\n", emu->stack_size);
     ginger_log(INFO, "Stack ptr:   0x%lx\n", emu->registers[REG_SP]);
 
-    // Populate program name memory segment.
-    uint64_t program_name_adr = emu->mmu->allocate(emu->mmu, 4096);
-    ginger_log(INFO, "program_name_adr: 0x%lx\n", program_name_adr);
-    emu->mmu->write(emu->mmu, program_name_adr, (uint8_t*)target_name, target_name_len);
+    // Where the arguments got written to in guest memory is saved in this array.
+    uint64_t guest_arg_addresses[target->argc];
+    memset(&guest_arg_addresses, 0, sizeof(guest_arg_addresses));
 
-    // Populate arg1 name memory segment.
-    uint64_t argv1_adr = emu->mmu->allocate(emu->mmu, 4096);
-    ginger_log(INFO, "argv1_adr: 0x%lx\n", argv1_adr);
-    emu->mmu->write(emu->mmu, argv1_adr, (uint8_t*)target_arg, target_arg_len);
+    // Write all provided arguments into guest memory.
+    for (int i = 0; i < target->argc; i++) {
+        // Populate program name memory segment.
+        const uint64_t arg_adr = emu->mmu->allocate(emu->mmu, ARG_MAX);
+        guest_arg_addresses[i] = arg_adr;
+        emu->mmu->write(emu->mmu, arg_adr, (uint8_t*)target->argv[i].str, target->argv[i].len);
+        ginger_log(INFO, "arg[%d] written to guest adr: 0x%lx\n", i, arg_adr);
+    }
 
-    // Push initial values onto the stack
     ginger_log(INFO, "Building initial stack at guest address: 0x%x\n", emu->registers[REG_SP]);
-    uint8_t auxp[8]     = {0}; // Not used.
-    uint8_t envp[8]     = {0}; // Not used.
-    uint8_t argv_end[8] = {0}; // Not used.
-    uint8_t argv1[8]    = {0}; // Used.
-    uint8_t argv0[8]    = {0}; // Used.
-    uint8_t arg_c[8]    = {0}; // Used.
 
-    u64_to_byte_arr(argv1_adr, argv1, LSB);
-    u64_to_byte_arr(program_name_adr, argv0, LSB);
-    u64_to_byte_arr(target_argc, arg_c, LSB); // Number of arguments to the target executable.
+    // Push the dummy values filled with zero onto the stack as 64 bit values.
+    uint8_t auxp[8]     = {0};
+    uint8_t envp[8]     = {0};
+    uint8_t argv_end[8] = {0};
+    emu->stack_push(emu, auxp, 8);
+    emu->stack_push(emu, envp, 8);
+    emu->stack_push(emu, argv_end, 8);
 
-    // Push the required values onto the stack as 64 bit values.
-    emu->stack_push(emu, auxp, 8);     // 0u64
-    emu->stack_push(emu, envp, 8);     // 0u64
-    emu->stack_push(emu, argv_end, 8); // 0u64
-    emu->stack_push(emu, argv1, 8);    // The guest address of the argv1_adr allocation.
-    emu->stack_push(emu, argv0, 8);    // The guest address of the program_name_adr allocation.
-    emu->stack_push(emu, arg_c, 8);    // Number of cli arguments.
+    // Push the guest addresses of the program arguments onto the stack.
+    for (int i = target->argc - 1; i >= 0; i--) {
+        uint8_t arg_buf[8] = {0};
+        u64_to_byte_arr(guest_arg_addresses[i], arg_buf, LSB);
+        emu->stack_push(emu, arg_buf, 8); // Push the argument.
+    }
+
+    // Push argc onto the stack.
+    uint8_t argc_buf[8] = {0};
+    u64_to_byte_arr(target->argc, argc_buf, LSB);
+    emu->stack_push(emu, argc_buf, 8);
 
     ginger_log(INFO, "Current allocation address: 0x%lx\n", emu->mmu->curr_alloc_adr);
 
@@ -145,6 +156,7 @@ main(int argc, char** argv)
 #else
     const bool debug = false;
 #endif
+    (void)debug;
     run_emu(emu, debug_cli, debug);
 
     ginger_log(INFO, "Freeing allocated data!\n");
@@ -155,6 +167,7 @@ main(int argc, char** argv)
     printf("unsupported_syscall: %lu\n", g_counter.unsupported_syscall);
     printf("fstat_bad_fd: %lu\n", g_counter.fstat_bad_fd);
     printf("unknown_exit_reason: %lu\n", g_counter.unknown_exit_reason);
+    printf("graceful_exit: %lu\n", g_counter.graceful_exit);
 
     return 0;
 }

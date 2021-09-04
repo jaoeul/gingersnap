@@ -7,11 +7,13 @@
 
 #include "../mmu/mmu.h"
 #include "../shared/vector.h"
+#include "../target/target.h"
 
 enum emu_exit_reason {
     EMU_EXIT_REASON_NO_EXIT,
-    EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED = 1,
-    EMU_EXIT_FSTAT_BAD_FD,
+    EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED = 1, // Unknown syscall.
+    EMU_EXIT_FSTAT_BAD_FD,                     // Not supported file descriptor.
+    EMU_EXIT_GRACEFUL,                         // Program called the exit syscall.
 };
 
 // This enum is not used to store register state. It is only used as indices
@@ -55,11 +57,20 @@ enum register_indices {
 
 struct risc_v_emu {
 
-    // Public API
-    void (*execute)   (risc_v_emu_t* emu);
-    bool (*fork)      (risc_v_emu_t* destination_emu, struct risc_v_emu* source_emu);
+    // Does all the necessary setup needed before execution can begin.
+    bool (*setup)(risc_v_emu_t* emu, target_t* target);
+
+    // Executes the next instruction.
+    void (*execute)(risc_v_emu_t* emu);
+
+    // Forks the emulator.
+    bool (*fork)(risc_v_emu_t* destination_emu, struct risc_v_emu* source_emu);
+
+    // Pushes a specified amount of bytes onto the stack.
     void (*stack_push)(risc_v_emu_t* emu, uint8_t bytes[], size_t nb_bytes);
-    void (*destroy)   (risc_v_emu_t* emu);
+
+    // Destroys the emulator.
+    void (*destroy)(risc_v_emu_t* emu);
 
     // All risc v instructions are implemented as separate functions. Their opcode
     // corresponds to an index in this array of function pointers.

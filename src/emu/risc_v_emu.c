@@ -11,6 +11,7 @@
 #include "../shared/logger.h"
 #include "../shared/print_utils.h"
 #include "../shared/vector.h"
+//#include "../shared/elf_loader.h"
 
 // TODO: Remove globals.
 uint64_t nb_executed_instructions = 0;
@@ -1395,6 +1396,68 @@ risc_v_emu_stack_push(risc_v_emu_t* emu, uint8_t bytes[], size_t nb_bytes)
     emu->registers[REG_SP] -= nb_bytes;
 }
 
+static bool
+risc_v_emu_setup(risc_v_emu_t* emu, target_t* target)
+{
+    // Set the execution entry point.
+    set_reg(emu, REG_PC, target->elf->entry_point);
+
+    // Load the loadable program headers into guest memory.
+    for (int i = 0; i < target->elf->nb_program_headers; i++) {
+        const program_header_t* curr_prg_hdr = &target->elf->prg_hdrs[i];
+
+        // Sanity check.
+        if ((curr_prg_hdr->virtual_address + curr_prg_hdr->file_size) > (emu->mmu->memory_size - 1)) {
+            ginger_log(ERROR, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
+                    "would cause write outside of emulator memory!\n", __func__,
+                    curr_prg_hdr->file_size, curr_prg_hdr->virtual_address);
+            abort();
+        }
+
+        // We have to load the elf before memory is allocated in the emulator.
+        // Thus we cannot check if a write would cause the emulator go out
+        // of allocated memory. No memory should be allocated at this point.
+        //
+        // Set the permissions of the addresses where the loadable program
+        // header will be loaded to writeable. We have to do this since the
+        // memory we are about to write to is not yet allocated, and does not
+        // have WRITE permissions set.
+        emu->mmu->set_permissions(emu->mmu, curr_prg_hdr->virtual_address, PERM_WRITE, curr_prg_hdr->memory_size);
+
+        // Load the executable segments of the binary into the emulator
+        // NOTE: This write dirties the executable memory. Might want to make it
+        //       clean before starting the emulator
+        emu->mmu->write(emu->mmu, curr_prg_hdr->virtual_address, &target->elf->data[curr_prg_hdr->offset], curr_prg_hdr->file_size);
+
+        // Fill padding with zeros.
+        const int padding_len = curr_prg_hdr->memory_size - curr_prg_hdr->file_size;
+        if (padding_len > 0) {
+            uint8_t padding[padding_len];
+            memset(padding, 0, padding_len);
+            emu->mmu->write(emu->mmu, curr_prg_hdr->virtual_address + curr_prg_hdr->file_size, padding, padding_len);
+        }
+
+        // Set correct perms of loaded program header.
+        emu->mmu->set_permissions(emu->mmu, curr_prg_hdr->virtual_address, curr_prg_hdr->flags, curr_prg_hdr->memory_size);
+
+        // Update program break and emu->curr_alloc_adr to a 4KiB aligned address.
+        //
+        // Updating the `curr_alloc_adr` here makes sure that the stack will never overwrite
+        // the program headers, as long as it does not exceed `emu->stack_size`.
+        const uint64_t program_hdr_end = ((curr_prg_hdr->virtual_address + curr_prg_hdr->memory_size) + 0xfff) & ~0xfff;
+        if (emu->mmu->curr_alloc_adr <= program_hdr_end) {
+            emu->mmu->curr_alloc_adr = program_hdr_end;
+        }
+
+        // TODO: Make permissions print out part of ginger_log().
+        ginger_log(INFO, "Wrote program header %lu of size 0x%lx to virtual address 0x%lx with perms ", i,
+                   curr_prg_hdr->file_size, curr_prg_hdr->virtual_address);
+        print_permissions(curr_prg_hdr->flags);
+        printf("\n");
+    }
+    return true;
+}
+
 // Free the memory allocated for an emulator.
 static void
 risc_v_emu_destroy(risc_v_emu_t* emu)
@@ -1440,6 +1503,7 @@ risc_v_emu_create(size_t memory_size)
     vector_append(emu->files, &_stderr);
 
     // API.
+    emu->setup                                          = risc_v_emu_setup;
     emu->execute                                        = risc_v_emu_execute_next_instruction;
     emu->fork                                           = risc_v_emu_fork;
     emu->stack_push                                     = risc_v_emu_stack_push;
