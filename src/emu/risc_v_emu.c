@@ -13,6 +13,9 @@
 #include "../shared/vector.h"
 //#include "../shared/elf_loader.h"
 
+// Max length of an cli argument of the target executable.
+#define ARG_MAX 4096
+
 // TODO: Remove globals.
 uint64_t nb_executed_instructions = 0;
 
@@ -1396,8 +1399,8 @@ risc_v_emu_stack_push(risc_v_emu_t* emu, uint8_t bytes[], size_t nb_bytes)
     emu->registers[REG_SP] -= nb_bytes;
 }
 
-static bool
-risc_v_emu_setup(risc_v_emu_t* emu, target_t* target)
+static void
+risc_v_emu_load_elf(risc_v_emu_t* emu, target_t* target)
 {
     // Set the execution entry point.
     set_reg(emu, REG_PC, target->elf->entry_point);
@@ -1440,12 +1443,10 @@ risc_v_emu_setup(risc_v_emu_t* emu, target_t* target)
         // Set correct perms of loaded program header.
         emu->mmu->set_permissions(emu->mmu, curr_prg_hdr->virtual_address, curr_prg_hdr->flags, curr_prg_hdr->memory_size);
 
-        // Update program break and emu->curr_alloc_adr to a 4KiB aligned address.
-        //
         // Updating the `curr_alloc_adr` here makes sure that the stack will never overwrite
         // the program headers, as long as it does not exceed `emu->stack_size`.
         const uint64_t program_hdr_end = ((curr_prg_hdr->virtual_address + curr_prg_hdr->memory_size) + 0xfff) & ~0xfff;
-        if (emu->mmu->curr_alloc_adr <= program_hdr_end) {
+        if (program_hdr_end > emu->mmu->curr_alloc_adr) {
             emu->mmu->curr_alloc_adr = program_hdr_end;
         }
 
@@ -1455,7 +1456,65 @@ risc_v_emu_setup(risc_v_emu_t* emu, target_t* target)
         print_permissions(curr_prg_hdr->flags);
         printf("\n");
     }
-    return true;
+}
+
+static void
+risc_v_emu_build_stack(risc_v_emu_t* emu, target_t* target)
+{
+    // Create a stack which starts at the curr_alloc_adr of the emulator.
+    // Stack is 1MiB.
+    const uint64_t stack_start = emu->mmu->allocate(emu->mmu, emu->stack_size);
+
+    // Stack grows downwards, so we set the stack pointer to starting address of the
+    // stack + the stack size. As variables are allocated on the stack, their size
+    // is subtracted from the stack pointer.
+    emu->registers[REG_SP] = stack_start + emu->stack_size;
+
+    ginger_log(INFO, "Stack start: 0x%lx\n", stack_start);
+    ginger_log(INFO, "Stack size:  0x%lx\n", emu->stack_size);
+    ginger_log(INFO, "Stack ptr:   0x%lx\n", emu->registers[REG_SP]);
+
+    // Where the arguments got written to in guest memory is saved in this array.
+    uint64_t guest_arg_addresses[target->argc];
+    memset(&guest_arg_addresses, 0, sizeof(guest_arg_addresses));
+
+    // Write all provided arguments into guest memory.
+    for (int i = 0; i < target->argc; i++) {
+        // Populate program name memory segment.
+        const uint64_t arg_adr = emu->mmu->allocate(emu->mmu, ARG_MAX);
+        guest_arg_addresses[i] = arg_adr;
+        emu->mmu->write(emu->mmu, arg_adr, (uint8_t*)target->argv[i].str, target->argv[i].len);
+        ginger_log(INFO, "arg[%d] written to guest adr: 0x%lx\n", i, arg_adr);
+    }
+
+    ginger_log(INFO, "Building initial stack at guest address: 0x%x\n", emu->registers[REG_SP]);
+
+    // Push the dummy values filled with zero onto the stack as 64 bit values.
+    uint8_t auxp[8]     = {0};
+    uint8_t envp[8]     = {0};
+    uint8_t argv_end[8] = {0};
+    emu->stack_push(emu, auxp, 8);
+    emu->stack_push(emu, envp, 8);
+    emu->stack_push(emu, argv_end, 8);
+
+    // Push the guest addresses of the program arguments onto the stack.
+    for (int i = target->argc - 1; i >= 0; i--) {
+        uint8_t arg_buf[8] = {0};
+        u64_to_byte_arr(guest_arg_addresses[i], arg_buf, LSB);
+        emu->stack_push(emu, arg_buf, 8); // Push the argument.
+    }
+
+    // Push argc onto the stack.
+    uint8_t argc_buf[8] = {0};
+    u64_to_byte_arr(target->argc, argc_buf, LSB);
+    emu->stack_push(emu, argc_buf, 8);
+}
+
+static void
+risc_v_emu_setup(risc_v_emu_t* emu, target_t* target)
+{
+    risc_v_emu_load_elf(emu, target);
+    risc_v_emu_build_stack(emu, target);
 }
 
 // Free the memory allocated for an emulator.
@@ -1503,11 +1562,11 @@ risc_v_emu_create(size_t memory_size)
     vector_append(emu->files, &_stderr);
 
     // API.
-    emu->setup                                          = risc_v_emu_setup;
-    emu->execute                                        = risc_v_emu_execute_next_instruction;
-    emu->fork                                           = risc_v_emu_fork;
-    emu->stack_push                                     = risc_v_emu_stack_push;
-    emu->destroy                                        = risc_v_emu_destroy;
+    emu->setup      = risc_v_emu_setup;
+    emu->execute    = risc_v_emu_execute_next_instruction;
+    emu->fork       = risc_v_emu_fork;
+    emu->stack_push = risc_v_emu_stack_push;
+    emu->destroy    = risc_v_emu_destroy;
 
     // Functions corresponding to opcodes.
     emu->instructions[LUI]                              = lui;

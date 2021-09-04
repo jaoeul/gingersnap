@@ -58,7 +58,7 @@ enum register_indices {
 struct risc_v_emu {
 
     // Does all the necessary setup needed before execution can begin.
-    bool (*setup)(risc_v_emu_t* emu, target_t* target);
+    void (*setup)(risc_v_emu_t* emu, target_t* target);
 
     // Executes the next instruction.
     void (*execute)(risc_v_emu_t* emu);
