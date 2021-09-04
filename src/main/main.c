@@ -82,7 +82,7 @@ main(int argc, char** argv)
     heap_str_set(&arg0, "./target");
     target_argv[0] = arg0;
 
-    // Create the a class, representing the target executable.
+    // Prepare the target executable.
     target_t* target = target_create(target_argc, target_argv);
 
     // Load the elf and build the stack.

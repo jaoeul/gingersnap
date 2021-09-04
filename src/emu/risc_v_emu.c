@@ -1406,7 +1406,7 @@ risc_v_emu_load_elf(risc_v_emu_t* emu, target_t* target)
     set_reg(emu, REG_PC, target->elf->entry_point);
 
     // Load the loadable program headers into guest memory.
-    for (int i = 0; i < target->elf->nb_program_headers; i++) {
+    for (int i = 0; i < target->elf->nb_prg_hdrs; i++) {
         const program_header_t* curr_prg_hdr = &target->elf->prg_hdrs[i];
 
         // Sanity check.

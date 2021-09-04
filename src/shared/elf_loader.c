@@ -34,7 +34,7 @@ parse_elf(const char* path)
 
     size_t   program_header_size        = 0;
     uint64_t program_header_offset      = 0;
-    uint8_t bytes_nb_program_headers[2] = {0};
+    uint8_t bytes_nb_prg_hdrs[2] = {0};
 
     // If LSB elf file
     if (elf->data[5] == 1) {
@@ -66,7 +66,7 @@ parse_elf(const char* path)
             bytes_program_header_offset[i] = elf->data[0x1C + i];
         }
         for (uint8_t i = 0; i < 2; i++) {
-            bytes_nb_program_headers[i] = elf->data[0x2C + i];
+            bytes_nb_prg_hdrs[i] = elf->data[0x2C + i];
         }
         program_header_offset  = byte_arr_to_u64(bytes_program_header_offset, 4, elf->is_lsb);
         elf->entry_point       = byte_arr_to_u64(bytes_entry_point, 4, elf->is_lsb);
@@ -86,7 +86,7 @@ parse_elf(const char* path)
             bytes_program_header_offset[i] = elf->data[0x20 + i];
         }
         for (uint8_t i = 0; i < 2; i++) {
-            bytes_nb_program_headers[i] = elf->data[0x38 + i];
+            bytes_nb_prg_hdrs[i] = elf->data[0x38 + i];
         }
         program_header_offset  = byte_arr_to_u64(bytes_program_header_offset, 8, elf->is_lsb);
         elf->entry_point       = byte_arr_to_u64(bytes_entry_point, 8, elf->is_lsb);
@@ -95,15 +95,15 @@ parse_elf(const char* path)
         ginger_log(ERROR, "Malformed ELF header!\n");
         abort();
     }
-    elf->nb_program_headers = byte_arr_to_u64(bytes_nb_program_headers, 2, elf->is_lsb);
-    elf->prg_hdrs           = calloc(elf->nb_program_headers, sizeof(program_header_t));
+    elf->nb_prg_hdrs = byte_arr_to_u64(bytes_nb_prg_hdrs, 2, elf->is_lsb);
+    elf->prg_hdrs           = calloc(elf->nb_prg_hdrs, sizeof(program_header_t));
 
     ginger_log(INFO, "Program header offset:     0x%lx\n", program_header_offset);
-    ginger_log(INFO, "Number of program headers: %lu\n", elf->nb_program_headers);
+    ginger_log(INFO, "Number of program headers: %lu\n", elf->nb_prg_hdrs);
 
     // Parse program headers
     const size_t program_header_base = program_header_offset;
-    for (uint64_t i = 0; i < elf->nb_program_headers; i++) {
+    for (uint64_t i = 0; i < elf->nb_prg_hdrs; i++) {
         const size_t current_program_header = program_header_base + (program_header_size * i);
 
         // Parse the current program header
