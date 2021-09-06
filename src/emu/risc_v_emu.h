@@ -64,7 +64,10 @@ struct risc_v_emu {
     void (*execute)(risc_v_emu_t* emu);
 
     // Forks the emulator.
-    bool (*fork)(risc_v_emu_t* destination_emu, struct risc_v_emu* source_emu);
+    risc_v_emu_t* (*fork)(const risc_v_emu_t* emu);
+
+    // Resets the state of the emulator to that of another one.
+    void (*reset)(risc_v_emu_t* dst_emu, const risc_v_emu_t* src_emu);
 
     // Pushes a specified amount of bytes onto the stack.
     void (*stack_push)(risc_v_emu_t* emu, uint8_t bytes[], size_t nb_bytes);
@@ -93,6 +96,7 @@ struct risc_v_emu {
 risc_v_emu_t* risc_v_emu_create(size_t memory_size);
 
 uint64_t get_reg(const risc_v_emu_t* emu, const uint8_t reg);
+
 void set_reg(risc_v_emu_t* emu, const uint8_t reg, const uint64_t value);
 
-#endif // EMU_H
+#endif

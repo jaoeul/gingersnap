@@ -1374,21 +1374,53 @@ risc_v_emu_execute_next_instruction(risc_v_emu_t* emu)
     ++nb_executed_instructions;
 }
 
-// Reset state of emulator to that of a another emulator.
-static bool
-risc_v_emu_fork(risc_v_emu_t* destination_emu, risc_v_emu_t* source_emu)
+// Return a pointer to a new, forked emulator.
+static risc_v_emu_t*
+risc_v_emu_fork(const risc_v_emu_t* emu)
 {
-    // Fork register state
-    memcpy(&destination_emu->registers, &source_emu->registers, sizeof(destination_emu->registers));
-
-    // Fork memory state
-    if (destination_emu->mmu->memory_size == source_emu->mmu->memory_size) {
-        memcpy(destination_emu->mmu->memory, source_emu->mmu->memory, destination_emu->mmu->memory_size);
-        return true;
+    risc_v_emu_t* forked = risc_v_emu_create(emu->mmu->memory_size);
+    if (!forked) {
+        ginger_log(ERROR, "[%s] Failed to fork emu!\n", __func__);
+        abort();
     }
-    else {
-        ginger_log(ERROR, "[%s]Source and destination emulators differ in memory size!\n", __func__);
-        return false;
+
+    // Copy register state.
+    memcpy(&forked->registers, &emu->registers, sizeof(forked->registers));
+
+    // Copy memory and permission state.
+    memcpy(forked->mmu->memory, emu->mmu->memory, forked->mmu->memory_size);
+    memcpy(forked->mmu->permissions, emu->mmu->permissions, forked->mmu->memory_size);
+
+    // Set the current allocation address.
+    forked->mmu->curr_alloc_adr = emu->mmu->curr_alloc_adr;
+
+    return forked;
+}
+
+// Reset the dirty blocks of an emulator to that of another emulator.
+static void
+risc_v_emu_reset(risc_v_emu_t* dst_emu, const risc_v_emu_t* src_emu)
+{
+    // Reset the dirty blocks.
+    for (uint64_t i = 0; i < dst_emu->mmu->dirty_state->nb_dirty_blocks; i++) {
+
+        const uint64_t block = dst_emu->mmu->dirty_state->dirty_blocks[i];
+
+        // Starting address of the dirty block in guest memory.
+        const uint64_t block_adr = block * DIRTY_BLOCK_SIZE;
+
+        // Copy the memory and perms corresponding to the dirty block from the source emu
+        // to the destination emu.
+        memcpy(dst_emu->mmu->memory + block_adr, src_emu->mmu->memory + block_adr, DIRTY_BLOCK_SIZE);
+        memcpy(dst_emu->mmu->permissions + block_adr, src_emu->mmu->permissions + block_adr, DIRTY_BLOCK_SIZE);
+
+        // Clear the bitmap entry corresponding to the dirty block.
+        // We could calculate the bit index here and `logicaly and` it to zero, but we
+        // will still have to do a 64 bit write, so might as well skip the bit index
+        // calculation.
+        dst_emu->mmu->dirty_state->dirty_bitmap[block / 64] = 0;
+
+        dst_emu->mmu->dirty_state->clear(dst_emu->mmu->dirty_state);
     }
 }
 
@@ -1565,6 +1597,7 @@ risc_v_emu_create(size_t memory_size)
     emu->setup      = risc_v_emu_setup;
     emu->execute    = risc_v_emu_execute_next_instruction;
     emu->fork       = risc_v_emu_fork;
+    emu->reset      = risc_v_emu_reset;
     emu->stack_push = risc_v_emu_stack_push;
     emu->destroy    = risc_v_emu_destroy;
 
