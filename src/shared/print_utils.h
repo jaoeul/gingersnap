@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <sys/stat.h>
 
-#include "../emu/risc_v_emu.h"
+#include "../emu/riscv_emu.h"
 
 enum {
     BYTE_SIZE     = 1,
@@ -23,16 +23,16 @@ void
 print_permissions(uint8_t perms);
 
 void
-print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range, const char size_letter);
+print_emu_memory(rv_emu_t* emu, size_t start_adr, const size_t range, const char size_letter);
 
 void
-print_emu_memory_all(risc_v_emu_t* emu);
+print_emu_memory_all(rv_emu_t* emu);
 
 void
-print_emu_memory_allocated(risc_v_emu_t* emu);
+print_emu_memory_allocated(rv_emu_t* emu);
 
 void
-print_emu_registers(risc_v_emu_t* emu);
+print_emu_registers(rv_emu_t* emu);
 
 void
 print_byte_array(uint8_t bytes[], size_t nb_bytes);

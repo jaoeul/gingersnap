@@ -7,7 +7,7 @@
 // TODO: Tune this value for performance
 #define DIRTY_BLOCK_SIZE  64
 
-typedef struct risc_v_emu risc_v_emu_t;
+typedef struct emu rv_emu_t;
 
 typedef struct dirty_state dirty_state_t;
 

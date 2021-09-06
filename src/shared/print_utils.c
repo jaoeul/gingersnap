@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../emu/risc_v_emu.h"
+#include "../emu/riscv_emu.h"
 
 #include "endianess_converter.h"
 #include "logger.h"
@@ -63,7 +63,7 @@ print_permissions(uint8_t perms)
 
 // Print value of memory with corresponding permissions of an emulator.
 void
-print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range,
+print_emu_memory(rv_emu_t* emu, size_t start_adr, const size_t range,
                  const char size_letter)
 {
     uint8_t data_size = 0;
@@ -96,13 +96,13 @@ print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range,
 }
 
 void
-print_emu_memory_all(risc_v_emu_t* emu)
+print_emu_memory_all(rv_emu_t* emu)
 {
     print_emu_memory(emu, 0, emu->mmu->memory_size, 'h');
 }
 
 void
-print_emu_memory_allocated(risc_v_emu_t* emu)
+print_emu_memory_allocated(rv_emu_t* emu)
 {
     for (size_t i = 0; i < emu->mmu->curr_alloc_adr - 1; i++) {
         printf("Address: 0x%lx\t", i);
@@ -129,7 +129,7 @@ print_emu_memory_allocated(risc_v_emu_t* emu)
 }
 
 void
-print_emu_registers(risc_v_emu_t* emu)
+print_emu_registers(rv_emu_t* emu)
 {
     printf("\nzero\t0x%"PRIx64"\n", emu->registers[REG_ZERO]);
     printf("ra\t0x%"PRIx64"\n", emu->registers[REG_RA]);

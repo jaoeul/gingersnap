@@ -63,7 +63,7 @@ is_specifier(const char* specifiers, const char test, int nb_specifiers)
 // TODO: Make this work.
 //       Display emulotor memory contents.
 static void
-emu_debug_examine_memory(risc_v_emu_t* emu, const char* input_buf)
+emu_debug_examine_memory(rv_emu_t* emu, const char* input_buf)
 {
     /*
     // Parse the command.
@@ -141,7 +141,7 @@ emu_debug_examine_memory(risc_v_emu_t* emu, const char* input_buf)
 
 // Search emulator memory for user specified value.
 static void
-emu_debug_search_in_memory(risc_v_emu_t* emu)
+emu_debug_search_in_memory(rv_emu_t* emu)
 {
     printf("Search for value: ");
 
@@ -178,7 +178,7 @@ emu_debug_search_in_memory(risc_v_emu_t* emu)
 
 // TODO: Break on register watchpoints.
 static void
-emu_debug_run_until_breakpoint(risc_v_emu_t* emu, vector_t* breakpoints)
+emu_debug_run_until_breakpoint(rv_emu_t* emu, vector_t* breakpoints)
 {
     for (;;) {
         emu->execute(emu);
@@ -194,7 +194,7 @@ emu_debug_run_until_breakpoint(risc_v_emu_t* emu, vector_t* breakpoints)
 }
 
 static void
-emu_debug_show_breakpoints(risc_v_emu_t* emu, vector_t* breakpoints)
+emu_debug_show_breakpoints(rv_emu_t* emu, vector_t* breakpoints)
 {
     size_t nb_breakpoints = vector_length(breakpoints);
     if (nb_breakpoints == 0) {
@@ -209,7 +209,7 @@ emu_debug_show_breakpoints(risc_v_emu_t* emu, vector_t* breakpoints)
 }
 
 static void
-emu_debug_show_watchpoints(risc_v_emu_t* emu, vector_t* watchpoints)
+emu_debug_show_watchpoints(rv_emu_t* emu, vector_t* watchpoints)
 {
     size_t nb_watchpoints = vector_length(watchpoints);
     if (nb_watchpoints == 0) {
@@ -225,7 +225,7 @@ emu_debug_show_watchpoints(risc_v_emu_t* emu, vector_t* watchpoints)
 }
 
 static void
-emu_debug_set_breakpoint(risc_v_emu_t* emu, vector_t* breakpoints)
+emu_debug_set_breakpoint(rv_emu_t* emu, vector_t* breakpoints)
 {
     printf("Set breakpoint at address: ");
 
@@ -253,7 +253,7 @@ emu_debug_set_breakpoint(risc_v_emu_t* emu, vector_t* breakpoints)
 }
 
 static bool
-emu_debug_set_watchpoint(risc_v_emu_t* emu, vector_t* watchpoints)
+emu_debug_set_watchpoint(rv_emu_t* emu, vector_t* watchpoints)
 {
     printf("\nSet watchpoint on register: ");
 
@@ -283,7 +283,7 @@ emu_debug_set_watchpoint(risc_v_emu_t* emu, vector_t* watchpoints)
 }
 
 cli_t*
-emu_debug_create_cli(risc_v_emu_t* emu)
+emu_debug_create_cli(rv_emu_t* emu)
 {
     struct cli_cmd debug_cli_commands[] = {
         {
@@ -343,7 +343,7 @@ emu_debug_create_cli(risc_v_emu_t* emu)
 }
 
 void
-debug_emu(risc_v_emu_t* emu, cli_t* cli)
+debug_emu(rv_emu_t* emu, cli_t* cli)
 {
     static char last_command[MAX_LENGTH_DEBUG_CLI_COMMAND];
     vector_t*   breakpoints = vector_create(sizeof(uint64_t));

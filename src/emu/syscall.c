@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "risc_v_emu.h"
+#include "riscv_emu.h"
 #include "syscall.h"
 
 #include "../shared/logger.h"
@@ -35,7 +35,7 @@ struct kernel_stat
 };
 
 void
-handle_syscall(risc_v_emu_t* emu, const uint64_t num)
+handle_syscall(rv_emu_t* emu, const uint64_t num)
 {
     switch(num) {
 

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "../emu/risc_v_emu.h"
+#include "../emu/riscv_emu.h"
 
 typedef void (*test_fn)(void);
 
@@ -15,8 +15,8 @@ test_emulator_reset_memory_success(void)
     const size_t test_memory_size = 1024 * 1024;
 
     // Create some emulators for testing
-    risc_v_emu_t* source_emu      = risc_v_emu_create(test_memory_size);
-    risc_v_emu_t* destination_emu = risc_v_emu_create(test_memory_size);
+    rv_emu_t* source_emu      = emu_create(test_memory_size);
+    rv_emu_t* destination_emu = emu_create(test_memory_size);
 
     // Fill the source emulators memory with 0x41
     memset(source_emu->mmu->memory, 0x41, test_memory_size);
@@ -46,8 +46,8 @@ test_emulator_reset_memory_invalid_size(void)
     const size_t erroneous_memory_size = 1025 * 1024;
 
     // Create some emulators for testing
-    risc_v_emu_t* source_emu      = risc_v_emu_create(erroneous_memory_size);
-    risc_v_emu_t* destination_emu = risc_v_emu_create(test_memory_size);
+    rv_emu_t* source_emu      = emu_create(erroneous_memory_size);
+    rv_emu_t* destination_emu = emu_create(test_memory_size);
 
     // Fill the source emulators memory with 0x41
     memset(source_emu->mmu->memory, 0x41, erroneous_memory_size);
@@ -75,8 +75,8 @@ test_emulator_reset_registers_success(void)
     const size_t test_memory_size = 1024 * 1024;
 
     // Create some emulators for testing
-    risc_v_emu_t* source_emu      = risc_v_emu_create(test_memory_size);
-    risc_v_emu_t* destination_emu = risc_v_emu_create(test_memory_size);
+    rv_emu_t* source_emu      = emu_create(test_memory_size);
+    rv_emu_t* destination_emu = emu_create(test_memory_size);
 
     // Assign dummy values to source emulators registers
     source_emu->registers.zero = 0;
@@ -133,7 +133,7 @@ test_emulator_allocate_memory_success(void)
 {
     // Arrange
     const size_t test_memory_size = 1024 * 1024;
-    risc_v_emu_t* emu = risc_v_emu_create(test_memory_size);
+    rv_emu_t* emu = emu_create(test_memory_size);
     const size_t base = emu->mmu->current_allocation;
     const size_t new_allocation = test_memory_size / 2;
 
@@ -154,7 +154,7 @@ test_emulator_allocate_memory_failure_out_of_memory(void)
 {
     // Arrange
     const size_t test_memory_size = 1024 * 1024;
-    risc_v_emu_t* emu = risc_v_emu_create(test_memory_size);
+    rv_emu_t* emu = emu_create(test_memory_size);
     const size_t base = emu->mmu->current_allocation;
     const size_t new_allocation = test_memory_size;
 
@@ -174,7 +174,7 @@ test_emulator_reallocate_memory_success(void)
 {
     // Arrange
     const size_t test_memory_size = 1024 * 1024;
-    risc_v_emu_t* emu = risc_v_emu_create(test_memory_size);
+    rv_emu_t* emu = emu_create(test_memory_size);
     const size_t base = emu->mmu->current_allocation;
     const size_t first_allocation  = 1024;
     const size_t second_allocation = 2048;
@@ -196,7 +196,7 @@ test_emulator_allocate_memory_test_permissions_success(void)
 {
     // Arrange
     const size_t test_memory_size = 1024 * 1024;
-    risc_v_emu_t* emu = risc_v_emu_create(test_memory_size);
+    rv_emu_t* emu = emu_create(test_memory_size);
     const size_t base = emu->mmu->current_allocation;
     const size_t allocation_size = 32;
 
@@ -222,7 +222,7 @@ test_emulator_allocate_memory_test_permissions_failure(void)
 {
     // Arrange
     const size_t test_memory_size = 1024 * 1024;
-    risc_v_emu_t* emu = risc_v_emu_create(test_memory_size);
+    rv_emu_t* emu = emu_create(test_memory_size);
     const size_t allocation_size = 32;
     uint8_t      buffer[32];
 
@@ -242,7 +242,7 @@ test_emulator_write_success(void)
 {
     // Arrange
     const size_t test_memory_size    = 1024 * 1024;
-    risc_v_emu_t* emu                = risc_v_emu_create(test_memory_size);
+    rv_emu_t* emu                = emu_create(test_memory_size);
     const size_t allocation_size     = 32;
     const size_t buffer_size         = 16;
     const size_t base_address        = emu->mmu->current_allocation;
@@ -271,7 +271,7 @@ test_emulator_write_read_success(void)
 {
     // Arrange
     const size_t test_memory_size    = 1024 * 1024;
-    risc_v_emu_t* emu                = risc_v_emu_create(test_memory_size);
+    rv_emu_t* emu                = emu_create(test_memory_size);
     const size_t allocation_size     = 32;
     const size_t buffer_size         = 16;
     const size_t base                = emu->mmu->current_allocation;
@@ -307,7 +307,7 @@ test_emulator_write_read_failure(void)
 {
     // Arrange
     const size_t test_memory_size    = 1024 * 1024;
-    risc_v_emu_t* emu                = risc_v_emu_create(test_memory_size);
+    rv_emu_t* emu                = emu_create(test_memory_size);
     const size_t allocation_size     = 128;
     const size_t buffer_size         = 16;
 
@@ -338,7 +338,7 @@ test_emulator_write_failure_permission_denied(void)
 {
     // Arrange
     const size_t test_memory_size    = 1024 * 1024;
-    risc_v_emu_t* emu                = risc_v_emu_create(test_memory_size);
+    rv_emu_t* emu                = emu_create(test_memory_size);
     const size_t allocation_size     = 128;
     const size_t buffer_size         = 32;
 

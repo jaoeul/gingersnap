@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../emu/risc_v_emu.h"
+#include "../emu/riscv_emu.h"
 #include "../debug_cli/debug_cli.h"
 #include "../shared/cli.h"
 #include "../shared/elf_loader.h"
@@ -27,7 +27,7 @@ struct emu_exit_counters {
 struct thread_info {
     pthread_t     thread_id;  // ID returned by pthread_create().
     uint64_t      thread_num; // Application-defined thread number.
-    risc_v_emu_t* emu;        // The emulator to run.
+    rv_emu_t* emu;        // The emulator to run.
     target_t*     target;     // The target executable.
 };
 
@@ -57,7 +57,7 @@ inc_exit_counter(const int counter)
 // Run an emulator until it exits or crashes.
 __attribute__((used))
 static void
-run_emu(risc_v_emu_t* emu)
+run_emu(rv_emu_t* emu)
 {
     // Execute the next instruction as long as no exit reason is set.
     while (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
@@ -74,14 +74,14 @@ static void*
 thread_run(void* arg)
 {
     struct thread_info* t_info = arg;
-    risc_v_emu_t*       emu    = t_info->emu;
-    target_t*           target = t_info->target;
+    rv_emu_t*    emu    = t_info->emu;
+    target_t* target = t_info->target;
 
     // Load the elf and build the stack.
     emu->setup(emu, target);
 
     // Capture the state.
-    const risc_v_emu_t* clean_snapshot = emu->fork(emu);
+    const rv_emu_t* clean_snapshot = emu->fork(emu);
 
     for (int i = 0; i < 1000000000; i++) {
 
@@ -99,8 +99,8 @@ int
 main(int argc, char** argv)
 {
     // Create one emulator per active thread.
-    const size_t  emu_total_mem  = (1024 * 1024) * 256;
-    risc_v_emu_t* emu            = risc_v_emu_create(emu_total_mem);
+    const size_t  rv_emu_total_mem  = (1024 * 1024) * 256;
+    rv_emu_t* emu            = emu_create(rv_emu_total_mem);
     const int     target_argc    = 1;
 
     // Array of arguments to the target executable.
