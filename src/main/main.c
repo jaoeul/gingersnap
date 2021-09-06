@@ -1,4 +1,5 @@
 #include <malloc.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +21,14 @@ struct emu_exit_counters {
     uint64_t fstat_bad_fd;
     uint64_t unknown_exit_reason;
     uint64_t graceful_exit;
+};
+
+// Used as argument to the threads running the emulators.
+struct thread_info {
+    pthread_t     thread_id;  // ID returned by pthread_create().
+    uint64_t      thread_num; // Application-defined thread number.
+    risc_v_emu_t* emu;        // The emulator to run.
+    target_t*     target;     // The target executable.
 };
 
 // TODO: Atomic increments.
@@ -45,33 +54,54 @@ inc_exit_counter(const int counter)
     }
 }
 
+// Run an emulator until it exits or crashes.
+__attribute__((used))
 static void
-run_emu(risc_v_emu_t* emu, cli_t* cli, const bool debug)
+run_emu(risc_v_emu_t* emu)
 {
-    for (;;) {
-        // Exit reason. Set when emulator exits.
-        if (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
-
-            // FIXME: Debug does not halt on unknown syscall.
-            if (debug) {
-                debug_emu(emu, cli);
-            }
-            emu->execute(emu);
-        }
-        // Handle emu exit and break out of the run loop.
-        else {
-            inc_exit_counter(emu->exit_reason);
-            break;
-        }
+    // Execute the next instruction as long as no exit reason is set.
+    while (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
+        emu->execute(emu);
     }
+
+    // Report why emulator exited.
+    inc_exit_counter(emu->exit_reason);
+}
+
+// Continously spawn new emulators when they exit or crash.
+__attribute__((used))
+static void*
+thread_run(void* arg)
+{
+    struct thread_info* t_info = arg;
+    risc_v_emu_t*       emu    = t_info->emu;
+    target_t*           target = t_info->target;
+
+    // Load the elf and build the stack.
+    emu->setup(emu, target);
+
+    // Capture the state.
+    const risc_v_emu_t* clean_snapshot = emu->fork(emu);
+
+    for (int i = 0; i < 1000000000; i++) {
+
+        // Run the emulator until it exits or crashes.
+        run_emu(emu);
+
+        // Restore the emulator to its initial state.
+        emu->reset(emu, clean_snapshot);
+    }
+
+    return NULL;
 }
 
 int
 main(int argc, char** argv)
 {
+    // Create one emulator per active thread.
     const size_t  emu_total_mem  = (1024 * 1024) * 256;
     risc_v_emu_t* emu            = risc_v_emu_create(emu_total_mem);
-    const int  target_argc       = 1;
+    const int     target_argc    = 1;
 
     // Array of arguments to the target executable.
     heap_str_t target_argv[target_argc];
@@ -85,32 +115,50 @@ main(int argc, char** argv)
     // Prepare the target executable.
     target_t* target = target_create(target_argc, target_argv);
 
-    // Load the elf and build the stack.
-    emu->setup(emu, target);
-
     ginger_log(INFO, "curr_alloc_adr: 0x%lx\n", emu->mmu->curr_alloc_adr);
     ginger_log(INFO, "Current allocation address: 0x%lx\n", emu->mmu->curr_alloc_adr);
 
-    if (argv[2] != NULL) {
-        print_emu_memory_all(emu);
-    }
+    // Can be used for all threads.
+    pthread_attr_t thread_attr = {0};
+    pthread_attr_init(&thread_attr);
+
+    // Set the desired thread attributes here.
+
+    // Per-thread info. Multiple threads should never use the same emulator.
+    struct thread_info t_info = {
+        .thread_num = 1,
+        .emu        = emu,
+        .target     = target,
+    };
+
+    int ok = pthread_create(&t_info.thread_id, &thread_attr, &thread_run, &t_info);
+    if (ok != 0) abort();
+
+    ok = pthread_attr_destroy(&thread_attr);
+    if (ok != 0) abort();
+
+    void* thread_ret = NULL;
+    ok               = pthread_join(t_info.thread_id, &thread_ret);
+    if (ok != 0) abort();
+
+    free(thread_ret);
+
 
     // Create debugging cli.
-    cli_t* debug_cli = emu_debug_create_cli(emu);
+    //cli_t* debug_cli = emu_debug_create_cli(emu);
 
     // Start the emulator.
-#ifdef AUTO_DEBUG
-    const bool debug = true;
-#else
-    const bool debug = false;
-#endif
-    (void)debug;
-    run_emu(emu, debug_cli, debug);
+//#ifdef AUTO_DEBUG
+    //const bool debug = true;
+//#else
+    //const bool debug = false;
+//#endif
+    //(void)debug;
 
     ginger_log(INFO, "Freeing allocated data!\n");
 
     target_destroy(target);
-    cli_destroy(debug_cli);
+    //cli_destroy(debug_cli);
     emu->destroy(emu);
 
     printf("\nCounters\n");

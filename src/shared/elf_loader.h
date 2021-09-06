@@ -18,11 +18,11 @@ typedef struct {
 typedef struct {
     bool              is_lsb;
     bool              is_64_bit;
-    uint64_t          length;      // Total number of bytes in the elf file on disc.
     uint64_t          entry_point; // Program execution entry point.
     uint64_t          nb_prg_hdrs; // Number of program headers in the elf.
     program_header_t* prg_hdrs;    // The program headers.
     uint8_t*          data;        // Elf file bytes.
+    uint64_t          length;      // Total number of bytes in the elf file.
 } elf_t;
 
 elf_t*

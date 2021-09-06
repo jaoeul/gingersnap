@@ -86,7 +86,7 @@ print_emu_memory(risc_v_emu_t* emu, size_t start_adr, const size_t range,
         const size_t index       = block / 64; // 64 = number of bits in bitmap entry
         const size_t bit         = block % 64;
         const uint64_t shift_bit = 1;
-        if ((emu->mmu->dirty_state->dirty_bitmaps[index] & (shift_bit << bit)) == 0) {
+        if ((emu->mmu->dirty_state->dirty_bitmap[index] & (shift_bit << bit)) == 0) {
             printf("Block clean\n");
         }
         else {
@@ -118,7 +118,7 @@ print_emu_memory_allocated(risc_v_emu_t* emu)
         const size_t bit         = block % 64;
         const uint64_t shift_bit = 1;
 
-        if ((emu->mmu->dirty_state->dirty_bitmaps[index] & (shift_bit << bit)) == 0) {
+        if ((emu->mmu->dirty_state->dirty_bitmap[index] & (shift_bit << bit)) == 0) {
             printf("NO");
         }
         else {

@@ -37,7 +37,7 @@
 static void
 dirty_state_print_blocks(dirty_state_t* state)
 {
-    for (size_t i = 0; i < state->index_dirty_blocks; i++) {
+    for (size_t i = 0; i < state->nb_dirty_blocks; i++) {
         printf("%lu ", state->dirty_blocks[i]);
     }
     printf("\n");
@@ -56,23 +56,30 @@ dirty_state_make_dirty(dirty_state_t* state, size_t block)
 
     const uint64_t shift_bit = 1;
 
-    // If block is not already dirty
-    if ((state->dirty_bitmaps[index] & (shift_bit << bit)) == 0) {
-        // Append the block index of the dirty block
-        state->dirty_blocks[state->index_dirty_blocks] = block;
-        state->index_dirty_blocks++;
+    // If block is not already dirty.
+    if ((state->dirty_bitmap[index] & (shift_bit << bit)) == 0) {
+        // Append the block index of the dirty block.
+        state->dirty_blocks[state->nb_dirty_blocks] = block;
+        state->nb_dirty_blocks++;
 
-        // Mark block as dirty
-        state->dirty_bitmaps[index] |= 1 << bit;
+        // Mark block as dirty.
+        state->dirty_bitmap[index] |= 1 << bit;
     }
 
     return;
 }
 
+static void
+dirty_state_clear(dirty_state_t* state)
+{
+    memset(state->dirty_blocks, 0, state->nb_dirty_blocks * sizeof(state->dirty_blocks[0]));
+    state->nb_dirty_blocks = 0;
+}
+
 static dirty_state_t*
 dirty_state_create(size_t memory_size)
 {
-    dirty_state_t* state    = calloc(1, sizeof(*state));
+    dirty_state_t* state = calloc(1, sizeof(*state));
 
     // Max possible number of dirty memory blocks. This is capped to the total
     // memory size / DIRTY_BLOCK_SIZE since we will not allow duplicates of
@@ -84,13 +91,14 @@ dirty_state_create(size_t memory_size)
     size_t nb_max_bitmaps = nb_max_blocks / 64;
 
     state->dirty_blocks = calloc(nb_max_blocks, sizeof(*state->dirty_blocks));
-    state->index_dirty_blocks = 0;
+    state->nb_dirty_blocks = 0;
 
-    state->dirty_bitmaps = calloc(nb_max_bitmaps, sizeof(*state->dirty_bitmaps));
+    state->dirty_bitmap = calloc(nb_max_bitmaps, sizeof(*state->dirty_bitmap));
     state->nb_max_dirty_bitmaps = nb_max_bitmaps;
 
     state->make_dirty = dirty_state_make_dirty;
     state->print      = dirty_state_print_blocks;
+    state->clear      = dirty_state_clear;
 
     return state;
 }
@@ -99,7 +107,7 @@ void
 dirty_state_destroy(dirty_state_t* dirty_state)
 {
     free(dirty_state->dirty_blocks);
-    free(dirty_state->dirty_bitmaps);
+    free(dirty_state->dirty_bitmap);
     free(dirty_state);
 }
 

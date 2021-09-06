@@ -5,7 +5,7 @@
 
 // Amount of bytes in single block
 // TODO: Tune this value for performance
-#define DIRTY_BLOCK_SIZE  64;
+#define DIRTY_BLOCK_SIZE  64
 
 typedef struct risc_v_emu risc_v_emu_t;
 
@@ -23,11 +23,11 @@ enum uint8_t {
 struct dirty_state {
     void (*make_dirty)(dirty_state_t* state, size_t address);
     void (*print)(dirty_state_t* state);
+    void (*clear)(dirty_state_t* state);
 
     // Keeps track of blocks of memory that have been dirtied
     size_t*  dirty_blocks;
-    uint64_t nb_max_dirty_blocks;
-    uint64_t index_dirty_blocks;
+    uint64_t nb_dirty_blocks;
 
     // Bytes are grouped together into blocks to avoid having to do large number
     // of memsets to reset guest memory. If a byte is written to it is
@@ -36,7 +36,7 @@ struct dirty_state {
     //
     // One entry in the dirty_bitmap tracks the state of 64 blocks. One block
     // per bit. 0 = clean, 1 = dirty.
-    uint64_t* dirty_bitmaps;
+    uint64_t* dirty_bitmap;
     uint64_t  nb_max_dirty_bitmaps;
 };
 
