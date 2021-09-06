@@ -83,15 +83,28 @@ if __name__ == "__main__":
     release_target = "release_gingersnap"
     test_target    = "test_gingersnap"
 
-    debug_cflags       = ["-g", "-Werror", "-Wall", "-DEMU_DEBUG"];
-    debug_linker_flags = ["-g", "-Werror", "-Wall"];
+    # Flags common for all builds.
+    general_cflags       = ["-Werror", "-Wall"]
+    general_linker_flags = ["-Werror", "-Wall", "-pthread"]
 
-    # For automatic singlestepping through the emulator and gdb simultaneously.
-    auto_cflags       = ["-g", "-Werror", "-Wall", "-DAUTO_DEBUG"];
-    auto_linker_flags = ["-g", "-Werror", "-Wall"];
+    # Build with debug instrumentation.
+    debug_cflags = ["-g", "-DEMU_DEBUG"];
+    debug_cflags.extend(general_cflags)
+    debug_linker_flags = ["-g"];
+    debug_linker_flags.extend(general_linker_flags)
 
-    release_cflags       = ["-O2", "-Werror", "-Wall", "-DEMU_RELEASE"];
-    release_linker_flags = ["-O2", "-Werror", "-Wall"];
+    # Surpresses output. For automatic singlestepping through the emulator and gdb simultaneously,
+    # using the autodebug_emu.py script.
+    auto_cflags = ["-g", "-DAUTO_DEBUG"];
+    auto_cflags.extend(general_cflags)
+    auto_linker_flags = ["-g"];
+    auto_linker_flags.extend(general_linker_flags)
+
+    # Optimized build.
+    release_cflags = ["-O2", "-DEMU_RELEASE"];
+    release_cflags.extend(general_cflags)
+    release_linker_flags = ["-O2"];
+    release_linker_flags.extend(general_linker_flags)
 
     # Default target is debug.
     if len(sys.argv) < 2:
