@@ -130,7 +130,7 @@ mmu_set_permissions(mmu_t* mmu, size_t start_adr, uint8_t permission, size_t siz
 
 // Allocate memory for emulator. Returns the virtual guest address of the allocated memory.
 static size_t
-mmu_allocate(mmu_t* mmu, size_t size)
+mmu_allocate(mmu_t* mmu, size_t size, uint8_t* error)
 {
     // 16-byte align the allocation to make it more cache friendly.
     size_t aligned_size = (size + 0xf) & ~0xf;
@@ -138,13 +138,15 @@ mmu_allocate(mmu_t* mmu, size_t size)
     // Guest memory is already full.
     if (mmu->curr_alloc_adr >= mmu->memory_size) {
         ginger_log(ERROR, "[%s] Error! Emulator memory already full!\n", __func__);
-        abort();
+        *error = ALLOC_ERROR_MEM_FULL;
+        return 0;
     }
 
     // Check if new allocation runs the emulator out of memory.
     if (mmu->curr_alloc_adr + aligned_size >= mmu->memory_size) {
         ginger_log(ERROR, "[%s] Emulator is out of memory!\n", __func__);
-        abort();
+        *error = ALLOC_ERROR_WOULD_OVERRUN;
+        return 0;
     }
 
     // We want to return the virtual address of the allocation, so save it.
@@ -155,17 +157,19 @@ mmu_allocate(mmu_t* mmu, size_t size)
 
     // Set permissions of newly allocated memory to unitialized and writeable.
     // Keep extra memory added by the alignment as uninitialized.
-    mmu->set_permissions(mmu, base, PERM_RAW | PERM_WRITE, size);
+    mmu->set_permissions(mmu, base, PERM_RAW | PERM_WRITE, aligned_size);
 
+    *error = ALLOC_NO_ERROR;
     return base;
 }
 
 // TODO: Should we check for write outside of allocated memory?
-static void
+static uint8_t
 mmu_write(mmu_t* mmu, size_t dst_adr, const uint8_t* src_buffer, size_t size)
 {
     if (dst_adr + size > mmu->memory_size) {
         ginger_log(WARNING, "[%s] Write outside of total emulator memory!\n", __func__);
+        return WRITE_ERROR_ADR_OUT_OF_RANGE;
     }
 
     // Check permission of memory we are about to write to. If any of the addresses has the PERM_READ_AFTER_WRITE bit
@@ -189,7 +193,7 @@ mmu_write(mmu_t* mmu, size_t dst_adr, const uint8_t* src_buffer, size_t size)
             ginger_log(ERROR, "[%s] Address 0x%lx not writeable. Has perm ", __func__, curr_adr);
             print_permissions(curr_perm);
             printf("\n");
-            return;
+            return WRITE_ERROR_NO_PERM;
         }
     }
 
@@ -215,26 +219,31 @@ mmu_write(mmu_t* mmu, size_t dst_adr, const uint8_t* src_buffer, size_t size)
             *(mmu->permissions + dst_adr + i) |= PERM_READ;
         }
     }
+    return WRITE_NO_ERROR;
 }
 
 // Read from guest memory into buffer. Function is intentionally not bounds
 // checked to allow for illegal reads which will be detected and recorded as a
 // crash.
-static void
+static uint8_t
 mmu_read(mmu_t* mmu, uint8_t* dst_buffer, const uint64_t src_adr, size_t size)
 {
     // We could enable the user to crash as soon as invalid data is accessed. However, not doing it
     // allows us to see where the execution goes even after an invalid read.
-    ginger_log(WARNING, "Address 0x%lx is outside of emulator total memory!\n", src_adr);
+    if (src_adr + size > mmu->memory_size) {
+        ginger_log(WARNING, "Address 0x%lx is outside of emulator total memory!\n", src_adr + size);
+        return READ_ERROR_ADR_OUT_OF_RANGE;
+    }
 
     // If permission denied
     for (int i = 0; i < size; i++) {
         if ((*(mmu->permissions + src_adr + i) & PERM_READ) == 0) {
             ginger_log(ERROR, "Illegal read at address: 0x%lx\n", src_adr + i);
-            //abort();
+            return READ_ERROR_NO_PERM;
         }
     }
     memcpy(dst_buffer, mmu->memory + src_adr, size);
+    return READ_NO_ERROR;
 }
 
 // Search for specified value in guest memory. The size of the value is

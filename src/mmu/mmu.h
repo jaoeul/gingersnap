@@ -13,12 +13,30 @@ typedef struct dirty_state dirty_state_t;
 
 typedef struct mmu mmu_t;
 
-enum uint8_t {
+enum {
     PERM_EXEC  = 1 << 0,
     PERM_WRITE = 1 << 1,
     PERM_READ  = 1 << 2,
-    PERM_RAW   = 1 << 3,
-};
+    PERM_RAW   = 1 << 3, // Read after write.
+} enum_perm_t;
+
+enum {
+    ALLOC_NO_ERROR = 0,        // No error.
+    ALLOC_ERROR_MEM_FULL,      // Emulator memory is already full.
+    ALLOC_ERROR_WOULD_OVERRUN, // Allocation would overrun the memory size.
+} enum_alloc_error_t;
+
+enum {
+    READ_NO_ERROR = 0,           // No error.
+    READ_ERROR_NO_PERM,          // Attempted to read from an address with no read permission.
+    READ_ERROR_ADR_OUT_OF_RANGE, // Attempted to read from an address which is outside emulator memory.
+} enum_read_error_t;
+
+enum {
+    WRITE_NO_ERROR = 0,           // No error.
+    WRITE_ERROR_NO_PERM,          // Attempted to write from an address with no read permission.
+    WRITE_ERROR_ADR_OUT_OF_RANGE, // Attempted to write from an address which is outside emulator memory.
+} enum_write_error_t;
 
 struct dirty_state {
     void (*make_dirty)(dirty_state_t* state, size_t address);
@@ -41,10 +59,10 @@ struct dirty_state {
 };
 
 struct mmu {
-    size_t    (*allocate)(mmu_t* mmu, size_t size);
+    size_t    (*allocate)(mmu_t* mmu, size_t size, uint8_t* error);
     void      (*set_permissions)(mmu_t* mmu, size_t start_adress, uint8_t permission, size_t size);
-    void      (*write)(mmu_t* mmu, size_t destination_adress, const uint8_t* source_buffer, size_t size);
-    void      (*read)(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_adress, size_t size);
+    uint8_t   (*write)(mmu_t* mmu, size_t destination_adress, const uint8_t* source_buffer, size_t size);
+    uint8_t   (*read)(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_adress, size_t size);
     vector_t* (*search)(mmu_t* mmu, const uint64_t needle, const char size_letter);
 
     // The size of the emulator memory

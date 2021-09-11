@@ -93,6 +93,9 @@ if __name__ == "__main__":
     debug_linker_flags = ["-g"];
     debug_linker_flags.extend(general_linker_flags)
 
+    # Test cflags
+    test_cflags = ["-g", "-DEMU_TEST"]
+
     # Surpresses output. For automatic singlestepping through the emulator and gdb simultaneously,
     # using the autodebug_emu.py script.
     auto_cflags = ["-g", "-DAUTO_DEBUG"];
@@ -101,7 +104,7 @@ if __name__ == "__main__":
     auto_linker_flags.extend(general_linker_flags)
 
     # Optimized build.
-    release_cflags = ["-O2", "-DEMU_RELEASE"];
+    release_cflags = ["-O2", "-DEMU_RELEASE", "-g"];
     release_cflags.extend(general_cflags)
     release_linker_flags = ["-O2"];
     release_linker_flags.extend(general_linker_flags)
@@ -117,7 +120,7 @@ if __name__ == "__main__":
         elif sys.argv[1] == "r":
             compile_src("release", release_target, "./src", release_cflags, release_linker_flags)
         elif sys.argv[1] == "t":
-            compile_src("test", test_target, "./src", debug_cflags, debug_linker_flags)
+            compile_src("test", test_target, "./src", test_cflags, debug_linker_flags)
         elif sys.argv[1] == "c":
                 print(subprocess.run(["rm", "-rf", "./build"]))
                 print(subprocess.run(["rm", debug_target]))

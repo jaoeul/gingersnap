@@ -177,7 +177,11 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
                 exit(1);
             }
 
-            const uint64_t heap_end = emu->mmu->allocate(emu->mmu, new_alloc_size) + new_alloc_size;
+            uint8_t alloc_error = 0;
+            const uint64_t heap_end = emu->mmu->allocate(emu->mmu, new_alloc_size, &alloc_error) + new_alloc_size;
+            if (alloc_error != 0) {
+                ginger_log(ERROR, "[%s] Failed to allocate memory on the heap!\n", __func__);
+            }
 
             // Return the new brk address.
             set_reg(emu, REG_A0, heap_end);

@@ -1396,11 +1396,12 @@ emu_fork(const rv_emu_t* emu)
     return forked;
 }
 
-// Reset the dirty blocks of an emulator to that of another emulator.
+// Reset the dirty blocks of an emulator to that of another emulator. This function needs to be
+// really fast, since resetting emulators is the main action of the fuzzer.
 static void
 emu_reset(rv_emu_t* dst_emu, const rv_emu_t* src_emu)
 {
-    // Reset the dirty blocks.
+    // Reset the dirty blocks in memory.
     for (uint64_t i = 0; i < dst_emu->mmu->dirty_state->nb_dirty_blocks; i++) {
 
         const uint64_t block = dst_emu->mmu->dirty_state->dirty_blocks[i];
@@ -1410,7 +1411,7 @@ emu_reset(rv_emu_t* dst_emu, const rv_emu_t* src_emu)
 
         // Copy the memory and perms corresponding to the dirty block from the source emu
         // to the destination emu.
-        memcpy(dst_emu->mmu->memory + block_adr, src_emu->mmu->memory + block_adr, DIRTY_BLOCK_SIZE);
+        memcpy(dst_emu->mmu->memory +      block_adr, src_emu->mmu->memory +      block_adr, DIRTY_BLOCK_SIZE);
         memcpy(dst_emu->mmu->permissions + block_adr, src_emu->mmu->permissions + block_adr, DIRTY_BLOCK_SIZE);
 
         // Clear the bitmap entry corresponding to the dirty block.
@@ -1418,9 +1419,12 @@ emu_reset(rv_emu_t* dst_emu, const rv_emu_t* src_emu)
         // will still have to do a 64 bit write, so might as well skip the bit index
         // calculation.
         dst_emu->mmu->dirty_state->dirty_bitmap[block / 64] = 0;
-
-        dst_emu->mmu->dirty_state->clear(dst_emu->mmu->dirty_state);
     }
+    dst_emu->mmu->dirty_state->clear(dst_emu->mmu->dirty_state);
+
+    // Reset register state.
+    // TODO: This memcpy almost triples the reset time. Optimize.
+    memcpy(dst_emu->registers, src_emu->registers, sizeof(dst_emu->registers));
 }
 
 static void
@@ -1433,6 +1437,9 @@ emu_stack_push(rv_emu_t* emu, uint8_t bytes[], size_t nb_bytes)
 static void
 emu_load_elf(rv_emu_t* emu, target_t* target)
 {
+    if (target->elf->length > emu->mmu->memory_size) {
+        abort();
+    }
     // Set the execution entry point.
     set_reg(emu, REG_PC, target->elf->entry_point);
 
@@ -1494,7 +1501,11 @@ emu_build_stack(rv_emu_t* emu, target_t* target)
 {
     // Create a stack which starts at the curr_alloc_adr of the emulator.
     // Stack is 1MiB.
-    const uint64_t stack_start = emu->mmu->allocate(emu->mmu, emu->stack_size);
+    uint8_t alloc_error = 0;
+    const uint64_t stack_start = emu->mmu->allocate(emu->mmu, emu->stack_size, &alloc_error);
+    if (alloc_error != 0) {
+        ginger_log(ERROR, "Failed allocate memory for stack!\n");
+    }
 
     // Stack grows downwards, so we set the stack pointer to starting address of the
     // stack + the stack size. As variables are allocated on the stack, their size
@@ -1512,7 +1523,10 @@ emu_build_stack(rv_emu_t* emu, target_t* target)
     // Write all provided arguments into guest memory.
     for (int i = 0; i < target->argc; i++) {
         // Populate program name memory segment.
-        const uint64_t arg_adr = emu->mmu->allocate(emu->mmu, ARG_MAX);
+        const uint64_t arg_adr = emu->mmu->allocate(emu->mmu, ARG_MAX, &alloc_error);
+        if (alloc_error != 0) {
+            ginger_log(ERROR, "Failed allocate memory for target program argument!\n");
+        }
         guest_arg_addresses[i] = arg_adr;
         emu->mmu->write(emu->mmu, arg_adr, (uint8_t*)target->argv[i].str, target->argv[i].len);
         ginger_log(INFO, "arg[%d] written to guest adr: 0x%lx\n", i, arg_adr);

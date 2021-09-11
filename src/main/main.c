@@ -83,8 +83,8 @@ thread_run(void* arg)
     // Capture the state.
     const rv_emu_t* clean_snapshot = emu->fork(emu);
 
-    for (int i = 0; i < 1000000000; i++) {
-
+    // Run the program 100 million times in the emulator.
+    for (int i = 0; i < 100000000; i++) {
         // Run the emulator until it exits or crashes.
         run_emu(emu);
 
@@ -99,9 +99,9 @@ int
 main(int argc, char** argv)
 {
     // Create one emulator per active thread.
-    const size_t  rv_emu_total_mem  = (1024 * 1024) * 256;
-    rv_emu_t* emu            = emu_create(rv_emu_total_mem);
-    const int     target_argc    = 1;
+    const size_t  rv_emu_total_mem = (1024 * 1024) * 256;
+    rv_emu_t*     emu              = emu_create(rv_emu_total_mem);
+    const int     target_argc      = 1;
 
     // Array of arguments to the target executable.
     heap_str_t target_argv[target_argc];
@@ -109,7 +109,7 @@ main(int argc, char** argv)
 
     // First arg.
     heap_str_t arg0;
-    heap_str_set(&arg0, "./target");
+    heap_str_set(&arg0, "./data/target");
     target_argv[0] = arg0;
 
     // Prepare the target executable.
