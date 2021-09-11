@@ -95,6 +95,29 @@ thread_run(void* arg)
     return NULL;
 }
 
+// Parse `/proc/cpuinfo`.
+// TODO: Create string/file parsing lib.
+uint8_t
+nb_active_cpus(void)
+{
+    uint8_t nb_cpus = 0;
+    FILE* fp = fopen("/proc/cpuinfo", "rb");
+    if (!fp) {
+        ginger_log(ERROR, "Could not open /proc/cpuinfo\n");
+        abort();
+    }
+
+    char*   line = NULL;
+    size_t  len  = 0;
+    ssize_t read = 0;
+    while ((read = getline(&line, &len, fp)) != -1) {
+        if (strstr(line, "processor")) {
+            nb_cpus++;
+        }
+    }
+    return nb_cpus;
+}
+
 int
 main(int argc, char** argv)
 {
@@ -115,6 +138,9 @@ main(int argc, char** argv)
     // Prepare the target executable.
     target_t* target = target_create(target_argc, target_argv);
 
+    const uint8_t nb_cpus = nb_active_cpus();
+
+    ginger_log(INFO, "Number active cpus: %u\n", nb_cpus);
     ginger_log(INFO, "curr_alloc_adr: 0x%lx\n", emu->mmu->curr_alloc_adr);
     ginger_log(INFO, "Current allocation address: 0x%lx\n", emu->mmu->curr_alloc_adr);
 
