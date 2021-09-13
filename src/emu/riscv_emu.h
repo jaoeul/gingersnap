@@ -58,7 +58,7 @@ enum register_indices {
 struct emu {
 
     // Does all the necessary setup needed before execution can begin.
-    void (*setup)(rv_emu_t* emu, target_t* target);
+    void (*setup)(rv_emu_t* emu, const target_t* target);
 
     // Executes the next instruction.
     void (*execute)(rv_emu_t* emu);

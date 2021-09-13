@@ -1435,7 +1435,7 @@ emu_stack_push(rv_emu_t* emu, uint8_t bytes[], size_t nb_bytes)
 }
 
 static void
-emu_load_elf(rv_emu_t* emu, target_t* target)
+emu_load_elf(rv_emu_t* emu, const target_t* target)
 {
     if (target->elf->length > emu->mmu->memory_size) {
         abort();
@@ -1497,7 +1497,7 @@ emu_load_elf(rv_emu_t* emu, target_t* target)
 }
 
 static void
-emu_build_stack(rv_emu_t* emu, target_t* target)
+emu_build_stack(rv_emu_t* emu, const target_t* target)
 {
     // Create a stack which starts at the curr_alloc_adr of the emulator.
     // Stack is 1MiB.
@@ -1556,7 +1556,7 @@ emu_build_stack(rv_emu_t* emu, target_t* target)
 }
 
 static void
-emu_setup(rv_emu_t* emu, target_t* target)
+emu_setup(rv_emu_t* emu, const target_t* target)
 {
     emu_load_elf(emu, target);
     emu_build_stack(emu, target);
