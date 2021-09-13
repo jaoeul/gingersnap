@@ -1,6 +1,10 @@
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "logger.h"
 
@@ -57,6 +61,14 @@ ginger_log(uint8_t log_level, const char* fmt, ...)
 
     colorize_stop(log_buffer);
     strncat(log_buffer, "] ", 3);
+
+    // Log thread ID.
+    const int thread_info_str_sz = 21; //"[Thread 0x100000000] "
+    char pid_str[thread_info_str_sz];
+    memset(pid_str, 0, sizeof(thread_info_str_sz));
+    pid_t x = syscall(__NR_gettid);
+    sprintf(pid_str, "[Thread 0x%x] ", x);
+    strncat(log_buffer, pid_str, thread_info_str_sz);
 
     const uint64_t free_space = LOG_LENGTH_MAX - (strlen(log_buffer) + 1);
 

@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <syscall.h>
+#include <unistd.h>
+#include <pthread.h>
 
 #include "riscv_emu.h"
 #include "syscall.h"

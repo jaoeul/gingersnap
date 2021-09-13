@@ -5,9 +5,9 @@
 #include "../shared/heap_str.h"
 
 typedef struct {
-    int         argc;
-    heap_str_t* argv;
-    elf_t*      elf;
+    int          argc;
+    heap_str_t*  argv;
+    elf_t*       elf;
 } target_t;
 
 target_t*

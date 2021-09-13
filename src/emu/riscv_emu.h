@@ -1,6 +1,7 @@
 #ifndef EMU_H
 #define EMU_H
 
+#include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -91,6 +92,9 @@ struct emu {
 
     // Exit reason.
     int exit_reason;
+
+    // Thread id of the thread which is runnig this emu.
+    pid_t tid;
 };
 
 rv_emu_t* emu_create(size_t memory_size);

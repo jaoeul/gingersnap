@@ -26,6 +26,9 @@ typedef struct {
 } elf_t;
 
 elf_t*
-parse_elf(const char* path);
+elf_parse(const char* path);
+
+void
+elf_destroy(elf_t* elf);
 
 #endif // ELF_LOADER_H

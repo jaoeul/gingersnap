@@ -104,9 +104,9 @@ if __name__ == "__main__":
     auto_linker_flags.extend(general_linker_flags)
 
     # Optimized build.
-    release_cflags = ["-O2", "-DEMU_RELEASE", "-g"];
+    release_cflags = ["-O3", "-DEMU_RELEASE", "-g"];
     release_cflags.extend(general_cflags)
-    release_linker_flags = ["-O2"];
+    release_linker_flags = ["-O3"];
     release_linker_flags.extend(general_linker_flags)
 
     # Default target is debug.

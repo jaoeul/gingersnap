@@ -9,7 +9,7 @@
 #include "print_utils.h"
 
 elf_t*
-parse_elf(const char* path)
+elf_parse(const char* path)
 {
     elf_t* elf = calloc(1, sizeof(elf_t));
 
@@ -96,7 +96,7 @@ parse_elf(const char* path)
         abort();
     }
     elf->nb_prg_hdrs = byte_arr_to_u64(bytes_nb_prg_hdrs, 2, elf->is_lsb);
-    elf->prg_hdrs           = calloc(elf->nb_prg_hdrs, sizeof(program_header_t));
+    elf->prg_hdrs    = calloc(elf->nb_prg_hdrs, sizeof(program_header_t));
 
     ginger_log(INFO, "Program header offset:     0x%lx\n", program_header_offset);
     ginger_log(INFO, "Number of program headers: %lu\n", elf->nb_prg_hdrs);
@@ -204,4 +204,12 @@ parse_elf(const char* path)
         elf->prg_hdrs[i] = program_header;
     }
     return elf;
+}
+
+void
+elf_destroy(elf_t* elf)
+{
+    free(elf->data);
+    free(elf->prg_hdrs);
+    free(elf);
 }

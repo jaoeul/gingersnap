@@ -16,7 +16,7 @@ target_create(const int argc, const heap_str_t argv[])
     }
 
     // Parse the provided program name as an elf.
-    target->elf = parse_elf(target->argv[0].str);
+    target->elf = elf_parse(target->argv[0].str);
 
     return target;
 }
@@ -30,5 +30,6 @@ target_destroy(target_t* target)
         }
         free(target->argv);
     }
+    elf_destroy(target->elf);
     free(target);
 }
