@@ -18,9 +18,6 @@
 // Max length of an cli argument of the target executable.
 #define ARG_MAX 4096
 
-// TODO: Remove globals.
-uint64_t nb_executed_instructions = 0;
-
 // Risc V 32i + 64i Instructions and corresponding opcode.
 enum ENUM_OPCODE {
     OPCODE_FIRST,
@@ -1359,7 +1356,6 @@ emu_execute_next_instruction(rv_emu_t* emu)
 
     ginger_log(DEBUG, "=========================\n");
     ginger_log(DEBUG, "PC: 0x%x\n", get_pc(emu));
-    ginger_log(DEBUG, "Number of executed instructions: %lu\n", nb_executed_instructions);
     ginger_log(DEBUG, "Instruction\t0x%08x\n", instruction);
     ginger_log(DEBUG, "Opcode\t\t0x%x\n", opcode);
 
@@ -1373,7 +1369,6 @@ emu_execute_next_instruction(rv_emu_t* emu)
 
     // Execute the instruction.
     emu->instructions[opcode](emu, instruction);
-    ++nb_executed_instructions;
 }
 
 // Return a pointer to a new, forked emulator.

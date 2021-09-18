@@ -91,7 +91,7 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
             printf("fd: %lu\n", fd);
             printf("statbuf: 0x%lx\n", statbuf_guest_adr);
 
-            struct kernel_stat k_statbuf; // From sys/stat.h.
+            struct kernel_stat k_statbuf;
             memset(&k_statbuf, 0, sizeof(k_statbuf));
 
             // Following magic values were retreived from running fstat on the host OS.
@@ -135,7 +135,7 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
                 k_statbuf.st_blksize      = 1024;
             }
             else {
-                emu->exit_reason = EMU_EXIT_FSTAT_BAD_FD;
+                emu->exit_reason = EMU_EXIT_REASON_FSTAT_BAD_FD;
                 return;
             }
 
@@ -149,7 +149,7 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
 
     // exit. Emulator gracefully called the exit syscall. Graceful exit.
     case 93:
-        emu->exit_reason = EMU_EXIT_GRACEFUL;
+        emu->exit_reason = EMU_EXIT_REASON_GRACEFUL;
         break;
 
     // brk. Allocate/deallocate heap.

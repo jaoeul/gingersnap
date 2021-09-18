@@ -6,16 +6,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "emu_stats.h"
 #include "../mmu/mmu.h"
 #include "../shared/vector.h"
 #include "../target/target.h"
-
-enum emu_exit_reason {
-    EMU_EXIT_REASON_NO_EXIT,
-    EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED = 1, // Unknown syscall.
-    EMU_EXIT_FSTAT_BAD_FD,                     // Not supported file descriptor.
-    EMU_EXIT_GRACEFUL,                         // Program called the exit syscall.
-};
 
 // This enum is not used to store register state. It is only used as indices
 // for access to correct offset in the emulator register array.
@@ -91,7 +85,7 @@ struct emu {
     mmu_t* mmu;
 
     // Exit reason.
-    int exit_reason;
+    enum_emu_exit_reasons_t exit_reason;
 
     // Thread id of the thread which is runnig this emu.
     pid_t tid;
