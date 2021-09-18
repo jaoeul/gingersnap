@@ -88,7 +88,7 @@ if __name__ == "__main__":
     general_linker_flags = ["-Werror", "-Wall", "-pthread"]
 
     # Build with debug instrumentation.
-    debug_cflags = ["-g", "-DEMU_DEBUG"];
+    debug_cflags = ["-g", "-DEMU_DEBUG", "-O0"];
     debug_cflags.extend(general_cflags)
     debug_linker_flags = ["-g"];
     debug_linker_flags.extend(general_linker_flags)
