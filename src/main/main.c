@@ -189,11 +189,9 @@ main(int argc, char** argv)
 
         const int ok = pthread_create(&t_info[i].thread_id, &thread_attr, &worker_run, &t_info[i]);
         if (ok != 0) {
-            ginger_log(ERROR, "[%s] Failed spawn thread!\n", __func__);
+            ginger_log(ERROR, "[%s] Failed to spawn thread %u\n", __func__, i);
             abort();
         }
-        printf("t_info[i].thread_id  after  0x%lx\n", t_info[i].thread_id);
-        printf("\n");
     }
     // We are done with the thread attributes, might as well destroy them.
     int ok = pthread_attr_destroy(&thread_attr);
@@ -201,8 +199,7 @@ main(int argc, char** argv)
         abort();
     }
 
-    // The main threads job is displaying stats reported from the worker
-    // threads. Do this once a second.
+    // Report collected statistics about once a second.
     struct timespec checkpoint;
     struct timespec current;
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &checkpoint);
@@ -216,6 +213,8 @@ main(int argc, char** argv)
             clock_gettime(CLOCK_THREAD_CPUTIME_ID, &checkpoint);
         }
         else {
+            // This might be suboptimal if the main thread is running on the
+            // same cpu as a worker thread(?).
             cpu_relax();
         }
     }

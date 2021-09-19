@@ -75,7 +75,7 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
             uint8_t print_buf[len + 1];
             memset(print_buf, 0, len + 1);
             emu->mmu->read(emu->mmu, print_buf, buf_guest_adr, len);
-            ginger_log(INFO, "Guest wrote: %s\n", print_buf);
+            ginger_log(DEBUG, "Guest wrote: %s\n", print_buf);
             set_reg(emu, REG_A0, len);
         }
         break;
@@ -87,9 +87,9 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
             const uint64_t fd                = get_reg(emu, REG_A0);
             const uint64_t statbuf_guest_adr = get_reg(emu, REG_A1);
 
-            printf("fstat syscall\n");
-            printf("fd: %lu\n", fd);
-            printf("statbuf: 0x%lx\n", statbuf_guest_adr);
+            ginger_log(DEBUG, "fstat syscall\n");
+            ginger_log(DEBUG, "fd: %lu\n", fd);
+            ginger_log(DEBUG, "statbuf: 0x%lx\n", statbuf_guest_adr);
 
             struct kernel_stat k_statbuf;
             memset(&k_statbuf, 0, sizeof(k_statbuf));
@@ -156,7 +156,7 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
     case 214:
         {
             const uint64_t brk_val = get_reg(emu, REG_A0);
-            printf("brk address: 0x%lx\n", brk_val);
+            ginger_log(DEBUG, "brk address: 0x%lx\n", brk_val);
 
             if (brk_val == 0) {
                 set_reg(emu, REG_A0, emu->mmu->curr_alloc_adr);
