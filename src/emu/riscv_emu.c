@@ -1412,6 +1412,9 @@ emu_reset(rv_emu_t* dst_emu, const rv_emu_t* src_emu)
         memcpy(dst_emu->mmu->memory +      block_adr, src_emu->mmu->memory +      block_adr, DIRTY_BLOCK_SIZE);
         memcpy(dst_emu->mmu->permissions + block_adr, src_emu->mmu->permissions + block_adr, DIRTY_BLOCK_SIZE);
 
+        // Reset the allocation pointer.
+        dst_emu->mmu->curr_alloc_adr = src_emu->mmu->curr_alloc_adr;
+
         // Clear the bitmap entry corresponding to the dirty block.
         // We could calculate the bit index here and `logicaly and` it to zero, but we
         // will still have to do a 64 bit write, so might as well skip the bit index
@@ -1423,6 +1426,9 @@ emu_reset(rv_emu_t* dst_emu, const rv_emu_t* src_emu)
     // Reset register state.
     // TODO: This memcpy almost triples the reset time. Optimize.
     memcpy(dst_emu->registers, src_emu->registers, sizeof(dst_emu->registers));
+
+    // Reset the exit reason.
+    dst_emu->exit_reason = EMU_EXIT_REASON_NO_EXIT;
 }
 
 static void
