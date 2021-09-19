@@ -198,7 +198,7 @@ mmu_write(mmu_t* mmu, size_t dst_adr, const uint8_t* src_buffer, size_t size)
     }
 
     // Write the data
-    ginger_log(INFO, "[%s] Writing 0x%lx bytes to address 0x%lx\n", __func__, size, dst_adr);
+    ginger_log(DEBUG, "[%s] Writing 0x%lx bytes to address 0x%lx\n", __func__, size, dst_adr);
     memcpy(mmu->memory + dst_adr, src_buffer, size);
 
     // Mark blocks corresponding to addresses written to as dirty
