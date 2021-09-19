@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 enum log_level {
-    INFO = 0,
-    DEBUG,
+    DEBUG = 0,
+    INFO,
     WARNING,
     ERROR,
 };

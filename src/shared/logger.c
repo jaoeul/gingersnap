@@ -34,12 +34,16 @@ colorize_stop(char* output_buffer)
     strncat(output_buffer, RESET, 5);
 }
 
+
 void
 ginger_log(uint8_t log_level, const char* fmt, ...)
 {
-#ifdef EMU_DEBUG
+#ifdef EMU_RELEASE
+    if (log_level < INFO) {
+        return;
+    }
+#endif
     char log_buffer[LOG_LENGTH_MAX] = {0};
-
     strncat(log_buffer, "[", 2);
 
     if (log_level == INFO) {
@@ -84,5 +88,4 @@ ginger_log(uint8_t log_level, const char* fmt, ...)
     strncat(log_buffer, str_buffer, free_space);
 
     printf("%s", log_buffer);
-#endif
 }
