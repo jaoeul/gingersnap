@@ -120,6 +120,7 @@ worker_run(void* arg)
 
         // Restore the emulator to its initial state.
         emu->reset(emu, clean_snapshot);
+        emu_stats_inc(local_stats, EMU_COUNTERS_RESETS);
 
         // Update the main stats with data from the thread local stats if the time
         // is right.
@@ -136,6 +137,7 @@ worker_run(void* arg)
             shared_stats->nb_fstat_bad_fds         += local_stats->nb_fstat_bad_fds;
             shared_stats->nb_graceful_exits        += local_stats->nb_graceful_exits;
             shared_stats->nb_unknown_exit_reasons  += local_stats->nb_unsupported_syscalls;
+            shared_stats->nb_resets                += local_stats->nb_resets;
             // Unlock the mutex.
             pthread_mutex_unlock(&shared_stats->lock);
 
@@ -199,18 +201,39 @@ main(int argc, char** argv)
         abort();
     }
 
-    // Report collected statistics about once a second.
+    // Report collected statistics every two seconds.
     struct timespec checkpoint;
     struct timespec current;
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &checkpoint);
+    uint64_t prev_nb_exec_inst = 0;
+    uint64_t prev_nb_resets    = 0;
     for (;;) {
         clock_gettime(CLOCK_THREAD_CPUTIME_ID, &current);
-        const time_t elapsed_s = current.tv_sec - checkpoint.tv_sec;
-        if (elapsed_s > 1) {
+        const uint64_t elapsed_s  = current.tv_sec - checkpoint.tv_sec;
+        const uint64_t elapsed_ns = (elapsed_s * 10e9) + (current.tv_nsec - checkpoint.tv_nsec);
+
+        // Report every two seconds to give the worker threads enough time to
+        // report atleast once.
+        if (elapsed_ns > 20e9) {
+
+            // Calculate average number of executed instructions per second.
+            const uint64_t nb_exec_this_round = shared_stats->nb_executed_instructions - prev_nb_exec_inst;
+            shared_stats->avg_nb_inst_per_sec = nb_exec_this_round / (elapsed_ns / 10e9);
+
+            // Calculate the average number of emulator resets per second.
+            const uint64_t nb_resets_this_round = shared_stats->nb_resets - prev_nb_resets;
+            shared_stats->avg_nb_resets_per_sec = nb_resets_this_round / (elapsed_ns / 10e9);
+
             emu_stats_print(shared_stats);
 
             // Reset the timer checkpoint.
             clock_gettime(CLOCK_THREAD_CPUTIME_ID, &checkpoint);
+
+            // Prepare for next loop iteration.
+            shared_stats->avg_nb_inst_per_sec   = 0;
+            shared_stats->avg_nb_resets_per_sec = 0;
+            prev_nb_exec_inst                   = shared_stats->nb_executed_instructions;
+            prev_nb_resets                      = shared_stats->nb_resets;
         }
         else {
             // This might be suboptimal if the main thread is running on the
