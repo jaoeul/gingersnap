@@ -671,7 +671,6 @@ fence(rv_emu_t* emu, const uint32_t instruction)
     abort();
 }
 
-
 // Syscall.
 static void
 ecall(rv_emu_t* emu)

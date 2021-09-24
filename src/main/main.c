@@ -96,10 +96,11 @@ static void*
 __attribute__((noreturn))
 worker_run(void* arg)
 {
-    thread_info_t*  t_info       = arg;
-    rv_emu_t*       emu          = t_info->emu;
-    const target_t* target       = t_info->target;
-    emu_stats_t*    shared_stats = t_info->shared_stats;
+    thread_info_t*  t_info                   = arg;
+    rv_emu_t*       emu                      = t_info->emu;
+    const target_t* target                   = t_info->target;
+    emu_stats_t*    shared_stats             = t_info->shared_stats;
+    const uint64_t  report_stats_interval_ns = 1e7; // Report stats 100 times a second to the main thread.
 
     // Init the emulator thread id.
     emu->tid = syscall(__NR_gettid);
@@ -115,7 +116,7 @@ worker_run(void* arg)
 
     // A timestamp which is used for comparison.
     struct timespec checkpoint;
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &checkpoint);
+    clock_gettime(CLOCK_MONOTONIC, &checkpoint);
 
     for (;;) {
         // Run the emulator until it exits or crashes.
@@ -125,14 +126,14 @@ worker_run(void* arg)
         emu->reset(emu, clean_snapshot);
         emu_stats_inc(local_stats, EMU_COUNTERS_RESETS);
 
-        // Update the main stats with data from the thread local stats if the time
-        // is right.
+        // Update the main stats with data from the thread local stats if the time is right.
         struct timespec current;
-        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &current);
-        const time_t elapsed_s = current.tv_sec - checkpoint.tv_sec;
+        clock_gettime(CLOCK_MONOTONIC, &current);
+        const time_t   elapsed_s = current.tv_sec - checkpoint.tv_sec;
+        const uint64_t elapsed_ns = (elapsed_s * 1e9) + (current.tv_nsec - checkpoint.tv_nsec);
 
         // Report stats to the main thread about once every second.
-        if (elapsed_s > 1) {
+        if (elapsed_ns > report_stats_interval_ns) {
             // Lock shared stats mutex.
             pthread_mutex_lock(&shared_stats->lock);
             shared_stats->nb_executed_instructions += local_stats->nb_executed_instructions;
@@ -145,7 +146,7 @@ worker_run(void* arg)
             pthread_mutex_unlock(&shared_stats->lock);
 
             // Reset the timer checkpoint.
-            clock_gettime(CLOCK_THREAD_CPUTIME_ID, &checkpoint);
+            clock_gettime(CLOCK_MONOTONIC, &checkpoint);
 
             // Clear the local stats.
             memset(local_stats, 0, sizeof(emu_stats_t));
@@ -156,10 +157,11 @@ worker_run(void* arg)
 int
 main(int argc, char** argv)
 {
-    const int     main_cpu         = 0; // The cpu which the main thread will run on.
-    const size_t  rv_emu_total_mem = (1024 * 1024) * 256;
-    const int     target_argc      = 1;
-    int           ok               = -1;
+    const int      main_cpu                 = 0;    // The cpu which the main thread will run on.
+    const uint64_t print_stats_interval_ns  = 1e9;  // Print stats every second.
+    const size_t   rv_emu_total_mem         = (1024 * 1024) * 256;
+    const int      target_argc              = 1;
+    int            ok                       = -1;
 
     // Array of arguments to the target executable.
     heap_str_t target_argv[target_argc];
@@ -194,7 +196,7 @@ main(int argc, char** argv)
     CPU_SET(main_cpu, &main_cpu_mask);
     ok = sched_setaffinity(main_tid, sizeof(main_cpu_mask), &main_cpu_mask);
     if (ok != 0) {
-        ginger_log(ERROR, "Failed to set affinity of main thread 0x%x to cpu 0!\n");
+        ginger_log(ERROR, "Failed to set affinity of main thread 0x%x to cpu %d!\n", main_tid, main_cpu);
         abort();
     }
 
@@ -230,17 +232,17 @@ main(int argc, char** argv)
     // Report collected statistics every two seconds.
     struct timespec checkpoint;
     struct timespec current;
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &checkpoint);
+    clock_gettime(CLOCK_MONOTONIC, &checkpoint);
     uint64_t prev_nb_exec_inst = 0;
     uint64_t prev_nb_resets    = 0;
     for (;;) {
-        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &current);
+        clock_gettime(CLOCK_MONOTONIC, &current);
         const uint64_t elapsed_s  = current.tv_sec - checkpoint.tv_sec;
         const uint64_t elapsed_ns = (elapsed_s * 1e9) + (current.tv_nsec - checkpoint.tv_nsec);
 
         // Report every two seconds to give the worker threads enough time to
         // report atleast once.
-        if (elapsed_ns > 2e9) {
+        if (elapsed_ns > print_stats_interval_ns) {
 
             // Calculate average number of executed instructions per second.
             const uint64_t nb_exec_this_round = shared_stats->nb_executed_instructions - prev_nb_exec_inst;
@@ -253,7 +255,7 @@ main(int argc, char** argv)
             emu_stats_print(shared_stats);
 
             // Reset the timer checkpoint.
-            clock_gettime(CLOCK_THREAD_CPUTIME_ID, &checkpoint);
+            clock_gettime(CLOCK_MONOTONIC, &checkpoint);
 
             // Prepare for next loop iteration.
             shared_stats->avg_nb_inst_per_sec   = 0;
