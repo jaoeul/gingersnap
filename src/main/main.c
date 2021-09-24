@@ -85,6 +85,9 @@ run_emu(rv_emu_t* emu, emu_stats_t* local_stats)
     case EMU_EXIT_REASON_SEGFAULT:
         emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_SEGFAULT);
         break;
+    case EMU_EXIT_REASON_INVALID_OPCODE:
+        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_INVALID_OPCODE);
+        break;
     case EMU_EXIT_REASON_GRACEFUL:
         emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_GRACEFUL);
         break;
@@ -146,6 +149,7 @@ worker_run(void* arg)
             shared_stats->nb_unknown_exit_reasons  += local_stats->nb_unsupported_syscalls;
             shared_stats->nb_resets                += local_stats->nb_resets;
             shared_stats->nb_segfaults             += local_stats->nb_segfaults;
+            shared_stats->nb_invalid_opcodes       += local_stats->nb_invalid_opcodes;
             // Unlock the mutex.
             pthread_mutex_unlock(&shared_stats->lock);
 

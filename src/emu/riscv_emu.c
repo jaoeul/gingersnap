@@ -1385,7 +1385,8 @@ emu_execute_next_instruction(rv_emu_t* emu)
     // is used.
     if (!validate_opcode(emu, opcode)) {
         ginger_log(ERROR, "Invalid opcode\t0x%x\n", opcode);
-        abort();
+        emu->exit_reason = EMU_EXIT_REASON_INVALID_OPCODE;
+        return;
     }
 
     // Execute the instruction.

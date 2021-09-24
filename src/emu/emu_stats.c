@@ -21,6 +21,9 @@ emu_stats_inc(emu_stats_t* stats, const enum_emu_counters_t counter)
     case EMU_COUNTERS_EXIT_SEGFAULT:
         ++stats->nb_segfaults;
         break;
+    case EMU_COUNTERS_EXIT_INVALID_OPCODE:
+        ++stats->nb_invalid_opcodes;
+        break;
     case EMU_COUNTERS_EXIT_GRACEFUL:
         ++stats->nb_graceful_exits;
         break;
