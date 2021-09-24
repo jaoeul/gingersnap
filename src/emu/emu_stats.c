@@ -71,12 +71,12 @@ emu_stats_print(emu_stats_t* stats)
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
     // Instructions per second.
-    sprintf(tmp_buf, " | inst / sec: %lf", stats->nb_inst_per_sec);
+    sprintf(tmp_buf, " | inst / sec: %.0lf", stats->nb_inst_per_sec);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
     // Resets per second.
-    sprintf(tmp_buf, " | resets / sec: %lf", stats->nb_resets_per_sec);
+    sprintf(tmp_buf, " | resets / sec: %.0lf", stats->nb_resets_per_sec);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
