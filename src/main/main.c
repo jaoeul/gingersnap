@@ -1,5 +1,8 @@
+#define _GNU_SOURCE
+
 #include <malloc.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,7 +31,7 @@ typedef struct {
     uint64_t        thread_num;   // Application-defined thread number.
     rv_emu_t*       emu;          // The emulator to run.
     const target_t* target;       // The target executable.
-    emu_stats_t*    shared_stats; // Statistics.
+    emu_stats_t*    shared_stats; // Collected statistics, reported by the worker threads.
 } thread_info_t;
 
 // Parse `/proc/cpuinfo`.
@@ -153,6 +156,7 @@ worker_run(void* arg)
 int
 main(int argc, char** argv)
 {
+    const int     main_cpu         = 0; // The cpu which the main thread will run on.
     const size_t  rv_emu_total_mem = (1024 * 1024) * 256;
     const int     target_argc      = 1;
 
@@ -182,6 +186,17 @@ main(int argc, char** argv)
     // reguarly at a set time interval.
     emu_stats_t* shared_stats = emu_stats_create();
 
+    // Set the affinity of the main thread to CPU 0.
+    const pid_t main_tid = syscall(__NR_gettid);
+    cpu_set_t   main_cpu_mask;
+    CPU_ZERO(&main_cpu_mask);
+    CPU_SET(main_cpu, &main_cpu_mask);
+    const int main_sched_ok = sched_setaffinity(main_tid, sizeof(main_cpu_mask), &main_cpu_mask);
+    if (main_sched_ok != 0) {
+        ginger_log(ERROR, "Failed to set affinity of main 0x%x thread to cpu 0!\n");
+        abort();
+    }
+
     // Start one emulator per available cpu.
     for (uint8_t i = 0; i < nb_cpus; i++) {
         t_info[i].thread_num   = i;
@@ -192,6 +207,16 @@ main(int argc, char** argv)
         const int ok = pthread_create(&t_info[i].thread_id, &thread_attr, &worker_run, &t_info[i]);
         if (ok != 0) {
             ginger_log(ERROR, "[%s] Failed to spawn thread %u\n", __func__, i);
+            abort();
+        }
+        // Migrate worker threads to dedicated cores. One worker will share core with the
+        // main thread.
+        cpu_set_t worker_cpu_mask;
+        CPU_ZERO(&worker_cpu_mask);
+        CPU_SET(i, &worker_cpu_mask);
+        const int worker_sched_ok = pthread_setaffinity_np(t_info[i].thread_id, sizeof(worker_cpu_mask), &worker_cpu_mask);
+        if (worker_sched_ok != 0) {
+            ginger_log(ERROR, "Failed to set affinity of worker thread 0x%x!\n", t_info[i].thread_id);
             abort();
         }
     }
@@ -210,19 +235,19 @@ main(int argc, char** argv)
     for (;;) {
         clock_gettime(CLOCK_THREAD_CPUTIME_ID, &current);
         const uint64_t elapsed_s  = current.tv_sec - checkpoint.tv_sec;
-        const uint64_t elapsed_ns = (elapsed_s * 10e9) + (current.tv_nsec - checkpoint.tv_nsec);
+        const uint64_t elapsed_ns = (elapsed_s * 1e9) + (current.tv_nsec - checkpoint.tv_nsec);
 
         // Report every two seconds to give the worker threads enough time to
         // report atleast once.
-        if (elapsed_ns > 20e9) {
+        if (elapsed_ns > 2e9) {
 
             // Calculate average number of executed instructions per second.
             const uint64_t nb_exec_this_round = shared_stats->nb_executed_instructions - prev_nb_exec_inst;
-            shared_stats->avg_nb_inst_per_sec = nb_exec_this_round / (elapsed_ns / 10e9);
+            shared_stats->avg_nb_inst_per_sec = nb_exec_this_round / (elapsed_ns / 1e9);
 
             // Calculate the average number of emulator resets per second.
             const uint64_t nb_resets_this_round = shared_stats->nb_resets - prev_nb_resets;
-            shared_stats->avg_nb_resets_per_sec = nb_resets_this_round / (elapsed_ns / 10e9);
+            shared_stats->avg_nb_resets_per_sec = nb_resets_this_round / (elapsed_ns / 1e9);
 
             emu_stats_print(shared_stats);
 
