@@ -18,6 +18,9 @@ emu_stats_inc(emu_stats_t* stats, const enum_emu_counters_t counter)
     case EMU_COUNTERS_EXIT_FSTAT_BAD_FD:
         ++stats->nb_fstat_bad_fds;
         break;
+    case EMU_COUNTERS_EXIT_SEGFAULT:
+        ++stats->nb_segfaults;
+        break;
     case EMU_COUNTERS_EXIT_GRACEFUL:
         ++stats->nb_graceful_exits;
         break;
@@ -45,6 +48,10 @@ emu_stats_print(emu_stats_t* stats)
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
     sprintf(tmp_buf, " | bad fstat syscalls: %lu", stats->nb_fstat_bad_fds);
+    strcat(stats_buf, tmp_buf);
+    memset(tmp_buf, 0, sizeof(tmp_buf));
+
+    sprintf(tmp_buf, " | segfaults: %lu", stats->nb_segfaults);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 

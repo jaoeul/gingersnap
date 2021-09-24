@@ -6,6 +6,7 @@
 typedef enum {
     EMU_COUNTERS_EXIT_REASON_SYSCALL_NOT_SUPPORTED,
     EMU_COUNTERS_EXIT_FSTAT_BAD_FD,
+    EMU_COUNTERS_EXIT_SEGFAULT,
     EMU_COUNTERS_EXIT_GRACEFUL,
     EMU_COUNTERS_EXECUTED_INSTRUCTIONS,
     EMU_COUNTERS_RESETS,
@@ -15,6 +16,7 @@ typedef enum {
     EMU_EXIT_REASON_NO_EXIT = 0,
     EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED,
     EMU_EXIT_REASON_FSTAT_BAD_FD,
+    EMU_EXIT_REASON_SEGFAULT,
     EMU_EXIT_REASON_GRACEFUL,
 } enum_emu_exit_reasons_t;
 
@@ -22,6 +24,7 @@ typedef struct {
     uint64_t nb_executed_instructions;
     uint64_t nb_unsupported_syscalls;
     uint64_t nb_fstat_bad_fds;
+    uint64_t nb_segfaults;
     uint64_t nb_graceful_exits;
     uint64_t nb_unknown_exit_reasons;
     uint64_t nb_resets;

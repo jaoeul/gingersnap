@@ -82,6 +82,9 @@ run_emu(rv_emu_t* emu, emu_stats_t* local_stats)
     case EMU_EXIT_REASON_FSTAT_BAD_FD:
         emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_FSTAT_BAD_FD);
         break;
+    case EMU_EXIT_REASON_SEGFAULT:
+        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_SEGFAULT);
+        break;
     case EMU_EXIT_REASON_GRACEFUL:
         emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_GRACEFUL);
         break;
@@ -142,6 +145,7 @@ worker_run(void* arg)
             shared_stats->nb_graceful_exits        += local_stats->nb_graceful_exits;
             shared_stats->nb_unknown_exit_reasons  += local_stats->nb_unsupported_syscalls;
             shared_stats->nb_resets                += local_stats->nb_resets;
+            shared_stats->nb_segfaults             += local_stats->nb_segfaults;
             // Unlock the mutex.
             pthread_mutex_unlock(&shared_stats->lock);
 
@@ -157,20 +161,29 @@ worker_run(void* arg)
 int
 main(int argc, char** argv)
 {
-    const int      main_cpu                 = 0;    // The cpu which the main thread will run on.
-    const uint64_t print_stats_interval_ns  = 1e9;  // Print stats every second.
-    const size_t   rv_emu_total_mem         = (1024 * 1024) * 256;
-    const int      target_argc              = 1;
-    int            ok                       = -1;
+    // The cpu which the main thread will run on.
+    const int main_cpu = 0;
+
+    // Print stats every second.
+    const uint64_t print_stats_interval_ns = 1e9;
+
+    // The total amount of bytes that the emulators can allocate.
+    const size_t rv_emu_total_mem = (1024 * 1024) * 256;
+
+    // We do not want feed argv[0] of gingersnap to the target.
+    const int target_argc = argc - 1;
+
+    // For checking that initialization of the fuzzer is ok.
+    int ok = -1;
 
     // Array of arguments to the target executable.
     heap_str_t target_argv[target_argc];
     memset(target_argv, 0, sizeof(target_argv));
-
-    // First arg.
-    heap_str_t arg0;
-    heap_str_set(&arg0, "./data/target");
-    target_argv[0] = arg0;
+    for (int i = 0; i < target_argc; i++) {
+        heap_str_t arg;
+        heap_str_set(&arg, argv[i + 1]);
+        target_argv[i] = arg;
+    }
 
     // Multiple emus can use the same target since it is only read from and never written to.
     const target_t* target = target_create(target_argc, target_argv);

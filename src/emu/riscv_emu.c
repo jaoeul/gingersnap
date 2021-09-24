@@ -334,8 +334,11 @@ lb(rv_emu_t* emu, const uint32_t instruction)
     const uint64_t target   = get_reg_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
     // Read 1 byte from target guest address into buffer.
-    uint8_t loaded_bytes[1] = {0};
-    emu->mmu->read(emu->mmu, loaded_bytes, target, 1);
+    uint8_t       loaded_bytes[1] = {0};
+    const uint8_t read_ok         = emu->mmu->read(emu->mmu, loaded_bytes, target, 1);
+    if (read_ok != 0) {
+        emu->exit_reason = EMU_EXIT_REASON_SEGFAULT;
+    }
 
     int32_t loaded_value = (int32_t)byte_arr_to_u64(loaded_bytes, 1, LSB);
 
@@ -351,8 +354,11 @@ lh(rv_emu_t* emu, const uint32_t instruction)
     const uint64_t target   = get_reg_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
     // Read 2 bytes from target guest address into buffer.
-    uint8_t loaded_bytes[2] = {0};
-    emu->mmu->read(emu->mmu, loaded_bytes, target, 2);
+    uint8_t       loaded_bytes[2] = {0};
+    const uint8_t read_ok         = emu->mmu->read(emu->mmu, loaded_bytes, target, 2);
+    if (read_ok != 0) {
+        emu->exit_reason = EMU_EXIT_REASON_SEGFAULT;
+    }
 
     // Sign-extend.
     int32_t loaded_value = (int32_t)(uint32_t)byte_arr_to_u64(loaded_bytes, 2, LSB);
@@ -371,8 +377,11 @@ lw(rv_emu_t* emu, const uint32_t instruction)
     ginger_log(DEBUG, "Loading 4 bytes from address: 0x%lx\n", target);
 
     // Read 4 bytes from target guest address into buffer.
-    uint8_t loaded_bytes[4] = {0};
-    emu->mmu->read(emu->mmu, loaded_bytes, target, 4);
+    uint8_t       loaded_bytes[4] = {0};
+    const uint8_t read_ok         = emu->mmu->read(emu->mmu, loaded_bytes, target, 4);
+    if (read_ok != 0) {
+        emu->exit_reason = EMU_EXIT_REASON_SEGFAULT;
+    }
 
     // Sign extend.
     int32_t loaded_value = (int32_t)(uint32_t)byte_arr_to_u64(loaded_bytes, 4, LSB);
@@ -390,8 +399,11 @@ ld(rv_emu_t* emu, const uint32_t instruction)
 
     ginger_log(DEBUG, "Executing\t\tLD %s 0x%lx\n", reg_to_str(get_rd(instruction)), target);
 
-    uint8_t loaded_bytes[8] = {0};
-    emu->mmu->read(emu->mmu, loaded_bytes, target, 8);
+    uint8_t       loaded_bytes[8] = {0};
+    const uint8_t read_ok         = emu->mmu->read(emu->mmu, loaded_bytes, target, 8);
+    if (read_ok != 0) {
+        emu->exit_reason = EMU_EXIT_REASON_SEGFAULT;
+    }
 
     const uint64_t result = byte_arr_to_u64(loaded_bytes, 8, LSB);
 
@@ -407,8 +419,11 @@ lbu(rv_emu_t* emu, const uint32_t instruction)
     const uint64_t target = get_reg_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
     // Read 1 byte from target guest address into buffer.
-    uint8_t loaded_bytes[1] = {0};
-    emu->mmu->read(emu->mmu, loaded_bytes, target, 1);
+    uint8_t       loaded_bytes[1] = {0};
+    const uint8_t read_ok         = emu->mmu->read(emu->mmu, loaded_bytes, target, 1);
+    if (read_ok != 0) {
+        emu->exit_reason = EMU_EXIT_REASON_SEGFAULT;
+    }
 
     uint32_t loaded_value = (uint32_t)byte_arr_to_u64(loaded_bytes, 1, LSB);
 
@@ -424,8 +439,11 @@ lhu(rv_emu_t* emu, const uint32_t instruction)
     const uint64_t target = get_reg_rs1(emu, instruction) + i_type_get_immediate(instruction);
 
     // Read 2 bytes from target guest address into buffer.
-    uint8_t loaded_bytes[2] = {0};
-    emu->mmu->read(emu->mmu, loaded_bytes, target, 2);
+    uint8_t       loaded_bytes[2] = {0};
+    const uint8_t read_ok         = emu->mmu->read(emu->mmu, loaded_bytes, target, 2);
+    if (read_ok != 0) {
+        emu->exit_reason = EMU_EXIT_REASON_SEGFAULT;
+    }
 
     // Zero-extend to 32 bit.
     uint32_t loaded_value = (uint32_t)byte_arr_to_u64(loaded_bytes, 2, LSB);
@@ -443,8 +461,12 @@ lwu(rv_emu_t* emu, const uint32_t instruction)
     const uint32_t offset = i_type_get_immediate(instruction);
     const uint64_t target = base + offset;
 
-    uint8_t loaded_bytes[4] = {0};
-    emu->mmu->read(emu->mmu, loaded_bytes, target, 4);
+    uint8_t       loaded_bytes[4] = {0};
+    const uint8_t read_ok         = emu->mmu->read(emu->mmu, loaded_bytes, target, 4);
+    if (read_ok != 0) {
+        emu->exit_reason = EMU_EXIT_REASON_SEGFAULT;
+    }
+
     const uint64_t result = (uint64_t)byte_arr_to_u64(loaded_bytes, 4, LSB);
 
     set_rd(emu, instruction, result);
@@ -1532,7 +1554,7 @@ emu_build_stack(rv_emu_t* emu, const target_t* target)
         }
         guest_arg_addresses[i] = arg_adr;
         emu->mmu->write(emu->mmu, arg_adr, (uint8_t*)target->argv[i].str, target->argv[i].len);
-        ginger_log(INFO, "arg[%d] written to guest adr: 0x%lx\n", i, arg_adr);
+        ginger_log(INFO, "arg[%d] \"%s\" written to guest adr: 0x%lx\n", i, target->argv[i].str, arg_adr);
     }
 
     ginger_log(INFO, "Building initial stack at guest address: 0x%x\n", emu->registers[REG_SP]);

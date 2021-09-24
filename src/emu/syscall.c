@@ -74,7 +74,12 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
 
             uint8_t print_buf[len + 1];
             memset(print_buf, 0, len + 1);
-            emu->mmu->read(emu->mmu, print_buf, buf_guest_adr, len);
+
+            const int read_ok = emu->mmu->read(emu->mmu, print_buf, buf_guest_adr, len);
+            if (read_ok != 0) {
+                emu->exit_reason = EMU_EXIT_REASON_SEGFAULT;
+            }
+
             ginger_log(DEBUG, "Guest wrote: %s\n", print_buf);
             set_reg(emu, REG_A0, len);
         }
