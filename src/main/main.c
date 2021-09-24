@@ -159,6 +159,7 @@ main(int argc, char** argv)
     const int     main_cpu         = 0; // The cpu which the main thread will run on.
     const size_t  rv_emu_total_mem = (1024 * 1024) * 256;
     const int     target_argc      = 1;
+    int           ok               = -1;
 
     // Array of arguments to the target executable.
     heap_str_t target_argv[target_argc];
@@ -191,9 +192,9 @@ main(int argc, char** argv)
     cpu_set_t   main_cpu_mask;
     CPU_ZERO(&main_cpu_mask);
     CPU_SET(main_cpu, &main_cpu_mask);
-    const int main_sched_ok = sched_setaffinity(main_tid, sizeof(main_cpu_mask), &main_cpu_mask);
-    if (main_sched_ok != 0) {
-        ginger_log(ERROR, "Failed to set affinity of main 0x%x thread to cpu 0!\n");
+    ok = sched_setaffinity(main_tid, sizeof(main_cpu_mask), &main_cpu_mask);
+    if (ok != 0) {
+        ginger_log(ERROR, "Failed to set affinity of main thread 0x%x to cpu 0!\n");
         abort();
     }
 
@@ -204,7 +205,7 @@ main(int argc, char** argv)
         t_info[i].target       = target;
         t_info[i].shared_stats = shared_stats;
 
-        const int ok = pthread_create(&t_info[i].thread_id, &thread_attr, &worker_run, &t_info[i]);
+        ok = pthread_create(&t_info[i].thread_id, &thread_attr, &worker_run, &t_info[i]);
         if (ok != 0) {
             ginger_log(ERROR, "[%s] Failed to spawn thread %u\n", __func__, i);
             abort();
@@ -214,14 +215,14 @@ main(int argc, char** argv)
         cpu_set_t worker_cpu_mask;
         CPU_ZERO(&worker_cpu_mask);
         CPU_SET(i, &worker_cpu_mask);
-        const int worker_sched_ok = pthread_setaffinity_np(t_info[i].thread_id, sizeof(worker_cpu_mask), &worker_cpu_mask);
-        if (worker_sched_ok != 0) {
+        ok = pthread_setaffinity_np(t_info[i].thread_id, sizeof(worker_cpu_mask), &worker_cpu_mask);
+        if (ok != 0) {
             ginger_log(ERROR, "Failed to set affinity of worker thread 0x%x!\n", t_info[i].thread_id);
             abort();
         }
     }
     // We are done with the thread attributes, might as well destroy them.
-    int ok = pthread_attr_destroy(&thread_attr);
+    ok = pthread_attr_destroy(&thread_attr);
     if (ok != 0) {
         abort();
     }

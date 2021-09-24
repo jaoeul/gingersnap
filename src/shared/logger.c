@@ -70,7 +70,7 @@ ginger_log(uint8_t log_level, const char* fmt, ...)
     const int thread_info_str_sz = 21; //"[Thread 0x100000000] "
     char pid_str[thread_info_str_sz];
     memset(pid_str, 0, sizeof(thread_info_str_sz));
-    pid_t x = syscall(__NR_gettid);
+    const pid_t x = syscall(__NR_gettid);
     sprintf(pid_str, "[Thread 0x%x] ", x);
     strncat(log_buffer, pid_str, thread_info_str_sz);
 
