@@ -246,11 +246,11 @@ main(int argc, char** argv)
 
             // Calculate average number of executed instructions per second.
             const uint64_t nb_exec_this_round = shared_stats->nb_executed_instructions - prev_nb_exec_inst;
-            shared_stats->avg_nb_inst_per_sec = nb_exec_this_round / (elapsed_ns / 1e9);
+            shared_stats->nb_inst_per_sec = nb_exec_this_round / (elapsed_ns / 1e9);
 
             // Calculate the average number of emulator resets per second.
             const uint64_t nb_resets_this_round = shared_stats->nb_resets - prev_nb_resets;
-            shared_stats->avg_nb_resets_per_sec = nb_resets_this_round / (elapsed_ns / 1e9);
+            shared_stats->nb_resets_per_sec = nb_resets_this_round / (elapsed_ns / 1e9);
 
             emu_stats_print(shared_stats);
 
@@ -258,10 +258,10 @@ main(int argc, char** argv)
             clock_gettime(CLOCK_MONOTONIC, &checkpoint);
 
             // Prepare for next loop iteration.
-            shared_stats->avg_nb_inst_per_sec   = 0;
-            shared_stats->avg_nb_resets_per_sec = 0;
-            prev_nb_exec_inst                   = shared_stats->nb_executed_instructions;
-            prev_nb_resets                      = shared_stats->nb_resets;
+            shared_stats->nb_inst_per_sec   = 0;
+            shared_stats->nb_resets_per_sec = 0;
+            prev_nb_exec_inst               = shared_stats->nb_executed_instructions;
+            prev_nb_resets                  = shared_stats->nb_resets;
         }
         else {
             // This might be suboptimal if the main thread is running on the

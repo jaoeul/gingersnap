@@ -36,37 +36,37 @@ emu_stats_print(emu_stats_t* stats)
     char stats_buf[1024] = {0};
     char tmp_buf[256]    = {0};
 
-    sprintf(tmp_buf, "Nb exec inst: %lu", stats->nb_executed_instructions);
+    sprintf(tmp_buf, "exec insts: %lu", stats->nb_executed_instructions);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
-    sprintf(tmp_buf, " | Nb non-sup syscall: %lu", stats->nb_unsupported_syscalls);
+    sprintf(tmp_buf, " | non-sup syscalls: %lu", stats->nb_unsupported_syscalls);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
-    sprintf(tmp_buf, " | Nb bad fstat syscalls: %lu", stats->nb_fstat_bad_fds);
+    sprintf(tmp_buf, " | bad fstat syscalls: %lu", stats->nb_fstat_bad_fds);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
-    sprintf(tmp_buf, " | Nb graceful exits: %lu", stats->nb_graceful_exits);
+    sprintf(tmp_buf, " | graceful exits: %lu", stats->nb_graceful_exits);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
-    sprintf(tmp_buf, " | Nb unknown exits: %lu", stats->nb_unknown_exit_reasons);
+    sprintf(tmp_buf, " | unknown exits: %lu", stats->nb_unknown_exit_reasons);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
-    sprintf(tmp_buf, " | Nb resets: %lu", stats->nb_resets);
+    sprintf(tmp_buf, " | resets: %lu", stats->nb_resets);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
     // Instructions per second.
-    sprintf(tmp_buf, " | Avg nb inst per sec: %lf", stats->avg_nb_inst_per_sec);
+    sprintf(tmp_buf, " | inst / sec: %lf", stats->nb_inst_per_sec);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
     // Resets per second.
-    sprintf(tmp_buf, " | Avg nb resets per sec: %lf", stats->avg_nb_resets_per_sec);
+    sprintf(tmp_buf, " | resets / sec: %lf", stats->nb_resets_per_sec);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 

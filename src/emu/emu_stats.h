@@ -25,8 +25,8 @@ typedef struct {
     uint64_t nb_graceful_exits;
     uint64_t nb_unknown_exit_reasons;
     uint64_t nb_resets;
-    double   avg_nb_inst_per_sec;
-    double   avg_nb_resets_per_sec;
+    double   nb_inst_per_sec;
+    double   nb_resets_per_sec;
 
     // Lock for synchronizing updating stats from multiple workers to the main
     // stats structure.
