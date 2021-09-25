@@ -12,6 +12,7 @@
 
 #include "../emu/riscv_emu.h"
 #include "../emu/emu_stats.h"
+#include "../fuzzer/fuzzer.h"
 #include "../debug_cli/debug_cli.h"
 #include "../shared/cli.h"
 #include "../shared/elf_loader.h"
@@ -29,9 +30,11 @@
 typedef struct {
     pthread_t       thread_id;    // ID returned by pthread_create().
     uint64_t        thread_num;   // Application-defined thread number.
-    rv_emu_t*       emu;          // The emulator to run.
     const target_t* target;       // The target executable.
     emu_stats_t*    shared_stats; // Collected statistics, reported by the worker threads.
+    corpus_t*       corpus;       // Data which the fuzz inputs are based on. Shared between threads.
+    uint64_t        fuzz_buf_adr;
+    uint64_t        fuzz_buf_size;
 } thread_info_t;
 
 // Parse `/proc/cpuinfo`.
@@ -56,84 +59,32 @@ nb_active_cpus(void)
     return nb_cpus;
 }
 
-// Run an emulator until it exits or crashes.
-static void
-run_emu(rv_emu_t* emu, emu_stats_t* local_stats)
-{
-#if EMU_DEBUG
-    const pid_t actual_tid = syscall(__NR_gettid);
-    if (emu->tid != actual_tid) {
-        ginger_log(ERROR, "[%s] Thread tried to execute someone elses emu!\n", __func__);
-        ginger_log(ERROR, "[%s] acutal_tid 0x%x, emu->tid: 0x%x\n", __func__, actual_tid, emu->tid);
-        abort();
-    }
-#endif
-    // Execute the next instruction as long as no exit reason is set.
-    while (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
-        emu->execute(emu);
-        emu_stats_inc(local_stats, EMU_COUNTERS_EXECUTED_INSTRUCTIONS);
-    }
-
-    // Report why emulator exited.
-    switch(emu->exit_reason) {
-    case EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
-        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_REASON_SYSCALL_NOT_SUPPORTED);
-        break;
-    case EMU_EXIT_REASON_FSTAT_BAD_FD:
-        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_FSTAT_BAD_FD);
-        break;
-    case EMU_EXIT_REASON_SEGFAULT_READ:
-        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_SEGFAULT_READ);
-        break;
-    case EMU_EXIT_REASON_SEGFAULT_WRITE:
-        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_SEGFAULT_WRITE);
-        break;
-    case EMU_EXIT_REASON_INVALID_OPCODE:
-        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_INVALID_OPCODE);
-        break;
-    case EMU_EXIT_REASON_GRACEFUL:
-        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_GRACEFUL);
-        break;
-    case EMU_EXIT_REASON_NO_EXIT:
-        break;
-    }
-}
-
-// Run the emulator and reset it when it exit or crashes. Report stats from
+// Do the all the thread local setup of fuzzers and start them. Report stats from
 // the thread local data to the main stats structure after a set time interval.
 static void*
 __attribute__((noreturn))
 worker_run(void* arg)
 {
-    thread_info_t*  t_info                   = arg;
-    rv_emu_t*       emu                      = t_info->emu;
-    const target_t* target                   = t_info->target;
-    emu_stats_t*    shared_stats             = t_info->shared_stats;
     const uint64_t  report_stats_interval_ns = 1e7; // Report stats 100 times a second to the main thread.
 
-    // Init the emulator thread id.
-    emu->tid = syscall(__NR_gettid);
+    // Thread arguments.
+    thread_info_t*  t_info        = arg;
+    const target_t* target        = t_info->target;
+    const uint64_t  fuzz_buf_adr  = t_info->fuzz_buf_adr;
+    const uint64_t  fuzz_buf_size = t_info->fuzz_buf_size;
+    corpus_t*       corpus        = t_info->corpus;
+    emu_stats_t*    shared_stats  = t_info->shared_stats;
 
-    // Load the elf and build the stack.
-    emu->setup(emu, target);
-
-    // Create a thread local stats structure.
-    emu_stats_t* local_stats = emu_stats_create();
-
-    // Capture the state.
-    const rv_emu_t* clean_snapshot = emu->fork(emu);
+    // Create the thread local fuzzer.
+    fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target);
 
     // A timestamp which is used for comparison.
     struct timespec checkpoint;
     clock_gettime(CLOCK_MONOTONIC, &checkpoint);
 
     for (;;) {
-        // Run the emulator until it exits or crashes.
-        run_emu(emu, local_stats);
-
-        // Restore the emulator to its initial state.
-        emu->reset(emu, clean_snapshot);
-        emu_stats_inc(local_stats, EMU_COUNTERS_RESETS);
+        // Fuzz input.
+        fuzzer->fuzz_input(fuzzer);
 
         // Update the main stats with data from the thread local stats if the time is right.
         struct timespec current;
@@ -141,27 +92,25 @@ worker_run(void* arg)
         const time_t   elapsed_s = current.tv_sec - checkpoint.tv_sec;
         const uint64_t elapsed_ns = (elapsed_s * 1e9) + (current.tv_nsec - checkpoint.tv_nsec);
 
-        // Report stats to the main thread about once every second.
+        // Report stats to the main thread.
         if (elapsed_ns > report_stats_interval_ns) {
-            // Lock shared stats mutex.
             pthread_mutex_lock(&shared_stats->lock);
-            shared_stats->nb_executed_instructions += local_stats->nb_executed_instructions;
-            shared_stats->nb_unsupported_syscalls  += local_stats->nb_unsupported_syscalls;
-            shared_stats->nb_fstat_bad_fds         += local_stats->nb_fstat_bad_fds;
-            shared_stats->nb_graceful_exits        += local_stats->nb_graceful_exits;
-            shared_stats->nb_unknown_exit_reasons  += local_stats->nb_unsupported_syscalls;
-            shared_stats->nb_resets                += local_stats->nb_resets;
-            shared_stats->nb_segfault_reads        += local_stats->nb_segfault_reads;
-            shared_stats->nb_segfault_writes       += local_stats->nb_segfault_writes;
-            shared_stats->nb_invalid_opcodes       += local_stats->nb_invalid_opcodes;
-            // Unlock the mutex.
+            shared_stats->nb_executed_instructions += fuzzer->stats->nb_executed_instructions;
+            shared_stats->nb_unsupported_syscalls  += fuzzer->stats->nb_unsupported_syscalls;
+            shared_stats->nb_fstat_bad_fds         += fuzzer->stats->nb_fstat_bad_fds;
+            shared_stats->nb_graceful_exits        += fuzzer->stats->nb_graceful_exits;
+            shared_stats->nb_unknown_exit_reasons  += fuzzer->stats->nb_unsupported_syscalls;
+            shared_stats->nb_resets                += fuzzer->stats->nb_resets;
+            shared_stats->nb_segfault_reads        += fuzzer->stats->nb_segfault_reads;
+            shared_stats->nb_segfault_writes       += fuzzer->stats->nb_segfault_writes;
+            shared_stats->nb_invalid_opcodes       += fuzzer->stats->nb_invalid_opcodes;
             pthread_mutex_unlock(&shared_stats->lock);
 
             // Reset the timer checkpoint.
             clock_gettime(CLOCK_MONOTONIC, &checkpoint);
 
             // Clear the local stats.
-            memset(local_stats, 0, sizeof(emu_stats_t));
+            memset(fuzzer->stats, 0, sizeof(emu_stats_t));
         }
     }
 }
@@ -173,8 +122,6 @@ main(int argc, char** argv)
     const int main_cpu = 0;
     // Print stats every second.
     const uint64_t print_stats_interval_ns = 1e9;
-    // The total amount of bytes that the emulators can allocate.
-    const size_t rv_emu_total_mem = (1024 * 1024) * 256;
     // We do not want feed argv[0] of gingersnap to the target.
     const int target_argc = argc - 1;
     // For checking that initialization of the fuzzer is ok.
@@ -191,6 +138,9 @@ main(int argc, char** argv)
 
     // Multiple emus can use the same target since it is only read from and never written to.
     const target_t* target = target_create(target_argc, target_argv);
+
+    // Create shared corpus.
+    corpus_t* shared_corpus = corpus_create();
 
     // Can be used for all threads.
     pthread_attr_t thread_attr = {0};
@@ -220,9 +170,9 @@ main(int argc, char** argv)
     // Start one emulator per available cpu.
     for (uint8_t i = 0; i < nb_cpus; i++) {
         t_info[i].thread_num   = i;
-        t_info[i].emu          = emu_create(rv_emu_total_mem);
         t_info[i].target       = target;
         t_info[i].shared_stats = shared_stats;
+        t_info[i].corpus       = shared_corpus;
 
         ok = pthread_create(&t_info[i].thread_id, &thread_attr, &worker_run, &t_info[i]);
         if (ok != 0) {
@@ -295,7 +245,6 @@ main(int argc, char** argv)
             abort();
         }
         free(thread_ret);
-        t_info[i].emu->destroy(t_info[i].emu);
     }
     ginger_log(INFO, "All threads joined. Freeing allocated data!\n");
 
