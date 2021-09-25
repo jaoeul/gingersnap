@@ -1476,6 +1476,40 @@ emu_reset(rv_emu_t* dst_emu, const rv_emu_t* src_emu)
     dst_emu->exit_reason = EMU_EXIT_REASON_NO_EXIT;
 }
 
+// Run an emulator until it exits or crashes.
+static void
+emu_run(rv_emu_t* emu, emu_stats_t* stats)
+{
+    // Execute the next instruction as long as no exit reason is set.
+    while (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
+        emu->execute(emu);
+        emu_stats_inc(stats, EMU_COUNTERS_EXECUTED_INSTRUCTIONS);
+    }
+    // Report why emulator exited.
+    switch(emu->exit_reason) {
+    case EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_REASON_SYSCALL_NOT_SUPPORTED);
+        break;
+    case EMU_EXIT_REASON_FSTAT_BAD_FD:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_FSTAT_BAD_FD);
+        break;
+    case EMU_EXIT_REASON_SEGFAULT_READ:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_SEGFAULT_READ);
+        break;
+    case EMU_EXIT_REASON_SEGFAULT_WRITE:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_SEGFAULT_WRITE);
+        break;
+    case EMU_EXIT_REASON_INVALID_OPCODE:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_INVALID_OPCODE);
+        break;
+    case EMU_EXIT_REASON_GRACEFUL:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_GRACEFUL);
+        break;
+    case EMU_EXIT_REASON_NO_EXIT:
+        break;
+    }
+}
+
 static void
 emu_stack_push(rv_emu_t* emu, uint8_t bytes[], size_t nb_bytes)
 {
@@ -1664,6 +1698,7 @@ emu_create(size_t memory_size)
     emu->execute    = emu_execute_next_instruction;
     emu->fork       = emu_fork;
     emu->reset      = emu_reset;
+    emu->run        = emu_run;
     emu->stack_push = emu_stack_push;
     emu->destroy    = emu_destroy;
 

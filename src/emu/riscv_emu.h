@@ -50,7 +50,9 @@ enum register_indices {
     REG_LAST,
 };
 
-struct emu {
+typedef struct rv_emu rv_emu_t;
+
+struct rv_emu {
 
     // Does all the necessary setup needed before execution can begin.
     void (*setup)(rv_emu_t* emu, const target_t* target);
@@ -63,6 +65,9 @@ struct emu {
 
     // Resets the state of the emulator to that of another one.
     void (*reset)(rv_emu_t* dst_emu, const rv_emu_t* src_emu);
+
+    // Run an emulator until it exits or crashes. Increment exit counters.
+    void (*run)(rv_emu_t* emu, emu_stats_t* stats);
 
     // Pushes a specified amount of bytes onto the stack.
     void (*stack_push)(rv_emu_t* emu, uint8_t bytes[], size_t nb_bytes);
@@ -86,9 +91,6 @@ struct emu {
 
     // Exit reason.
     enum_emu_exit_reasons_t exit_reason;
-
-    // Thread id of the thread which is runnig this emu.
-    pid_t tid;
 };
 
 rv_emu_t* emu_create(size_t memory_size);
