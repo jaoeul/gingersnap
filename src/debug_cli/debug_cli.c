@@ -327,6 +327,18 @@ debug_cli_create(rv_emu_t* emu)
             .description = "Take a snapshot.\n"
         },
         {
+            .cmd_str = "set fuzzbuf start",
+            .description = "Set the address in guest memory where fuzzed input will be injected\n"
+        },
+        {
+            .cmd_str = "set fuzzbuf size",
+            .description = "Set the size of the target buffer which will be fuzzed\n"
+        },
+        {
+            .cmd_str = "start fuzzer",
+            .description = "Try to start the fuzzer."
+        },
+        {
             .cmd_str = "help",
             .description = "Print this help.\n"
         },
@@ -346,13 +358,46 @@ debug_cli_create(rv_emu_t* emu)
     return debug_cli;
 }
 
+uint64_t
+emu_debug_set_fuzzbuf_start(void)
+{
+    printf("\nFuzzcase injection address(hex): ");
+
+    // Get breakpoint address from user.
+    char fuzz_adr_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
+    memset(fuzz_adr_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
+
+    if (!fgets(fuzz_adr_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
+        ginger_log(ERROR, "Could not get user input!\n");
+        abort();
+    }
+    return strtoul(fuzz_adr_buf, NULL, 16);
+}
+
+uint64_t
+emu_debug_set_fuzzbuf_size(void)
+{
+    printf("\nSet fuzz buffer size(dec): ");
+
+    // Get breakpoint address from user.
+    char fuzz_size_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
+    memset(fuzz_size_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
+
+    if (!fgets(fuzz_size_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
+        ginger_log(ERROR, "Could not get user input!\n");
+        abort();
+    }
+    return strtoul(fuzz_size_buf, NULL, 10);
+}
+
 // Run the debug CLI. If a snapshot is taken, return it.
-rv_emu_t*
+debug_cli_result_t*
 debug_cli_run(rv_emu_t* emu, cli_t* cli)
 {
     static char last_command[MAX_LENGTH_DEBUG_CLI_COMMAND];
-    vector_t*   breakpoints = vector_create(sizeof(uint64_t));
-    vector_t*   watchpoints = vector_create(sizeof(MAX_LEN_REG_STR));
+    vector_t*           breakpoints = vector_create(sizeof(uint64_t));
+    vector_t*           watchpoints = vector_create(sizeof(MAX_LEN_REG_STR));
+    debug_cli_result_t* cli_result  = calloc(1, sizeof(debug_cli_result_t));
 
     for (;;) {
         printf("\n");
@@ -411,7 +456,23 @@ debug_cli_run(rv_emu_t* emu, cli_t* cli)
         }
         // Return a snapshot of the current emulator state.
         else if (strncmp(command_str, "snapshot", 8) == 0) {
-            return emu;
+            cli_result->snapshot     = emu;
+            cli_result->snapshot_set = true;
+        }
+        // Set the address where fuzzcases will be injected.
+        else if (strncmp(command_str, "set fuzzbuf start", 17) == 0) {
+            cli_result->fuzz_buf_adr     = emu_debug_set_fuzzbuf_start();
+            cli_result->fuzz_buf_adr_set = true;
+        }
+        // Set the size of the target buffer, which will be fuzzed.
+        else if (strncmp(command_str, "set fuzzbuf size", 16) == 0) {
+            cli_result->fuzz_buf_size     = emu_debug_set_fuzzbuf_size();
+            cli_result->fuzz_buf_size_set = true;
+        }
+        // Exit this funciton and let the main function try to start the fuzzer.
+        else if (strncmp(command_str, "start fuzzer", 12) == 0) {
+            printf("\n");
+            return cli_result;
         }
         // Show debug help.
         else if (strncmp(command_str, "help", 4) == 0) {
@@ -419,8 +480,8 @@ debug_cli_run(rv_emu_t* emu, cli_t* cli)
         }
         // Quit debugging.
         else if (strncmp(command_str, "quit", 4) == 0) {
-            printf("\n");
-            return NULL;
+            printf("\nExiting...\n");
+            exit(0);
         }
 
         // Save executed command as previous command.

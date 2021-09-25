@@ -152,9 +152,10 @@ main(int argc, char** argv)
 
     // Run the CLI. If we get a snapshot from it, use it, otherwise exit the program. The snapshot
     // is simply a pointer to the `initial_emu`.
-    const rv_emu_t* snapshot = debug_cli_run(initial_emu, debug_cli);
-    if (!snapshot) {
-        ginger_log(INFO, "Quit CLI without taking a snapshot! Exiting...\n");
+    debug_cli_result_t* cli_result = debug_cli_run(initial_emu, debug_cli);
+    if (!cli_result->snapshot_set || !cli_result->fuzz_buf_adr_set || !cli_result->fuzz_buf_size_set) {
+        ginger_log(INFO, "All mandatory options not set:\nSnapshot set: %u\nFuzzing buffer start address set: %u\nFuzzing buffer size set: %u\nExiting...\n",
+                   cli_result->snapshot_set, cli_result->fuzz_buf_adr_set, cli_result->fuzz_buf_size_set);
         exit(0);
     }
 
@@ -186,13 +187,15 @@ main(int argc, char** argv)
         abort();
     }
 
-    // Start one emulator per available cpu.
+    // Start one fuzzer per available cpu.
     for (uint8_t i = 0; i < nb_cpus; i++) {
         t_info[i].thread_num     = i;
         t_info[i].target         = target;
         t_info[i].shared_stats   = shared_stats;
         t_info[i].corpus         = shared_corpus;
-        t_info[i].clean_snapshot = snapshot;
+        t_info[i].clean_snapshot = cli_result->snapshot;
+        t_info[i].fuzz_buf_adr   = cli_result->fuzz_buf_adr;
+        t_info[i].fuzz_buf_size  = cli_result->fuzz_buf_size;
 
         ok = pthread_create(&t_info[i].thread_id, &thread_attr, &worker_run, &t_info[i]);
         if (ok != 0) {
