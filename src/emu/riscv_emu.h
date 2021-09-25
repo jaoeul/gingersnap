@@ -11,6 +11,8 @@
 #include "../shared/vector.h"
 #include "../target/target.h"
 
+#define EMU_TOTAL_MEM 1024 * 1024 * 256 // 256 MiB
+
 // This enum is not used to store register state. It is only used as indices
 // for access to correct offset in the emulator register array.
 enum register_indices {

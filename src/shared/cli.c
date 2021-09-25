@@ -360,6 +360,7 @@ cli_get_command(cli_t* cli)
         else if (curr_char == 10) {
             // Got enter. Consider the user input complete.
             if (nb_read == 0) {
+                cli_disable_raw_mode();
                 return NULL;
             }
             const int match = cli_str_search_exact_match(cli->commands, input_buf);

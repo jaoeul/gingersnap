@@ -22,7 +22,7 @@ static const char reg_strs[][MAX_LEN_REG_STR] = { "ra", "sp", "gp", "tp", "t0", 
                                                   "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6",
                                                   "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6", "pc" };
 
-static const char* debug_instructions = ""                  \
+static const char* debug_instructions = "\n"                \
     "Available CLI commands:\n"                             \
     " x - Examine emulator memory.\n"                       \
     " s - Search for value in emulator memory.\n"           \
@@ -283,7 +283,7 @@ emu_debug_set_watchpoint(rv_emu_t* emu, vector_t* watchpoints)
 }
 
 cli_t*
-emu_debug_create_cli(rv_emu_t* emu)
+debug_cli_create(rv_emu_t* emu)
 {
     struct cli_cmd debug_cli_commands[] = {
         {
@@ -323,6 +323,10 @@ emu_debug_create_cli(rv_emu_t* emu)
             .description = "Run emulator until breakpoint or program exit.\n"
         },
         {
+            .cmd_str = "snapshot",
+            .description = "Take a snapshot.\n"
+        },
+        {
             .cmd_str = "help",
             .description = "Print this help.\n"
         },
@@ -332,7 +336,7 @@ emu_debug_create_cli(rv_emu_t* emu)
         }
     };
 
-    const char* prompt_str = "(debug) ";
+    const char* prompt_str = "(gingersnap) ";
     cli_t* debug_cli = cli_create(prompt_str);
 
     for (int i = 0; i < sizeof(debug_cli_commands) / sizeof(debug_cli_commands[0]); i++) {
@@ -342,8 +346,9 @@ emu_debug_create_cli(rv_emu_t* emu)
     return debug_cli;
 }
 
-void
-debug_emu(rv_emu_t* emu, cli_t* cli)
+// Run the debug CLI. If a snapshot is taken, return it.
+rv_emu_t*
+debug_cli_run(rv_emu_t* emu, cli_t* cli)
 {
     static char last_command[MAX_LENGTH_DEBUG_CLI_COMMAND];
     vector_t*   breakpoints = vector_create(sizeof(uint64_t));
@@ -404,13 +409,18 @@ debug_emu(rv_emu_t* emu, cli_t* cli)
         else if (strncmp(command_str, "continue", 8) == 0) {
             emu_debug_run_until_breakpoint(emu, breakpoints);
         }
+        // Return a snapshot of the current emulator state.
+        else if (strncmp(command_str, "snapshot", 8) == 0) {
+            return emu;
+        }
         // Show debug help.
         else if (strncmp(command_str, "help", 4) == 0) {
             printf("%s", debug_instructions);
         }
         // Quit debugging.
         else if (strncmp(command_str, "quit", 4) == 0) {
-            exit(0);
+            printf("\n");
+            return NULL;
         }
 
         // Save executed command as previous command.

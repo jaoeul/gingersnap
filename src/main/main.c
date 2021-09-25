@@ -35,6 +35,7 @@ typedef struct {
     corpus_t*       corpus;       // Data which the fuzz inputs are based on. Shared between threads.
     uint64_t        fuzz_buf_adr;
     uint64_t        fuzz_buf_size;
+    const rv_emu_t* clean_snapshot;
 } thread_info_t;
 
 // Parse `/proc/cpuinfo`.
@@ -68,15 +69,16 @@ worker_run(void* arg)
     const uint64_t  report_stats_interval_ns = 1e7; // Report stats 100 times a second to the main thread.
 
     // Thread arguments.
-    thread_info_t*  t_info        = arg;
-    const target_t* target        = t_info->target;
-    const uint64_t  fuzz_buf_adr  = t_info->fuzz_buf_adr;
-    const uint64_t  fuzz_buf_size = t_info->fuzz_buf_size;
-    corpus_t*       corpus        = t_info->corpus;
-    emu_stats_t*    shared_stats  = t_info->shared_stats;
+    thread_info_t*  t_info         = arg;
+    const target_t* target         = t_info->target;
+    const uint64_t  fuzz_buf_adr   = t_info->fuzz_buf_adr;
+    const uint64_t  fuzz_buf_size  = t_info->fuzz_buf_size;
+    corpus_t*       corpus         = t_info->corpus;
+    const rv_emu_t* clean_snapshot = t_info->clean_snapshot;
+    emu_stats_t*    shared_stats   = t_info->shared_stats;
 
     // Create the thread local fuzzer.
-    fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target);
+    fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target, clean_snapshot);
 
     // A timestamp which is used for comparison.
     struct timespec checkpoint;
@@ -139,6 +141,23 @@ main(int argc, char** argv)
     // Multiple emus can use the same target since it is only read from and never written to.
     const target_t* target = target_create(target_argc, target_argv);
 
+    // Create an initial emulator, for taking the initial snapshot. This emulator will not be
+    // used to fuzz, but the snapshotted state will be passed to the worker emulators as the
+    // pre-fuzzed state which they will be reset to after a fuzz case is ran.
+    rv_emu_t* initial_emu = emu_create(EMU_TOTAL_MEM);
+    initial_emu->setup(initial_emu, target);
+
+    // Create a debugging CLI using the initial emulator.
+    cli_t* debug_cli = debug_cli_create(initial_emu);
+
+    // Run the CLI. If we get a snapshot from it, use it, otherwise exit the program. The snapshot
+    // is simply a pointer to the `initial_emu`.
+    const rv_emu_t* snapshot = debug_cli_run(initial_emu, debug_cli);
+    if (!snapshot) {
+        ginger_log(INFO, "Quit CLI without taking a snapshot! Exiting...\n");
+        exit(0);
+    }
+
     // Create shared corpus.
     corpus_t* shared_corpus = corpus_create();
 
@@ -169,10 +188,11 @@ main(int argc, char** argv)
 
     // Start one emulator per available cpu.
     for (uint8_t i = 0; i < nb_cpus; i++) {
-        t_info[i].thread_num   = i;
-        t_info[i].target       = target;
-        t_info[i].shared_stats = shared_stats;
-        t_info[i].corpus       = shared_corpus;
+        t_info[i].thread_num     = i;
+        t_info[i].target         = target;
+        t_info[i].shared_stats   = shared_stats;
+        t_info[i].corpus         = shared_corpus;
+        t_info[i].clean_snapshot = snapshot;
 
         ok = pthread_create(&t_info[i].thread_id, &thread_attr, &worker_run, &t_info[i]);
         if (ok != 0) {

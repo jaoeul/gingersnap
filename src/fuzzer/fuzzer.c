@@ -4,8 +4,7 @@
 #include "fuzzer.h"
 
 #include "../emu/riscv_emu.h"
-
-#define EMU_TOTAL_MEM 1024 * 1024 * 256 // 256 MiB
+#include "../shared/logger.h"
 
 void
 fuzzer_fuzz_input(fuzzer_t* fuzzer)
@@ -27,7 +26,7 @@ fuzzer_fuzz_input(fuzzer_t* fuzzer)
 }
 
 fuzzer_t*
-fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, const target_t* target)
+fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, const target_t* target, const rv_emu_t* snapshot)
 {
     fuzzer_t* fuzzer = calloc(1, sizeof(fuzzer_t));
 
@@ -47,7 +46,7 @@ fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, c
     fuzzer->stats = emu_stats_create();
 
     // Capture the pre fuzzed state.
-    fuzzer->clean_snapshot = fuzzer->emu->fork(fuzzer->emu);
+    fuzzer->clean_snapshot = snapshot;
 
     // API
     fuzzer->fuzz_input = fuzzer_fuzz_input;
