@@ -82,8 +82,11 @@ run_emu(rv_emu_t* emu, emu_stats_t* local_stats)
     case EMU_EXIT_REASON_FSTAT_BAD_FD:
         emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_FSTAT_BAD_FD);
         break;
-    case EMU_EXIT_REASON_SEGFAULT:
-        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_SEGFAULT);
+    case EMU_EXIT_REASON_SEGFAULT_READ:
+        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_SEGFAULT_READ);
+        break;
+    case EMU_EXIT_REASON_SEGFAULT_WRITE:
+        emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_SEGFAULT_WRITE);
         break;
     case EMU_EXIT_REASON_INVALID_OPCODE:
         emu_stats_inc(local_stats, EMU_COUNTERS_EXIT_INVALID_OPCODE);
@@ -148,7 +151,8 @@ worker_run(void* arg)
             shared_stats->nb_graceful_exits        += local_stats->nb_graceful_exits;
             shared_stats->nb_unknown_exit_reasons  += local_stats->nb_unsupported_syscalls;
             shared_stats->nb_resets                += local_stats->nb_resets;
-            shared_stats->nb_segfaults             += local_stats->nb_segfaults;
+            shared_stats->nb_segfault_reads        += local_stats->nb_segfault_reads;
+            shared_stats->nb_segfault_writes       += local_stats->nb_segfault_writes;
             shared_stats->nb_invalid_opcodes       += local_stats->nb_invalid_opcodes;
             // Unlock the mutex.
             pthread_mutex_unlock(&shared_stats->lock);
@@ -167,16 +171,12 @@ main(int argc, char** argv)
 {
     // The cpu which the main thread will run on.
     const int main_cpu = 0;
-
     // Print stats every second.
     const uint64_t print_stats_interval_ns = 1e9;
-
     // The total amount of bytes that the emulators can allocate.
     const size_t rv_emu_total_mem = (1024 * 1024) * 256;
-
     // We do not want feed argv[0] of gingersnap to the target.
     const int target_argc = argc - 1;
-
     // For checking that initialization of the fuzzer is ok.
     int ok = -1;
 

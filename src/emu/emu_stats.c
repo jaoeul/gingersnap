@@ -18,8 +18,11 @@ emu_stats_inc(emu_stats_t* stats, const enum_emu_counters_t counter)
     case EMU_COUNTERS_EXIT_FSTAT_BAD_FD:
         ++stats->nb_fstat_bad_fds;
         break;
-    case EMU_COUNTERS_EXIT_SEGFAULT:
-        ++stats->nb_segfaults;
+    case EMU_COUNTERS_EXIT_SEGFAULT_READ:
+        ++stats->nb_segfault_reads;
+        break;
+    case EMU_COUNTERS_EXIT_SEGFAULT_WRITE:
+        ++stats->nb_segfault_writes;
         break;
     case EMU_COUNTERS_EXIT_INVALID_OPCODE:
         ++stats->nb_invalid_opcodes;
@@ -54,7 +57,11 @@ emu_stats_print(emu_stats_t* stats)
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 
-    sprintf(tmp_buf, " | segfaults: %lu", stats->nb_segfaults);
+    sprintf(tmp_buf, " | read segfaults: %lu", stats->nb_segfault_reads);
+    strcat(stats_buf, tmp_buf);
+    memset(tmp_buf, 0, sizeof(tmp_buf));
+
+    sprintf(tmp_buf, " | write segfaults: %lu", stats->nb_segfault_writes);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 

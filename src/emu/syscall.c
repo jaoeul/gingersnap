@@ -75,9 +75,10 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
             uint8_t print_buf[len + 1];
             memset(print_buf, 0, len + 1);
 
-            const int read_ok = emu->mmu->read(emu->mmu, print_buf, buf_guest_adr, len);
+            const uint8_t read_ok = emu->mmu->read(emu->mmu, print_buf, buf_guest_adr, len);
             if (read_ok != 0) {
-                emu->exit_reason = EMU_EXIT_REASON_SEGFAULT;
+                emu->exit_reason = EMU_EXIT_REASON_SEGFAULT_READ;
+                break;
             }
 
             ginger_log(DEBUG, "Guest wrote: %s\n", print_buf);
@@ -145,7 +146,11 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
             }
 
             // Write the statbuf into guest memory.
-            emu->mmu->write(emu->mmu, statbuf_guest_adr, (uint8_t*)&k_statbuf, sizeof(k_statbuf));
+            const uint8_t write_ok = emu->mmu->write(emu->mmu, statbuf_guest_adr, (uint8_t*)&k_statbuf, sizeof(k_statbuf));
+            if (write_ok != 0) {
+                emu->exit_reason = EMU_EXIT_REASON_SEGFAULT_WRITE;
+                break;
+            }
 
             // Return success.
             set_reg(emu, REG_A0, 0);
