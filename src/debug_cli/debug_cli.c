@@ -478,7 +478,7 @@ debug_cli_run(rv_emu_t* emu, cli_t* cli)
         else if (strncmp(command_str, "help", 4) == 0) {
             printf("%s", debug_instructions);
         }
-        // Quit debugging.
+        // Quit cli.
         else if (strncmp(command_str, "quit", 4) == 0) {
             printf("\nExiting...\n");
             exit(0);

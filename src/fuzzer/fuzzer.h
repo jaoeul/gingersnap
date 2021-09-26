@@ -19,7 +19,6 @@ struct fuzzer {
 
     // API
     void (*fuzz_input)(fuzzer_t* fuzzer);
-    void (*start)(fuzzer_t* fuzzer);
 };
 
 fuzzer_t*

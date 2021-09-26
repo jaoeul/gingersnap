@@ -3,12 +3,17 @@
 
 #include <stdint.h>
 
+#define MAX_NB_CORPUS_INPUT_FILES 1024
+
 typedef struct {
-    uint8_t** inputs;
+    uint8_t*  inputs[MAX_NB_CORPUS_INPUT_FILES];
+    uint64_t  nb_inputs;
 } corpus_t;
 
+// Create corpus structure, containing one input per file in the provided
+// directory.
 corpus_t*
-corpus_create(void);
+corpus_create(const char* corpus_dir);
 
 void
 corpus_destroy(corpus_t* corpus);

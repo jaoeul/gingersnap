@@ -17,6 +17,12 @@ fuzzer_fuzz_input(fuzzer_t* fuzzer)
         abort();
     }
 
+    // Pick a random input from the corpus.
+
+    // Mutate the input.
+
+    // Inject the input.
+
     // Run the emulator until it exits or crashes.
     fuzzer->emu->run(fuzzer->emu, fuzzer->stats);
 

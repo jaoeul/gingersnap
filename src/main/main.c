@@ -85,7 +85,7 @@ worker_run(void* arg)
     clock_gettime(CLOCK_MONOTONIC, &checkpoint);
 
     for (;;) {
-        // Fuzz input.
+        // Run one fuzzcase.
         fuzzer->fuzz_input(fuzzer);
 
         // Update the main stats with data from the thread local stats if the time is right.
@@ -160,7 +160,7 @@ main(int argc, char** argv)
     }
 
     // Create shared corpus.
-    corpus_t* shared_corpus = corpus_create();
+    corpus_t* shared_corpus = corpus_create("./corpus");
 
     // Can be used for all threads.
     pthread_attr_t thread_attr = {0};
