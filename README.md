@@ -10,7 +10,43 @@ bytewise granuality of memory permissions, allowing us to detect read or writes 
 one byte off.
 
 # Usage
-TODO :^)
+1. Launch gingersnap.
+```bash
+gingersnap <target> <target_argv_1> ... <target_argv_n>
+```
+
+2. Run the emulator until desireable pre-fuzzing state is achieved.
+
+This could, for example, be done by setting a breakpoint on an address where a
+call to memcpy occurs, which reads user input into a buffer. Gingersnap provides
+a basic debugging CLI to examine guest memory and setting breakpoints, to aid
+in this step.
+
+```gingersnap
+x
+break
+continue
+```
+
+3. Take snapshot.
+```gingersnap
+snaphsot
+```
+
+4. Set the guest address of the buffer to fuzz.
+```gingersnap
+set fuzzbuff start
+```
+
+5. Set the length of the target buffer.
+```gingersnap
+set fuzzbuff size
+```
+
+6. Start the fuzzer.
+```gingersnap
+start fuzzer
+```
 
 # Components
 
