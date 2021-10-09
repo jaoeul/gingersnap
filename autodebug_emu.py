@@ -57,7 +57,7 @@ def gdb_attach_to_qemu():
 
 def emu_get_regs(emu_proc) -> list:
     emu_proc.sendline("info registers")
-    emu_proc.recvuntil("(debug) ")
+    emu_proc.recvuntil("(gingersnap) ")
     emu_regs = []
     for reg in cmp_regs:
         emu_regs.append(emu_proc.recvline_contains(reg).decode().split()[:2])
@@ -65,7 +65,7 @@ def emu_get_regs(emu_proc) -> list:
 
 def emu_next_instruction(emu_proc):
     emu_proc.sendline("next instruction")
-    emu_proc.recvuntil("(debug) ")
+    emu_proc.recvuntil("(gingersnap) ")
 
 def compare_regs(emu_regs, gdb_regs, emu_regs_prev, gdb_regs_prev) -> list:
     if len(emu_regs) != len(gdb_regs):
@@ -88,12 +88,12 @@ if __name__ == "__main__":
     kill_proc("riscv64-unknown-elf-gdb")
 
     print("Spawning emulator process.")
-    emu_args = ["./auto_gingersnap", "./target"]
+    emu_args = ["./auto_gingersnap", "./data/targets/bin/target6"]
     emu_proc = process(emu_args)
-    emu_proc.recvuntil("(debug) ")
+    emu_proc.recvuntil("(gingersnap) ")
 
     print("Spawning qemu process.")
-    qemu_args = ["qemu-riscv64", "-g", "1234", "./target"]
+    qemu_args = ["qemu-riscv64", "-g", "1234", "./data/targets/bin/target6"]
     qemu_proc = process(qemu_args)
     sleep(1)
 
