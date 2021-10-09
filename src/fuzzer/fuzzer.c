@@ -182,6 +182,6 @@ void
 fuzzer_destroy(fuzzer_t* fuzzer)
 {
     fuzzer->emu->destroy(fuzzer->emu);
-    emu_stats_destroy(fuzzer->fuzzer->stats);
+    emu_stats_destroy(fuzzer->stats);
     free(fuzzer);
 }
