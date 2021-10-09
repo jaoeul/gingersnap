@@ -33,12 +33,15 @@ corpus_load_inputs(const char* base_path, corpus_t* corpus)
         const uint64_t input_len = ftell(fileptr);
         rewind(fileptr);
 
-        corpus->inputs[corpus->nb_inputs] = calloc(input_len, sizeof(uint8_t));
-        if (!fread(corpus->inputs[corpus->nb_inputs], input_len, 1, fileptr)) {
+        corpus->inputs[corpus->nb_inputs] = calloc(1, sizeof(input_t));
+        corpus->inputs[corpus->nb_inputs]->data = calloc(input_len, sizeof(uint8_t));
+
+        if (!fread(corpus->inputs[corpus->nb_inputs]->data, input_len, 1, fileptr)) {
             ginger_log(ERROR, "Failed to read corpus input!\n");
             abort();
         }
         fclose(fileptr);
+        corpus->inputs[corpus->nb_inputs]->length = input_len;
         ginger_log(INFO, "Added file %s containing %lu bytes to corpus.\n", base_path, input_len);
 
         corpus->nb_inputs++;
@@ -73,6 +76,7 @@ void
 corpus_destroy(corpus_t* corpus)
 {
     for (uint64_t i = 0; i < corpus->nb_inputs; i++) {
+        free(corpus->inputs[i]->data);
         free(corpus->inputs[i]);
     }
     free(corpus);

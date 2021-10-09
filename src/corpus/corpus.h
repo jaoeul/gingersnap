@@ -6,7 +6,12 @@
 #define MAX_NB_CORPUS_INPUT_FILES 1024
 
 typedef struct {
-    uint8_t*  inputs[MAX_NB_CORPUS_INPUT_FILES];
+    uint8_t* data;
+    uint64_t length;
+} input_t;
+
+typedef struct {
+    input_t*  inputs[MAX_NB_CORPUS_INPUT_FILES];
     uint64_t  nb_inputs;
 } corpus_t;
 
