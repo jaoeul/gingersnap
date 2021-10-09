@@ -30,7 +30,7 @@ continue
 
 3. Take snapshot.
 ```gingersnap
-snaphsot
+snapshot
 ```
 
 4. Set the guest address of the buffer to fuzz.
