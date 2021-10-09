@@ -6,8 +6,8 @@
 void
 heap_str_set(heap_str_t* heap_str, const char* str)
 {
-    const size_t len     = strlen(str);
-    heap_str->str        = calloc(len + 1, 1);
+    const size_t len     = strlen(str) + 1;
+    heap_str->str        = calloc(len, 1);
     heap_str->len        = len;
     memcpy(heap_str->str, str, len);
 }

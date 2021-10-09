@@ -589,7 +589,7 @@ ori(rv_emu_t* emu, const uint32_t instruction)
 static void
 andi(rv_emu_t* emu, const uint32_t instruction)
 {
-    const uint32_t immediate = (uint32_t)i_type_get_immediate(instruction);
+    const uint32_t immediate = i_type_get_immediate(instruction);
     const uint64_t result    = get_reg_rs1(emu, instruction) & immediate;
     const uint8_t  ret_reg   = get_rd(instruction);
 
@@ -669,7 +669,9 @@ execute_arithmetic_i_instruction(rv_emu_t* emu, const uint32_t instruction)
         if (funct7 == 0 || funct7 == 1) {
             srli(emu, instruction);
         }
-        else if (funct7 == 32) {
+        // NOTE: This does not follow the specification! SRAI should only be executed
+        //       when funct7 is 16, according to the risc v 2019-12-13 specification.
+        else if (funct7 == 16 || funct7 == 32 || funct7 == 33) {
             srai(emu, instruction);
         }
         else {
@@ -1476,17 +1478,10 @@ emu_reset(rv_emu_t* dst_emu, const rv_emu_t* src_emu)
     dst_emu->exit_reason = EMU_EXIT_REASON_NO_EXIT;
 }
 
-// Run an emulator until it exits or crashes.
 static void
-emu_run(rv_emu_t* emu, emu_stats_t* stats)
+emu_report_exit_reason(emu_stats_t* stats, enum_emu_exit_reasons_t exit_reason)
 {
-    // Execute the next instruction as long as no exit reason is set.
-    while (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
-        emu->execute(emu);
-        emu_stats_inc(stats, EMU_COUNTERS_EXECUTED_INSTRUCTIONS);
-    }
-    // Report why emulator exited.
-    switch(emu->exit_reason) {
+    switch(exit_reason) {
     case EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
         emu_stats_inc(stats, EMU_COUNTERS_EXIT_REASON_SYSCALL_NOT_SUPPORTED);
         break;
@@ -1508,6 +1503,34 @@ emu_run(rv_emu_t* emu, emu_stats_t* stats)
     case EMU_EXIT_REASON_NO_EXIT:
         break;
     }
+}
+
+// Run an emulator until it exits or crashes.
+static enum_emu_exit_reasons_t
+emu_run(rv_emu_t* emu, emu_stats_t* stats)
+{
+    // Execute the next instruction as long as no exit reason is set.
+    while (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
+        emu->execute(emu);
+        emu_stats_inc(stats, EMU_COUNTERS_EXECUTED_INSTRUCTIONS);
+    }
+    // Report why emulator exited.
+    emu_report_exit_reason(stats, emu->exit_reason);
+    return emu->exit_reason;
+}
+
+static enum_emu_exit_reasons_t
+emu_run_until(rv_emu_t* emu, emu_stats_t* stats, const uint64_t break_adr)
+{
+    while (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT && get_reg(emu, REG_PC) != break_adr) {
+        emu->execute(emu);
+        emu_stats_inc(stats, EMU_COUNTERS_EXECUTED_INSTRUCTIONS);
+    }
+    // If we exited, crashed or encountered unknown behavior, report it.
+    if (emu->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
+        emu_report_exit_reason(stats, emu->exit_reason);
+    }
+    return emu->exit_reason;
 }
 
 static void
@@ -1616,6 +1639,10 @@ emu_build_stack(rv_emu_t* emu, const target_t* target)
         }
         guest_arg_addresses[i] = arg_adr;
         emu->mmu->write(emu->mmu, arg_adr, (uint8_t*)target->argv[i].str, target->argv[i].len);
+
+        // Make arg segment read and writeable.
+        emu->mmu->set_permissions(emu->mmu, arg_adr, PERM_READ | PERM_WRITE, ARG_MAX);
+
         ginger_log(INFO, "arg[%d] \"%s\" written to guest adr: 0x%lx\n", i, target->argv[i].str, arg_adr);
     }
 
@@ -1699,6 +1726,7 @@ emu_create(size_t memory_size)
     emu->fork       = emu_fork;
     emu->reset      = emu_reset;
     emu->run        = emu_run;
+    emu->run_until  = emu_run_until;
     emu->stack_push = emu_stack_push;
     emu->destroy    = emu_destroy;
 

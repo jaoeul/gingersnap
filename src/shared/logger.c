@@ -38,7 +38,7 @@ colorize_stop(char* output_buffer)
 void
 ginger_log(uint8_t log_level, const char* fmt, ...)
 {
-#ifdef EMU_RELEASE
+#if defined EMU_RELEASE || AUTO_DEBUG
     if (log_level < INFO) {
         return;
     }

@@ -5,7 +5,7 @@
 
 typedef struct {
     char*    str;
-    uint64_t len;
+    uint64_t len; // Includes the terminating nullbyte.
 } heap_str_t;
 
 void

@@ -69,7 +69,10 @@ struct rv_emu {
     void (*reset)(rv_emu_t* dst_emu, const rv_emu_t* src_emu);
 
     // Run an emulator until it exits or crashes. Increment exit counters.
-    void (*run)(rv_emu_t* emu, emu_stats_t* stats);
+    enum_emu_exit_reasons_t (*run)(rv_emu_t* emu, emu_stats_t* stats);
+
+    // Run an emulator until it exits, crashes or the program counter reaches the breakpoint.
+    enum_emu_exit_reasons_t (*run_until)(rv_emu_t* emu, emu_stats_t* stats, const uint64_t break_adr);
 
     // Pushes a specified amount of bytes onto the stack.
     void (*stack_push)(rv_emu_t* emu, uint8_t bytes[], size_t nb_bytes);

@@ -36,6 +36,7 @@ typedef struct {
     uint64_t        fuzz_buf_adr;
     uint64_t        fuzz_buf_size;
     const rv_emu_t* clean_snapshot;
+    const char*     crash_dir;
 } thread_info_t;
 
 // Parse `/proc/cpuinfo`.
@@ -76,9 +77,10 @@ worker_run(void* arg)
     corpus_t*       corpus         = t_info->corpus;
     const rv_emu_t* clean_snapshot = t_info->clean_snapshot;
     emu_stats_t*    shared_stats   = t_info->shared_stats;
+    const char*     crash_dir      = t_info->crash_dir;
 
     // Create the thread local fuzzer.
-    fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target, clean_snapshot);
+    fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target, clean_snapshot, crash_dir);
 
     // A timestamp which is used for comparison.
     struct timespec checkpoint;
@@ -86,7 +88,22 @@ worker_run(void* arg)
 
     for (;;) {
         // Run one fuzzcase.
-        fuzzer->fuzz_input(fuzzer);
+        fuzzer->fuzz(fuzzer);
+
+        // If we crashed, write input to disk.
+        if (fuzzer->emu->exit_reason != EMU_EXIT_REASON_GRACEFUL) {
+            if (fuzzer->emu->exit_reason == EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED) {
+                ginger_log(ERROR, "Unsupported syscall!\n");
+                abort();
+            }
+            fuzzer->write_crash(fuzzer);
+        }
+
+        // Restore the emulator to its initial state.
+        fuzzer->emu->reset(fuzzer->emu, fuzzer->clean_snapshot);
+
+        // Increment the counter counting emulator resets.
+        emu_stats_inc(fuzzer->stats, EMU_COUNTERS_RESETS);
 
         // Update the main stats with data from the thread local stats if the time is right.
         struct timespec current;
@@ -107,7 +124,6 @@ worker_run(void* arg)
             shared_stats->nb_segfault_writes       += fuzzer->stats->nb_segfault_writes;
             shared_stats->nb_invalid_opcodes       += fuzzer->stats->nb_invalid_opcodes;
             pthread_mutex_unlock(&shared_stats->lock);
-
             // Reset the timer checkpoint.
             clock_gettime(CLOCK_MONOTONIC, &checkpoint);
 
@@ -128,6 +144,10 @@ main(int argc, char** argv)
     const int target_argc = argc - 1;
     // For checking that initialization of the fuzzer is ok.
     int ok = -1;
+    // Path to directory where crashes are stored.
+    const char* crash_dir = "./data/crashes";
+    // Init rng.
+    srand(time(NULL));
 
     // Array of arguments to the target executable.
     heap_str_t target_argv[target_argc];
@@ -153,6 +173,7 @@ main(int argc, char** argv)
     // Run the CLI. If we get a snapshot from it, use it, otherwise exit the program. The snapshot
     // is simply a pointer to the `initial_emu`.
     debug_cli_result_t* cli_result = debug_cli_run(initial_emu, debug_cli);
+
     if (!cli_result->snapshot_set || !cli_result->fuzz_buf_adr_set || !cli_result->fuzz_buf_size_set) {
         ginger_log(INFO, "All mandatory options not set:\nSnapshot set: %u\nFuzzing buffer start address set: %u\nFuzzing buffer size set: %u\nExiting...\n",
                    cli_result->snapshot_set, cli_result->fuzz_buf_adr_set, cli_result->fuzz_buf_size_set);
@@ -160,7 +181,7 @@ main(int argc, char** argv)
     }
 
     // Create shared corpus.
-    corpus_t* shared_corpus = corpus_create("./corpus");
+    corpus_t* shared_corpus = corpus_create("./data/corpus/target6");
 
     // Can be used for all threads.
     pthread_attr_t thread_attr = {0};
@@ -196,6 +217,7 @@ main(int argc, char** argv)
         t_info[i].clean_snapshot = cli_result->snapshot;
         t_info[i].fuzz_buf_adr   = cli_result->fuzz_buf_adr;
         t_info[i].fuzz_buf_size  = cli_result->fuzz_buf_size;
+        t_info[i].crash_dir      = crash_dir;
 
         ok = pthread_create(&t_info[i].thread_id, &thread_attr, &worker_run, &t_info[i]);
         if (ok != 0) {
@@ -216,6 +238,7 @@ main(int argc, char** argv)
     // We are done with the thread attributes, might as well destroy them.
     ok = pthread_attr_destroy(&thread_attr);
     if (ok != 0) {
+        ginger_log(ERROR, "Failed to destroy pthread attributes!\n");
         abort();
     }
 
@@ -270,7 +293,7 @@ main(int argc, char** argv)
         free(thread_ret);
     }
     ginger_log(INFO, "All threads joined. Freeing allocated data!\n");
-
+    corpus_destroy(shared_corpus);
     target_destroy((void*)target);
 
     return 0;
