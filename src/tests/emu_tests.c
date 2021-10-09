@@ -5,7 +5,10 @@
 #include <string.h>
 #include <time.h>
 
+#include "../fuzzer/fuzzer.h"
 #include "../emu/riscv_emu.h"
+#include "../debug_cli/debug_cli.h"
+#include "../shared/endianess_converter.h"
 #include "../shared/logger.h"
 #include "../shared/print_utils.h"
 
@@ -23,7 +26,7 @@ test_prepare_emu(uint64_t mem_size)
 
     // First arg.
     heap_str_t arg0;
-    heap_str_set(&arg0, "./data/target");
+    heap_str_set(&arg0, "./data/targets/bin/target4");
     target_argv[0] = arg0;
 
     // Prepare the target executable.
@@ -396,9 +399,103 @@ test_emu_write_failure_perm_denied_failure(void)
     emu->destroy(emu);
 }
 
-#define NB_TEST_CASES 12
+static void
+test_fuzzer_target4_segault(void)
+{
+    // Create target.
+    const int target_argc = 1;
+    heap_str_t target_argv[target_argc];
+    memset(target_argv, 0, sizeof(target_argv));
+    heap_str_t arg0;
+    heap_str_set(&arg0, "./data/targets/bin/target4");
+    target_argv[0]   = arg0;
+    target_t* target = target_create(target_argc, target_argv);
+
+    // Create snapshot required by fuzzer.
+    rv_emu_t* snapshot = emu_create(1024 * 1024 * 256);
+    snapshot->setup(snapshot, target);
+
+    // Prepare the target executable.
+    corpus_t* corpus = corpus_create("./data/corpus/test_corpus");
+
+    // The address of the value which is compared to `1337` in emulator memory,
+    // when running `target4`.
+    const uint64_t fuzz_buf_adr  = 0x15878;
+    const uint64_t fuzz_buf_size = 4;
+
+    fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target, snapshot);
+
+    // 0x539 = 1337, Insert as LSB byte array into fuzzer emulator memory.
+    uint8_t input_data[2] = { 0x39, 0x5 };
+
+    // Inject the above buffer.
+    fuzzer->inject(fuzzer, input_data, 2);
+
+    // Run the program loaded into the fuzzer. If the value got injected properly, the target
+    // executable should segfault.
+    fuzzer->emu->run(fuzzer->emu, fuzzer->stats);
+
+    assert(fuzzer->emu->exit_reason == EMU_EXIT_REASON_SEGFAULT_READ);
+}
+
+static void
+test_fuzzer_target4_gracefull(void)
+{
+    // Create target.
+    const int target_argc = 1;
+    heap_str_t target_argv[target_argc];
+    memset(target_argv, 0, sizeof(target_argv));
+    heap_str_t arg0;
+    heap_str_set(&arg0, "./data/targets/bin/target4");
+    target_argv[0]   = arg0;
+    target_t* target = target_create(target_argc, target_argv);
+
+    // Prepare the target executable.
+    corpus_t* corpus = corpus_create("./data/corpus/test_corpus");
+
+    fuzzer_t* fuzzer = fuzzer_create(corpus, 0, 0, target, NULL);
+
+    // Run the program loaded into the fuzzer. If the value got injected properly, the target
+    // executable should segfault.
+    fuzzer->emu->run(fuzzer->emu, fuzzer->stats);
+
+    assert(fuzzer->emu->exit_reason == EMU_EXIT_REASON_GRACEFUL);
+}
+
+// Could fail if we are unlucky with the RNG.
+static void
+test_fuzzer_mutate(void)
+{
+    // Create target.
+    const int target_argc = 1;
+    heap_str_t target_argv[target_argc];
+    memset(target_argv, 0, sizeof(target_argv));
+    heap_str_t arg0;
+    heap_str_set(&arg0, "./data/targets/bin/target4");
+    target_argv[0]   = arg0;
+    target_t* target = target_create(target_argc, target_argv);
+
+    // Prepare the target executable.
+    corpus_t* corpus = corpus_create("./data/corpus/test_corpus");
+
+    fuzzer_t* fuzzer = fuzzer_create(corpus, 0, 1024, target, NULL);
+
+    char a[1024] = {0};
+    char b[1024] = {0};
+    int res = memcmp(a, b, 1024);
+    assert(res == 0);
+
+    // Hopefully this call mutates atleast one byte to a new value...
+    fuzzer->mutate(a, 1024);
+
+    res = memcmp(a, b, 1024);
+    assert(res != 0);
+}
+
+#define NB_TEST_CASES 15
 
 // TODO: Better RNG
+__attribute__((used))
 static void
 shuffle_tests(test_fn test_cases[])
 {
@@ -431,29 +528,17 @@ main(void)
         test_emu_write_read_success,
         test_emu_write_read_failure,
         test_emu_write_failure_perm_denied_failure,
+        test_fuzzer_target4_segault,
+        test_fuzzer_target4_gracefull,
+        test_fuzzer_mutate,
     };
 
     // Execute tests in random order
     shuffle_tests(test_cases);
     for (int i = 0; i < NB_TEST_CASES; i++) {
         ((void (*)())test_cases[i])();
-        printf("TEST: [%d]\t", i + 1);
+        printf("PASSED TEST: [%d]\n", i + 1);
     }
-
-    /*
-    test_emu_reset_mem_success();
-    test_emu_reset_registers_success();
-    test_emu_alloc_mem_success();
-    test_emu_alloc_mem_would_overrun_failure();
-    test_emu_alloc_mem_full_failure();
-    test_emu_two_allocs_success();
-    test_emu_read_illegal_address_failure();
-    test_emu_write_illegal_address_failure();
-    test_emu_write_success();
-    test_emu_write_read_success();
-    test_emu_write_read_failure();
-    test_emu_write_failure_perm_denied_failure();
-    */
 
     return 0;
 }
