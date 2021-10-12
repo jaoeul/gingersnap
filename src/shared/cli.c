@@ -283,7 +283,7 @@ cli_str_search_exact_match(vector_t* commands, const char* substr)
 }
 
 // Returns heap allocated user input string. Support command autocompletion.
-static char*
+token_str_t*
 cli_get_command(cli_t* cli)
 {
     char   input_buf[MAX_LENGTH_DEBUG_CLI_COMMAND] = {0};
@@ -379,7 +379,7 @@ cli_get_command(cli_t* cli)
                 char* user_input = calloc(nb_read, sizeof(char));
                 memcpy(user_input, input_buf, nb_read);
                 cli_disable_raw_mode();
-                return user_input;
+                return token_str_tokenize(user_input, " ");
             }
             else {
                 printf("\nCommand not found!\n");
@@ -417,9 +417,9 @@ cli_get_command(cli_t* cli)
 
 // Frees the heap allocated user input string.
 static void
-cli_free_user_input(char* user_input)
+cli_free_user_input(token_str_t* user_input)
 {
-    free(user_input);
+    token_str_destroy(user_input);
 }
 
 

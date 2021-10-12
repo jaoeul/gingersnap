@@ -10,6 +10,8 @@ typedef struct {
 
 token_str_t* token_str_tokenize(char* str, const char* delim);
 
+token_str_t* token_str_copy(const token_str_t* src);
+
 void token_str_destroy(token_str_t* token_str);
 
 #endif

@@ -24,15 +24,15 @@ static const char reg_strs[][MAX_LEN_REG_STR] = { "ra", "sp", "gp", "tp", "t0", 
 
 static const char* debug_instructions = "\n"                \
     "Available CLI commands:\n"                             \
-    " x - Examine emulator memory.\n"                       \
-    " s - Search for value in emulator memory.\n"           \
-    " n - Execute next instruction.\n"                      \
-    " r - Show emulator registers.\n"                       \
-    " b - Set breakpoint.\n"                                \
-    " d - Show all breakpoints.\n"                          \
-    " c - Run emulator until breakpoint or program exit.\n" \
-    " h - Print this help.\n"                               \
-    " q - Quit debugging and exit this program.\n";
+    " xmem      Examine emulator memory.\n"                       \
+    " smem      Search for value in emulator memory.\n"           \
+    " ni        Execute next instruction.\n"                      \
+    " ir        Show emulator registers.\n"                       \
+    " break     Set breakpoint.\n"                                \
+    " sbreak    Show all breakpoints.\n"                          \
+    " continue  Run emulator until breakpoint or program exit.\n" \
+    " help      Print this help.\n"                               \
+    " quit      Quit debugging and exit this program.\n";
 
 /*
 // Test if value is a valid ascii number.
@@ -63,7 +63,7 @@ is_specifier(const char* specifiers, const char test, int nb_specifiers)
 // TODO: Make this work.
 //       Display emulotor memory contents.
 static void
-emu_debug_examine_memory(rv_emu_t* emu, const char* input_buf)
+debug_cli_handle_xmem(rv_emu_t* emu, const char* input_buf)
 {
     /*
     // Parse the command.
@@ -141,7 +141,7 @@ emu_debug_examine_memory(rv_emu_t* emu, const char* input_buf)
 
 // Search emulator memory for user specified value.
 static void
-emu_debug_search_in_memory(rv_emu_t* emu)
+debug_cli_handle_smem(rv_emu_t* emu)
 {
     printf("Search for value: ");
 
@@ -176,9 +176,21 @@ emu_debug_search_in_memory(rv_emu_t* emu)
     }
 }
 
+static void
+debug_cli_handle_ni(rv_emu_t* emu)
+{
+    emu->execute(emu);
+}
+
+static void
+debug_cli_handle_ir(rv_emu_t* emu)
+{
+    print_emu_registers(emu);
+}
+
 // TODO: Break on register watchpoints.
 static void
-emu_debug_run_until_breakpoint(rv_emu_t* emu, vector_t* breakpoints)
+debug_cli_handle_continue(rv_emu_t* emu, vector_t* breakpoints)
 {
     for (;;) {
         emu->execute(emu);
@@ -194,7 +206,20 @@ emu_debug_run_until_breakpoint(rv_emu_t* emu, vector_t* breakpoints)
 }
 
 static void
-emu_debug_show_breakpoints(rv_emu_t* emu, vector_t* breakpoints)
+debug_cli_handle_snapshot(debug_cli_result_t* res, rv_emu_t* snapshot)
+{
+    res->snapshot     = snapshot;
+    res->snapshot_set = true;
+}
+
+static void
+debug_cli_handle_help(void)
+{
+    printf("%s", debug_instructions);
+}
+
+static void
+debug_cli_handle_sbreak(rv_emu_t* emu, vector_t* breakpoints)
 {
     size_t nb_breakpoints = vector_length(breakpoints);
     if (nb_breakpoints == 0) {
@@ -209,7 +234,7 @@ emu_debug_show_breakpoints(rv_emu_t* emu, vector_t* breakpoints)
 }
 
 static void
-emu_debug_show_watchpoints(rv_emu_t* emu, vector_t* watchpoints)
+debug_cli_handle_swatch(rv_emu_t* emu, vector_t* watchpoints)
 {
     size_t nb_watchpoints = vector_length(watchpoints);
     if (nb_watchpoints == 0) {
@@ -225,7 +250,7 @@ emu_debug_show_watchpoints(rv_emu_t* emu, vector_t* watchpoints)
 }
 
 static void
-emu_debug_set_breakpoint(rv_emu_t* emu, vector_t* breakpoints)
+debug_cli_handle_break(rv_emu_t* emu, vector_t* breakpoints)
 {
     printf("Set breakpoint at address: ");
 
@@ -253,7 +278,7 @@ emu_debug_set_breakpoint(rv_emu_t* emu, vector_t* breakpoints)
 }
 
 static bool
-emu_debug_set_watchpoint(rv_emu_t* emu, vector_t* watchpoints)
+debug_cli_handle_watch(rv_emu_t* emu, vector_t* watchpoints)
 {
     printf("\nSet watchpoint on register: ");
 
@@ -287,19 +312,19 @@ debug_cli_create(rv_emu_t* emu)
 {
     struct cli_cmd debug_cli_commands[] = {
         {
-            .cmd_str = "x",
+            .cmd_str = "xmem",
             .description = "Examine emulator memory.\n"
         },
         {
-            .cmd_str = "search memory",
+            .cmd_str = "smem",
             .description = "Search for value in emulator memory.\n"
         },
         {
-            .cmd_str = "next instruction",
+            .cmd_str = "ni",
             .description = "Execute next instruction.\n"
         },
         {
-            .cmd_str = "info registers",
+            .cmd_str = "ir",
             .description = "Show emulator registers.\n"
         },
         {
@@ -311,11 +336,11 @@ debug_cli_create(rv_emu_t* emu)
             .description = "Set register watchpoint.\n"
         },
         {
-            .cmd_str = "show breakpoints",
+            .cmd_str = "sbreak",
             .description = "Show all breakpoints.\n"
         },
         {
-            .cmd_str = "show watchpoints",
+            .cmd_str = "swatch",
             .description = "Show all watchpoints.\n"
         },
         {
@@ -327,15 +352,15 @@ debug_cli_create(rv_emu_t* emu)
             .description = "Take a snapshot.\n"
         },
         {
-            .cmd_str = "set fuzzbuf start",
+            .cmd_str = "adr",
             .description = "Set the address in guest memory where fuzzed input will be injected\n"
         },
         {
-            .cmd_str = "set fuzzbuf size",
+            .cmd_str = "length",
             .description = "Set the size of the target buffer which will be fuzzed\n"
         },
         {
-            .cmd_str = "start fuzzer",
+            .cmd_str = "go",
             .description = "Try to start the fuzzer."
         },
         {
@@ -358,8 +383,8 @@ debug_cli_create(rv_emu_t* emu)
     return debug_cli;
 }
 
-uint64_t
-emu_debug_set_fuzzbuf_start(void)
+static void
+debug_cli_handle_adr(debug_cli_result_t* res)
 {
     printf("\nFuzzcase injection address(hex): ");
 
@@ -371,11 +396,12 @@ emu_debug_set_fuzzbuf_start(void)
         ginger_log(ERROR, "Could not get user input!\n");
         abort();
     }
-    return strtoul(fuzz_adr_buf, NULL, 16);
+    res->fuzz_buf_adr     = strtoul(fuzz_adr_buf, NULL, 16);
+    res->fuzz_buf_adr_set = true;
 }
 
-uint64_t
-emu_debug_set_fuzzbuf_size(void)
+static void
+debug_cli_handle_length(debug_cli_result_t* res)
 {
     printf("\nSet fuzz buffer size(dec): ");
 
@@ -387,14 +413,15 @@ emu_debug_set_fuzzbuf_size(void)
         ginger_log(ERROR, "Could not get user input!\n");
         abort();
     }
-    return strtoul(fuzz_size_buf, NULL, 10);
+    res->fuzz_buf_size     = strtoul(fuzz_size_buf, NULL, 10);
+    res->fuzz_buf_size_set = true;
 }
 
 // Run the debug CLI. If a snapshot is taken, return it.
 debug_cli_result_t*
 debug_cli_run(rv_emu_t* emu, cli_t* cli)
 {
-    static char last_command[MAX_LENGTH_DEBUG_CLI_COMMAND];
+    static token_str_t* prev_cli_tokens; // Static variables are zero initialized, at program start.
     vector_t*           breakpoints = vector_create(sizeof(uint64_t));
     vector_t*           watchpoints = vector_create(sizeof(MAX_LEN_REG_STR));
     debug_cli_result_t* cli_result  = calloc(1, sizeof(debug_cli_result_t));
@@ -403,92 +430,80 @@ debug_cli_run(rv_emu_t* emu, cli_t* cli)
         printf("\n");
         cli->print_prompt(cli);
 
-        // Can only return valid command string.
-        char* command_str = cli->get_command(cli);
+        // Can only return valid command tokens. Unknown input is already
+        // handled by the CLI by this point.
+        token_str_t* cli_tokens = cli->get_command(cli);
 
-        // We got no new command.
-        if (!command_str) {
-            // If there is no previously entered command, skip this iteration.
-            if (strlen(last_command) > 1) {
-                command_str = calloc(MAX_LENGTH_DEBUG_CLI_COMMAND, sizeof(char));
-                memcpy(command_str, last_command, MAX_LENGTH_DEBUG_CLI_COMMAND);
+        // We got no new command but enter was pressed, use the last command instead.
+        if (!cli_tokens) {
+            // Use the last command.
+            if (prev_cli_tokens->nb_tokens != 0) {
+                cli_tokens = token_str_copy(prev_cli_tokens);
             }
-            // If we got no new command, and we have no previous command.
+            // If we got no new command, and we have no previous command,
+            // simply skip this iteration.
             else {
                 continue;
             }
         }
-        // New command is memory command.
-        if (strncmp(command_str, "x", 1) == 0) {
-            emu_debug_examine_memory(emu, command_str);
+        char* command_str = cli_tokens->tokens[0];
+
+        if (strncmp(command_str, "xmem", 4) == 0) {
+            debug_cli_handle_xmem(emu, command_str);
         }
-        // Search for a value in emulator memory.
-        else if (strncmp(command_str, "search memory", 13) == 0) {
-            emu_debug_search_in_memory(emu);
+        else if (strncmp(command_str, "smem", 4) == 0) {
+            debug_cli_handle_smem(emu);
         }
-        // Execute next instruction.
-        else if (strncmp(command_str, "next instruction", 16) == 0) {
-            emu->execute(emu);
+        else if (strncmp(command_str, "ni", 2) == 0) {
+            debug_cli_handle_ni(emu);
         }
-        // Show emulator register state.
-        else if (strncmp(command_str, "info registers", 14) == 0) {
-            print_emu_registers(emu);
+        else if (strncmp(command_str, "ir", 2) == 0) {
+            debug_cli_handle_ir(emu);
         }
-        // Set breakpoint.
         else if (strncmp(command_str, "break", 5) == 0) {
-            emu_debug_set_breakpoint(emu, breakpoints);
+            debug_cli_handle_break(emu, breakpoints);
         }
-        // Set register watchpoint.
         else if (strncmp(command_str, "watch", 5) == 0) {
-            emu_debug_set_watchpoint(emu, watchpoints);
+            debug_cli_handle_watch(emu, watchpoints);
         }
-        // Show breakpoints.
-        else if (strncmp(command_str, "show breakpoints", 16) == 0) {
-            emu_debug_show_breakpoints(emu, breakpoints);
+        else if (strncmp(command_str, "sbreak", 5) == 0) {
+            debug_cli_handle_sbreak(emu, breakpoints);
         }
-        // Show watchpoints.
-        else if (strncmp(command_str, "show watchpoints", 16) == 0) {
-            emu_debug_show_watchpoints(emu, watchpoints);
+        else if (strncmp(command_str, "swatch", 5) == 0) {
+            debug_cli_handle_swatch(emu, watchpoints);
         }
-        // Run until we hit a breakpoint or exit.
         else if (strncmp(command_str, "continue", 8) == 0) {
-            emu_debug_run_until_breakpoint(emu, breakpoints);
+            debug_cli_handle_continue(emu, breakpoints);
         }
-        // Return a snapshot of the current emulator state.
         else if (strncmp(command_str, "snapshot", 8) == 0) {
-            cli_result->snapshot     = emu;
-            cli_result->snapshot_set = true;
+            debug_cli_handle_snapshot(cli_result, emu);
         }
-        // Set the address where fuzzcases will be injected.
-        else if (strncmp(command_str, "set fuzzbuf start", 17) == 0) {
-            cli_result->fuzz_buf_adr     = emu_debug_set_fuzzbuf_start();
-            cli_result->fuzz_buf_adr_set = true;
+        else if (strncmp(command_str, "adr", 3) == 0) {
+            debug_cli_handle_adr(cli_result);
         }
-        // Set the size of the target buffer, which will be fuzzed.
-        else if (strncmp(command_str, "set fuzzbuf size", 16) == 0) {
-            cli_result->fuzz_buf_size     = emu_debug_set_fuzzbuf_size();
-            cli_result->fuzz_buf_size_set = true;
+        else if (strncmp(command_str, "length", 6) == 0) {
+            debug_cli_handle_length(cli_result);
         }
-        // Exit this funciton and let the main function try to start the fuzzer.
-        else if (strncmp(command_str, "start fuzzer", 12) == 0) {
+        else if (strncmp(command_str, "help", 4) == 0) {
+            debug_cli_handle_help();
+        }
+        else if (strncmp(command_str, "go", 2) == 0) {
             printf("\n");
             return cli_result;
         }
-        // Show debug help.
-        else if (strncmp(command_str, "help", 4) == 0) {
-            printf("%s", debug_instructions);
-        }
-        // Quit cli.
         else if (strncmp(command_str, "quit", 4) == 0) {
             printf("\nExiting...\n");
             exit(0);
         }
 
-        // Save executed command as previous command.
-        memcpy(last_command, command_str, MAX_LENGTH_DEBUG_CLI_COMMAND);
+        // Clean up earlier saved command tokens before saving new ones.
+        token_str_destroy(prev_cli_tokens);
+
+        // Copy token values from command to provious command.
+        prev_cli_tokens = token_str_copy(cli_tokens);
 
         // Free the heap allocated user input string.
-        cli->free_user_input(command_str);
+        cli->free_user_input(cli_tokens);
     }
     vector_destroy(breakpoints);
     vector_destroy(watchpoints);

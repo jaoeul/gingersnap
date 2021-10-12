@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "../shared/token_str.h"
 #include "../shared/vector.h"
 
 #define MAX_LENGTH_DEBUG_CLI_COMMAND             64
@@ -18,9 +19,9 @@ struct cli_cmd {
 
 typedef struct {
     // The CLI API.
-    void  (*print_prompt)();
-    char* (*get_command)();
-    void  (*free_user_input)();
+    void         (*print_prompt)();
+    token_str_t* (*get_command)();
+    void         (*free_user_input)(token_str_t* token_str);
 
     // Takes a command struct and copies the data over to the cli->commands vector.
     // There is no need for the callee to allocate data for the command as this is

@@ -20,6 +20,19 @@ token_str_tokenize(char* str, const char* delim)
     return token_str;
 }
 
+token_str_t*
+token_str_copy(const token_str_t* src)
+{
+    token_str_t* dst = calloc(1, sizeof(token_str_t));
+    for (int i = 0; i < src->nb_tokens; i++) {
+        size_t token_len = strlen(src->tokens[i]);
+        dst->tokens[i]   = calloc(token_len + 1, sizeof(char));
+        strcpy(dst->tokens[i], src->tokens[i]);
+    }
+    dst->nb_tokens = src->nb_tokens;
+    return dst;
+}
+
 void
 token_str_destroy(token_str_t* token_str)
 {
