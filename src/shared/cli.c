@@ -291,7 +291,7 @@ cli_get_command(cli_t* cli)
     char   prev_char = '\0';
 
     // Raw mode gives us more control over the terminal, enabling us to detect
-    // kchar2eypresses before a newline registerd.
+    // keypresses before a newline is registerd.
     cli_enable_raw_mode();
 
     // Run until user is finished inputting characters.
@@ -363,7 +363,8 @@ cli_get_command(cli_t* cli)
                 cli_disable_raw_mode();
                 return NULL;
             }
-            const int match = cli_str_search_exact_match(cli->commands, input_buf);
+            token_str_t* input_tokens = token_str_tokenize(input_buf, " ");
+            const int match = cli_str_search_exact_match(cli->commands, input_tokens->tokens[0]);
             if (match != -1) {
                 char* completion = calloc(MAX_LENGTH_DEBUG_CLI_COMMAND, sizeof(char));
                 cli_complete_command(cli, input_buf, &completion);
@@ -374,12 +375,11 @@ cli_get_command(cli_t* cli)
                 nb_read += comp_len;
                 free(completion);
 
-                // Return the completed command a heap allocated string.
                 input_buf[nb_read] = '\0';
-                char* user_input = calloc(nb_read, sizeof(char));
-                memcpy(user_input, input_buf, nb_read);
+                char* command = realloc(input_tokens->tokens[0], nb_read);
+                memcpy(command, input_buf, nb_read);
                 cli_disable_raw_mode();
-                return token_str_tokenize(user_input, " ");
+                return input_tokens;
             }
             else {
                 printf("\nCommand not found!\n");
