@@ -62,6 +62,7 @@ struct mmu {
     uint8_t   (*write)(mmu_t* mmu, size_t destination_adress, const uint8_t* source_buffer, size_t size);
     uint8_t   (*read)(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_adress, size_t size);
     vector_t* (*search)(mmu_t* mmu, const uint64_t needle, const char size_letter);
+    void      (*print)(mmu_t* mmu, size_t start_adr, const size_t range, const char size_letter);
 
     // The size of the emulator memory
     size_t memory_size;
@@ -89,5 +90,8 @@ mmu_create(const size_t memory_size, const size_t base_alloc_adr);
 
 void
 mmu_destroy(mmu_t* mmu);
+
+void
+print_permissions(uint8_t perms);
 
 #endif // MMU_H

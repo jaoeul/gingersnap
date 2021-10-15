@@ -68,6 +68,9 @@ struct rv_emu {
     // Resets the state of the emulator to that of another one.
     void (*reset)(rv_emu_t* dst_emu, const rv_emu_t* src_emu);
 
+    // Print the register state.
+    void (*print_regs)(rv_emu_t* emu);
+
     // Run an emulator until it exits or crashes. Increment exit counters.
     enum_emu_exit_reasons_t (*run)(rv_emu_t* emu, emu_stats_t* stats);
 

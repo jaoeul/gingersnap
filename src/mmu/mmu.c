@@ -34,6 +34,66 @@
 #include "../shared/print_utils.h"
 #include "../shared/vector.h"
 
+// Print value of memory with corresponding permissions of an emulator.
+static void
+mmu_print_mem(mmu_t* mmu, size_t start_adr, const size_t range,
+              const char size_letter)
+{
+    uint8_t data_size = 0;
+    if (size_letter == 'b')      data_size = BYTE_SIZE;
+    else if (size_letter == 'h') data_size = HALFWORD_SIZE;
+    else if (size_letter == 'w') data_size = WORD_SIZE;
+    else if (size_letter == 'g') data_size = GIANT_SIZE;
+    else { ginger_log(ERROR, "Invalid size letter!\n"); return; }
+    printf("\n");
+    for (size_t i = start_adr; i < start_adr + (range * data_size); i += data_size) {
+        printf("0x%lx\t", i);
+        printf("Value: 0x%.*lx\t", data_size * 2, byte_arr_to_u64(&mmu->memory[i], data_size, LSB));
+        printf("Perm: ");
+        print_permissions(mmu->permissions[i]);
+        printf("\t");
+        // Calculate if address is in a dirty block
+        const size_t block       = i / DIRTY_BLOCK_SIZE;
+        const size_t index       = block / 64; // 64 = number of bits in bitmap entry
+        const size_t bit         = block % 64;
+        const uint64_t shift_bit = 1;
+        if ((mmu->dirty_state->dirty_bitmap[index] & (shift_bit << bit)) == 0) {
+            printf("Block clean\n");
+        }
+        else {
+            printf("Block dirty\n");
+        }
+    }
+}
+
+__attribute__((used))
+static void
+print_emu_memory_allocated(rv_emu_t* emu)
+{
+    for (size_t i = 0; i < emu->mmu->curr_alloc_adr - 1; i++) {
+        printf("Address: 0x%lx\t", i);
+        printf("Value: 0x%x\t", emu->mmu->memory[i]);
+        printf("Perm: ");
+        print_permissions(emu->mmu->permissions[i]);
+        printf("\t");
+        printf("In dirty block: ");
+
+        // Calculate if address is in a dirty block
+        const size_t block       = i / DIRTY_BLOCK_SIZE;
+        const size_t index       = block / 64; // 64 = number of bits in bitmap entry
+        const size_t bit         = block % 64;
+        const uint64_t shift_bit = 1;
+
+        if ((emu->mmu->dirty_state->dirty_bitmap[index] & (shift_bit << bit)) == 0) {
+            printf("NO");
+        }
+        else {
+            printf("YES");
+        }
+        printf("\n");
+    }
+}
+
 static void
 dirty_state_print_blocks(dirty_state_t* state)
 {
@@ -74,41 +134,6 @@ dirty_state_clear(dirty_state_t* state)
 {
     memset(state->dirty_blocks, 0, state->nb_dirty_blocks * sizeof(state->dirty_blocks[0]));
     state->nb_dirty_blocks = 0;
-}
-
-static dirty_state_t*
-dirty_state_create(size_t memory_size)
-{
-    dirty_state_t* state = calloc(1, sizeof(*state));
-
-    // Max possible number of dirty memory blocks. This is capped to the total
-    // memory size / DIRTY_BLOCK_SIZE since we will not allow duplicates of
-    // dirtied blocks in the dirty_state->dirty_blocks vector, and will
-    // therefore never need more than this number of entries.
-    size_t nb_max_blocks = memory_size / DIRTY_BLOCK_SIZE;
-
-    // Number of bitmap entries. One entry represents 64 blocks.
-    size_t nb_max_bitmaps = nb_max_blocks / 64;
-
-    state->dirty_blocks = calloc(nb_max_blocks, sizeof(*state->dirty_blocks));
-    state->nb_dirty_blocks = 0;
-
-    state->dirty_bitmap = calloc(nb_max_bitmaps, sizeof(*state->dirty_bitmap));
-    state->nb_max_dirty_bitmaps = nb_max_bitmaps;
-
-    state->make_dirty = dirty_state_make_dirty;
-    state->print      = dirty_state_print_blocks;
-    state->clear      = dirty_state_clear;
-
-    return state;
-}
-
-void
-dirty_state_destroy(dirty_state_t* dirty_state)
-{
-    free(dirty_state->dirty_blocks);
-    free(dirty_state->dirty_bitmap);
-    free(dirty_state);
 }
 
 // mmu:        The mmu.
@@ -277,6 +302,62 @@ mmu_search(mmu_t* mmu, const uint64_t needle, const char size_letter)
     }
 }
 
+void
+print_permissions(uint8_t perms)
+{
+    if (perms == 0) {
+        printf("None");
+        return;
+    }
+    if ((perms & (1 << 0))) {
+        printf("E ");
+    }
+    if ((perms & (1 << 1))) {
+        printf("W ");
+    }
+    if ((perms & (1 << 2))) {
+        printf("R ");
+    }
+    if ((perms & (1 << 3))) {
+        printf("RAW");
+    }
+}
+
+dirty_state_t*
+dirty_state_create(size_t memory_size)
+{
+    dirty_state_t* state = calloc(1, sizeof(*state));
+
+    // Max possible number of dirty memory blocks. This is capped to the total
+    // memory size / DIRTY_BLOCK_SIZE since we will not allow duplicates of
+    // dirtied blocks in the dirty_state->dirty_blocks vector, and will
+    // therefore never need more than this number of entries.
+    size_t nb_max_blocks = memory_size / DIRTY_BLOCK_SIZE;
+
+    // Number of bitmap entries. One entry represents 64 blocks.
+    size_t nb_max_bitmaps = nb_max_blocks / 64;
+
+    state->dirty_blocks = calloc(nb_max_blocks, sizeof(*state->dirty_blocks));
+    state->nb_dirty_blocks = 0;
+
+    state->dirty_bitmap = calloc(nb_max_bitmaps, sizeof(*state->dirty_bitmap));
+    state->nb_max_dirty_bitmaps = nb_max_bitmaps;
+
+    state->make_dirty = dirty_state_make_dirty;
+    state->print      = dirty_state_print_blocks;
+    state->clear      = dirty_state_clear;
+
+    return state;
+}
+
+void
+dirty_state_destroy(dirty_state_t* dirty_state)
+{
+    free(dirty_state->dirty_blocks);
+    free(dirty_state->dirty_bitmap);
+    free(dirty_state);
+}
+
 mmu_t*
 mmu_create(const size_t memory_size, const size_t base_alloc_adr)
 {
@@ -310,6 +391,7 @@ mmu_create(const size_t memory_size, const size_t base_alloc_adr)
     mmu->write           = mmu_write;
     mmu->read            = mmu_read;
     mmu->search          = mmu_search;
+    mmu->print           = mmu_print_mem;
 
     return mmu;
 }

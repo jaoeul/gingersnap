@@ -100,7 +100,7 @@ debug_cli_handle_xmem(rv_emu_t* emu, const token_str_t* xmem_args)
         ginger_log(ERROR, "Missing address!\n");
         return;
     }
-    print_emu_memory(emu, adr, range, size_letter);
+    emu->mmu->print(emu->mmu, adr, range, size_letter);
 }
 
 // Search emulator memory for user specified value.
@@ -149,7 +149,7 @@ debug_cli_handle_ni(rv_emu_t* emu)
 static void
 debug_cli_handle_ir(rv_emu_t* emu)
 {
-    print_emu_registers(emu);
+    emu->print_regs(emu);
 }
 
 static void

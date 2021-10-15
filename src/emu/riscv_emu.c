@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,7 +13,6 @@
 
 #include "../shared/endianess_converter.h"
 #include "../shared/logger.h"
-#include "../shared/print_utils.h"
 #include "../shared/vector.h"
 
 // Max length of an cli argument of the target executable.
@@ -36,6 +36,48 @@ enum ENUM_OPCODE {
     ARITHMETIC_64_REGISTER_REGISTER  = 0x3b,
     OPCODE_LAST,
 };
+
+/* ========================================================================== */
+/*                              Print functions                               */
+/* ========================================================================== */
+
+static void
+emu_print_registers(rv_emu_t* emu)
+{
+    printf("\nzero\t0x%"PRIx64"\n", emu->registers[REG_ZERO]);
+    printf("ra\t0x%"PRIx64"\n", emu->registers[REG_RA]);
+    printf("sp\t0x%"PRIx64"\n", emu->registers[REG_SP]);
+    printf("gp\t0x%"PRIx64"\n", emu->registers[REG_GP]);
+    printf("tp\t0x%"PRIx64"\n", emu->registers[REG_TP]);
+    printf("t0\t0x%"PRIx64"\n", emu->registers[REG_T0]);
+    printf("t1\t0x%"PRIx64"\n", emu->registers[REG_T1]);
+    printf("t2\t0x%"PRIx64"\n", emu->registers[REG_T2]);
+    printf("fp\t0x%"PRIx64"\n", emu->registers[REG_FP]);
+    printf("s1\t0x%"PRIx64"\n", emu->registers[REG_S1]);
+    printf("a0\t0x%"PRIx64"\n", emu->registers[REG_A0]);
+    printf("a1\t0x%"PRIx64"\n", emu->registers[REG_A1]);
+    printf("a2\t0x%"PRIx64"\n", emu->registers[REG_A2]);
+    printf("a3\t0x%"PRIx64"\n", emu->registers[REG_A3]);
+    printf("a4\t0x%"PRIx64"\n", emu->registers[REG_A4]);
+    printf("a5\t0x%"PRIx64"\n", emu->registers[REG_A5]);
+    printf("a6\t0x%"PRIx64"\n", emu->registers[REG_A6]);
+    printf("a7\t0x%"PRIx64"\n", emu->registers[REG_A7]);
+    printf("s2\t0x%"PRIx64"\n", emu->registers[REG_S2]);
+    printf("s3\t0x%"PRIx64"\n", emu->registers[REG_S3]);
+    printf("s4\t0x%"PRIx64"\n", emu->registers[REG_S4]);
+    printf("s5\t0x%"PRIx64"\n", emu->registers[REG_S5]);
+    printf("s6\t0x%"PRIx64"\n", emu->registers[REG_S6]);
+    printf("s7\t0x%"PRIx64"\n", emu->registers[REG_S7]);
+    printf("s8\t0x%"PRIx64"\n", emu->registers[REG_S8]);
+    printf("s9\t0x%"PRIx64"\n", emu->registers[REG_S9]);
+    printf("s10\t0x%"PRIx64"\n", emu->registers[REG_S10]);
+    printf("s11\t0x%"PRIx64"\n", emu->registers[REG_S11]);
+    printf("t3\t0x%"PRIx64"\n", emu->registers[REG_T3]);
+    printf("t4\t0x%"PRIx64"\n", emu->registers[REG_T4]);
+    printf("t5\t0x%"PRIx64"\n", emu->registers[REG_T5]);
+    printf("t6\t0x%"PRIx64"\n", emu->registers[REG_T6]);
+    printf("pc\t0x%"PRIx64"\n", emu->registers[REG_PC]);
+}
 
 /* ========================================================================== */
 /*                         Instruction meta functions                         */
@@ -1729,6 +1771,7 @@ emu_create(size_t memory_size)
     emu->run_until  = emu_run_until;
     emu->stack_push = emu_stack_push;
     emu->destroy    = emu_destroy;
+    emu->print_regs = emu_print_registers;
 
     // Functions corresponding to opcodes.
     emu->instructions[LUI]                              = lui;

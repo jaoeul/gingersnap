@@ -20,21 +20,6 @@ void
 print_bitmaps(uint64_t* bitmaps, uint64_t nb);
 
 void
-print_permissions(uint8_t perms);
-
-void
-print_emu_memory(rv_emu_t* emu, size_t start_adr, const size_t range, const char size_letter);
-
-void
-print_emu_memory_all(rv_emu_t* emu);
-
-void
-print_emu_memory_allocated(rv_emu_t* emu);
-
-void
-print_emu_registers(rv_emu_t* emu);
-
-void
 print_byte_array(uint8_t bytes[], size_t nb_bytes);
 
 void
