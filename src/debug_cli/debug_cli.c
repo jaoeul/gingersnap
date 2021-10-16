@@ -521,8 +521,11 @@ debug_cli_run(rv_emu_t* emu, cli_t* cli)
         // We got no new command but enter was pressed, use the last command instead.
         if (!cli_tokens) {
             // Use the last command.
-            if (prev_cli_tokens && prev_cli_tokens->nb_tokens != 0) {
+            if (prev_cli_tokens) {
                 cli_tokens = token_str_copy(prev_cli_tokens);
+
+                // Clean up earlier saved command tokens.
+                token_str_destroy(prev_cli_tokens);
             }
             // If we got no new command, and we have no previous command,
             // simply skip this iteration.
@@ -580,12 +583,6 @@ debug_cli_run(rv_emu_t* emu, cli_t* cli)
         else if (strncmp(command_str, "quit", 4) == 0) {
             debug_cli_handle_quit();
         }
-
-        // Clean up earlier saved command tokens before saving new ones.
-        token_str_destroy(prev_cli_tokens);
-
-        // Copy token values from command to provious command.
-        prev_cli_tokens = token_str_copy(cli_tokens);
 
         // Free the heap allocated user input string.
         cli->free_user_input(cli_tokens);

@@ -364,20 +364,19 @@ cli_get_command(cli_t* cli)
                 return NULL;
             }
             token_str_t* input_tokens = token_str_tokenize(input_buf, " ");
+            nb_read = strlen(input_tokens->tokens[0]);
             const int match = cli_str_search_exact_match(cli->commands, input_tokens->tokens[0]);
             if (match != -1) {
                 char* completion = calloc(MAX_LENGTH_DEBUG_CLI_COMMAND, sizeof(char));
-                cli_complete_command(cli, input_buf, &completion);
+                cli_complete_command(cli, input_tokens->tokens[0], &completion);
 
-                // Add the completion to input_buf.
+                // Add the completion to input.
                 const size_t comp_len = strlen(completion);
-                strcat(input_buf, completion);
+                strcat(input_tokens->tokens[0], completion);
                 nb_read += comp_len;
                 free(completion);
+                input_tokens->tokens[0][nb_read + 1] = '\0';
 
-                input_buf[nb_read] = '\0';
-                char* command = realloc(input_tokens->tokens[0], nb_read);
-                memcpy(command, input_buf, nb_read);
                 cli_disable_raw_mode();
                 return input_tokens;
             }
