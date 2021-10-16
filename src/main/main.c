@@ -63,8 +63,8 @@ nb_active_cpus(void)
 
 // Do the all the thread local setup of fuzzers and start them. Report stats from
 // the thread local data to the main stats structure after a set time interval.
-static void*
 __attribute__((noreturn))
+static void*
 worker_run(void* arg)
 {
     const uint64_t  report_stats_interval_ns = 1e7; // Report stats 100 times a second to the main thread.
@@ -173,13 +173,19 @@ main(int argc, char** argv)
     // Run the CLI. If we get a snapshot from it, use it, otherwise exit the program. The snapshot
     // is simply a pointer to the `initial_emu`.
     debug_cli_result_t* cli_result = debug_cli_run(initial_emu, debug_cli);
+    while (!cli_result->snapshot_set     ||
+           !cli_result->fuzz_buf_adr_set ||
+           !cli_result->fuzz_buf_size_set) {
 
-    if (!cli_result->snapshot_set || !cli_result->fuzz_buf_adr_set || !cli_result->fuzz_buf_size_set) {
-        ginger_log(INFO, "All mandatory options not set:\nSnapshot set: %u\nFuzzing buffer start address set: %u\nFuzzing buffer size set: %u\nExiting...\n",
-                   cli_result->snapshot_set, cli_result->fuzz_buf_adr_set, cli_result->fuzz_buf_size_set);
-        exit(0);
+        printf("\nAll mandatory options not set\n"      \
+               "Snapshot set:                     %u\n" \
+               "Fuzzing buffer start address set: %u\n" \
+               "Fuzzing buffer size set:          %u\n",
+               cli_result->snapshot_set,
+               cli_result->fuzz_buf_adr_set,
+               cli_result->fuzz_buf_size_set);
+        cli_result = debug_cli_run(initial_emu, debug_cli);
     }
-
     // Create shared corpus.
     corpus_t* shared_corpus = corpus_create("./data/corpus/target6");
 

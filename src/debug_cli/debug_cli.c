@@ -19,11 +19,12 @@
 // 64 bit system.
 #define MAX_NB_EXAMINE_ADDRESS 19
 
-//static const char valid_specifiers[]          = { 'b', 'h', 'w', 'g' };
-//static const int  nb_specifiers               = sizeof valid_specifiers / sizeof valid_specifiers[0];
+static const char size_letters[]              = { 'b', 'h', 'w', 'g' };
+static const int  nb_size_letters             = sizeof(size_letters) / sizeof (size_letters[0]);
 static const char reg_strs[][MAX_LEN_REG_STR] = { "ra", "sp", "gp", "tp", "t0", "t1", "t2", "fp", "s1", "a0", "a1",
                                                   "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6",
                                                   "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6", "pc" };
+static const int  nb_reg_strs                 = sizeof(reg_strs) / sizeof(reg_strs[0]);
 static const char* debug_instructions = "\n"                      \
     "Available CLI commands:\n"                                   \
     " xmem      Examine emulator memory.\n"                       \
@@ -37,21 +38,67 @@ static const char* debug_instructions = "\n"                      \
     " adr       Set the address of the target buffer to fuzz.\n"  \
     " length    Set the length of the target buffer to fuzz.\n"   \
     " go        Start the fuzzer.\n"                              \
+    " options   Show values of the adjustable options.\n"         \
     " help      Print this help.\n"                               \
     " quit      Quit debugging and exit this program.\n";
 
-// Test if string consists solely of valid ascii numbers.
 static bool
-is_number(const char* num)
+is_number(const char* num, int base)
 {
-    for (size_t i = 0; i < strlen(num); i++) {
-        if (num[i] > 47 && num[i] < 58) {
+    int i = 0;
+    if (base == 10) {
+        while (num[i]) {
+            // 0 - 9
+            if (num[i] < 47 || num[i] > 58) {
+                return false;
+            }
+            i++;
         }
-        else {
-            return false;
+    }
+    else if (base == 16) {
+        if (strncmp(num, "0x", 2) == 0) {
+            i = 2;
+        }
+        while (num[i]) {
+            switch(num[i]) {
+                // 0 - 9
+                case 48 ... 57:
+                    break;
+                // A - F
+                case 65 ... 70:
+                    break;
+                // a - f
+                case 97 ... 102:
+                    break;
+                default:
+                    return false;
+            }
+            i++;
         }
     }
     return true;
+}
+
+static bool
+is_size_letter(const char size_letter)
+{
+    for (int i = 0; i < nb_size_letters; i++) {
+        if (size_letter == size_letters[i]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool
+is_reg_str(const char* reg_str)
+{
+    for (int i = 0; i < nb_reg_strs; i++) {
+        if (strcmp(reg_str, reg_strs[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 static void
@@ -60,83 +107,99 @@ debug_cli_handle_xmem(rv_emu_t* emu, const token_str_t* xmem_args)
     char     size_letter = 'w';
     uint64_t range       = 1;
     uint64_t adr         = 0;
+
     if (xmem_args->nb_tokens == 4) {
-        if (!is_number(xmem_args->tokens[3])) {
-            ginger_log(ERROR, "Invalid address!\n");
+        if (!is_number(xmem_args->tokens[3], 16)) {
+            printf("\nInvalid address!\n");
             return;
         }
         adr = strtoul(xmem_args->tokens[3], NULL, 16);
         if (strlen(xmem_args->tokens[2]) > 1) {
-            ginger_log(ERROR, "Invalid size letter!\n");
+            printf("\nInvalid size letter!\n");
             return;
         }
         size_letter = xmem_args->tokens[2][0];
-        if (!is_number(xmem_args->tokens[1])) {
-            ginger_log(ERROR, "Invalid range!\n");
+        if (!is_number(xmem_args->tokens[1], 10)) {
+            printf("\nInvalid range!\n");
             return;
         }
         range = strtoul(xmem_args->tokens[1], NULL, 10);
     }
     else if (xmem_args->nb_tokens == 3) {
-        if (!is_number(xmem_args->tokens[2])) {
-            ginger_log(ERROR, "Invalid address!\n");
+        if (!is_number(xmem_args->tokens[2], 16)) {
+            printf("\nInvalid address!\n");
             return;
         }
         adr = strtoul(xmem_args->tokens[2], NULL, 16);
-        if (strlen(xmem_args->tokens[1]) > 1) {
-            ginger_log(ERROR, "Invalid size letter!\n");
+        if (strlen(xmem_args->tokens[1]) > 1) { // TODO
+            printf("\nInvalid size letter!\n");
             return;
         }
         size_letter = xmem_args->tokens[1][0];
     }
     else if (xmem_args->nb_tokens == 2) {
-        if (!is_number(xmem_args->tokens[1])) {
-            ginger_log(ERROR, "Invalid address!\n");
+        if (!is_number(xmem_args->tokens[1], 16)) {
+            printf("\nInvalid address!\n");
             return;
         }
         adr = strtoul(xmem_args->tokens[1], NULL, 16);
     }
-    if (adr == 0) {
-        ginger_log(ERROR, "Missing address!\n");
-        return;
+    else {
+        printf("\nInvalid number of args to xmem!\n");
     }
     emu->mmu->print(emu->mmu, adr, range, size_letter);
 }
 
 // Search emulator memory for user specified value.
 static void
-debug_cli_handle_smem(rv_emu_t* emu)
+debug_cli_handle_smem(rv_emu_t* emu, token_str_t* smem_args)
 {
-    printf("Search for value: ");
+    char     size_letter = 'b';
+    uint64_t needle      = 0;
 
-    // Get value to search for from user input.
-    char search_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
-    memset(search_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
-    if (!fgets(search_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
-        ginger_log(ERROR, "Could not get user input!\n");
-        abort();
+    // Three tokens: smem <size_letter> <needle>
+    if (smem_args->nb_tokens == 3) {
+        if (is_number(smem_args->tokens[2], 16)) {
+            needle = strtoul(smem_args->tokens[2], NULL, 16);
+        }
+        else {
+            printf("\nInvalid needle!\n");
+            return;
+        }
+        if (is_size_letter(smem_args->tokens[1][0])) {
+            size_letter = smem_args->tokens[1][0];
+        }
+        else {
+            printf("\nInvalid size letter!\n");
+            return;
+        }
     }
-    const size_t needle = strtoul(search_buf, NULL, 16);
-
-    // Get size letter from user input.
-    printf("Format (b, h, w, g): ");
-    const char size_letter = fgetc(stdin);
-    fgetc(stdin); // Avoid having the '\n' interfering with the next read.
-    if (size_letter == '\0' || size_letter == (char)-1) {
-        ginger_log(ERROR, "Could not get user input!\n");
-        abort();
+    // Two tokens: smem <needle>
+    else if (smem_args->nb_tokens == 2) {
+        if (is_number(smem_args->tokens[1], 16)) {
+            needle = strtoul(smem_args->tokens[1], NULL, 16);
+        }
+        else {
+            printf("\nInvalid needle!\n");
+            return;
+        }
+    }
+    // Invalid command.
+    else {
+        printf("\nInvalid number of args to smem!\n");
+        return;
     }
 
     vector_t* search_result = emu->mmu->search(emu->mmu, needle, size_letter);
     if (search_result) {
-        ginger_log(DEBUG, "%zu hit(s) of 0x%zx\n", vector_length(search_result), needle);
+        printf("\n%zu hit(s) of 0x%zx\n", vector_length(search_result), needle);
         for (size_t i = 0; i < search_result->length; i++) {
-            ginger_log(DEBUG, "%zu: 0x%lx\n", i + 1, *(size_t*)vector_get(search_result, i));
+            printf("%zu: 0x%lx\n", i + 1, *(size_t*)vector_get(search_result, i));
         }
         vector_destroy(search_result);
     }
     else {
-        ginger_log(DEBUG, "Did not find 0x%zx in emulator memory\n", needle);
+        printf("\nDid not find 0x%zx in emulator memory\n", needle);
     }
 }
 
@@ -153,30 +216,27 @@ debug_cli_handle_ir(rv_emu_t* emu)
 }
 
 static void
-debug_cli_handle_break(rv_emu_t* emu, vector_t* breakpoints)
+debug_cli_handle_break(rv_emu_t* emu, token_str_t* break_args, vector_t* breakpoints)
 {
-    printf("Set breakpoint at address: ");
-
-    // Get breakpoint address from user.
-    char break_adr_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
-    memset(break_adr_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
-
-    if (!fgets(break_adr_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
-        ginger_log(ERROR, "Could not get user input!\n");
-        abort();
+    if (break_args->nb_tokens != 2) {
+        printf("\nInvalid number of args to break!\n");
+        return;
     }
-    size_t break_adr = strtoul(break_adr_buf, NULL, 16);
+
+    size_t break_adr = 0;
+    if (is_number(break_args->tokens[1], 16)) {
+        break_adr = strtoul(break_args->tokens[1], NULL, 16);
+    }
 
     if (break_adr > emu->mmu->memory_size) {
-        ginger_log(ERROR, "Could not set breakpoint at 0x%zx as it is outside of emulator memory!\n", break_adr);
+        printf("\nCould not set breakpoint at 0x%zx as it is outside of emulator memory!\n", break_adr);
         return;
     }
 
     if ((emu->mmu->permissions[break_adr] & PERM_EXEC) == 0) {
-        ginger_log(ERROR, "Could not set breakpoint at 0x%zx! No execute permissions!\n", break_adr);
+        printf("\nCould not set breakpoint at 0x%zx! No execute permissions!\n", break_adr);
         return;
     }
-
     vector_append(breakpoints, &break_adr);
 }
 
@@ -185,7 +245,7 @@ debug_cli_handle_sbreak(rv_emu_t* emu, vector_t* breakpoints)
 {
     size_t nb_breakpoints = vector_length(breakpoints);
     if (nb_breakpoints == 0) {
-        printf("No breakpoints\n");
+        printf("\nNo breakpoints\n");
         return;
     }
 
@@ -195,34 +255,19 @@ debug_cli_handle_sbreak(rv_emu_t* emu, vector_t* breakpoints)
     }
 }
 
-static bool
-debug_cli_handle_watch(rv_emu_t* emu, vector_t* watchpoints)
+static void
+debug_cli_handle_watch(rv_emu_t* emu, token_str_t* watch_args, vector_t* watchpoints)
 {
-    printf("\nSet watchpoint on register: ");
-
-    // Get register to watch from user.
-    char watchpoint_buf[MAX_LEN_REG_STR];
-    memset(watchpoint_buf, 0, MAX_LEN_REG_STR);
-
-    if (!fgets(watchpoint_buf, MAX_LEN_REG_STR, stdin)) {
-        ginger_log(ERROR, "Could not get user input!\n");
-        abort();
+    if (watch_args->nb_tokens != 2) {
+        printf("\nInvalid number of args to watch!\n");
+        return;
     }
-    // TODO: Dedup watchpoint vector.
 
-    // Strip newline.
-    size_t watch_len = strlen(watchpoint_buf);
-    watchpoint_buf[watch_len - 1] = '\0';
-
-    for (uint8_t i = 0; i < sizeof reg_strs / sizeof reg_strs[0]; i++) {
-        if (strncmp(watchpoint_buf, reg_strs[i], MAX_LEN_REG_STR) == 0) {
-            vector_append(watchpoints, (char*)watchpoint_buf);
-            printf("true\n");
-            return true;
-        }
+    if (!is_reg_str(watch_args->tokens[1])) {
+        printf("\nInvalid register!\n");
+        return;
     }
-    printf("false\n");
-    return false;
+    vector_append(watchpoints, watch_args->tokens[1]);
 }
 
 static void
@@ -230,7 +275,7 @@ debug_cli_handle_swatch(rv_emu_t* emu, vector_t* watchpoints)
 {
     size_t nb_watchpoints = vector_length(watchpoints);
     if (nb_watchpoints == 0) {
-        printf("No watchpoints\n");
+        printf("\nNo watchpoints\n");
         return;
     }
 
@@ -251,7 +296,7 @@ debug_cli_handle_continue(rv_emu_t* emu, vector_t* breakpoints)
             uint64_t curr_pc = get_reg(emu, REG_PC);
 
             if (curr_pc == *(uint64_t*)vector_get(breakpoints, i)) {
-                ginger_log(INFO, "Hit breakpoint %zu\t0x%zx\n", i, curr_pc);
+                printf("\nHit breakpoint %zu\t0x%zx\n", i, curr_pc);
                 return;
             }
         }
@@ -266,9 +311,89 @@ debug_cli_handle_snapshot(debug_cli_result_t* res, rv_emu_t* snapshot)
 }
 
 static void
-debug_cli_handle_help(void)
+debug_cli_handle_adr(debug_cli_result_t* res, token_str_t* adr_args)
 {
-    printf("%s", debug_instructions);
+    if (adr_args->nb_tokens != 2) {
+        printf("\nInvalid number of args to adr!\n");
+        return;
+    }
+
+    if (!is_number(adr_args->tokens[1], 16)) {
+        printf("\nInvalid address!\n");
+        return;
+    }
+    res->fuzz_buf_adr     = strtoul(adr_args->tokens[1], NULL, 16);
+    res->fuzz_buf_adr_set = true;
+}
+
+static void
+debug_cli_handle_length(debug_cli_result_t* res, token_str_t* length_args)
+{
+    if (length_args->nb_tokens != 2) {
+        printf("\nInvalid number of args to length!\n");
+        return;
+    }
+
+    if (!is_number(length_args->tokens[1], 10)) {
+        printf("\nInvalid length!\n");
+        return;
+    }
+    res->fuzz_buf_size     = strtoul(length_args->tokens[1], NULL, 10);
+    res->fuzz_buf_size_set = true;
+}
+
+static debug_cli_result_t*
+debug_cli_handle_go(debug_cli_result_t* res)
+{
+    printf("\n");
+    return res;
+}
+
+static void
+debug_cli_handle_options(debug_cli_result_t* res)
+{
+    if (res->fuzz_buf_adr_set) {
+        printf("\nTarget buffer address: 0x%lx", res->fuzz_buf_adr);
+    }
+    else {
+        printf("\nFuzz input injection address not set.");
+    }
+    if (res->fuzz_buf_size_set) {
+        printf("\nTarget buffer length:  %lu", res->fuzz_buf_size);
+    }
+    else {
+        printf("\nFuzz input injection buffer size not set.");
+    }
+    if (res->snapshot_set) {
+        printf("\nClean emulator snapshot:");
+        res->snapshot->print_regs(res->snapshot);
+    }
+    else {
+        printf("\nNo snapshot taken.");
+    }
+    printf("\n");
+}
+
+static void
+debug_cli_handle_help(cli_t* cli, token_str_t* help_args)
+{
+    if (help_args->nb_tokens == 1) {
+        printf("%s", debug_instructions);
+        return;
+    }
+    else if (help_args->nb_tokens > 2) {
+        printf("\nInvalid number of args to help!\n");
+        return;
+    }
+
+    for (int i = 0; i < vector_length(cli->commands); i++) {
+        struct cli_cmd* cmd = vector_get(cli->commands, i);
+        if (strcmp(cmd->cmd_str, help_args->tokens[1]) == 0) {
+            printf("\n%s", cmd->description);
+            return;
+        }
+    }
+    printf("\nNo help for '%s' found.\n", help_args->tokens[1]);
 }
 
 static void
@@ -284,11 +409,22 @@ debug_cli_create(rv_emu_t* emu)
     struct cli_cmd debug_cli_commands[] = {
         {
             .cmd_str = "xmem",
-            .description = "Examine emulator memory.\n"
+            .description = "Examine emulator memory.\n"                                        \
+                           "Examples:\n"                                                       \
+                           "xmem 10 b 0x100c8 // Display 10 bytes from 0x100c8 and up.\n"      \
+                           "xmem 10 h 0x100c8 // Display 10 half words from 0x100c8 and up.\n" \
+                           "xmem 5 w 0x0      // Display 10 words from 0x0 and up.\n"          \
+                           "x g 0x1           // Display 1 double word at address 0x1.\n"      \
         },
         {
             .cmd_str = "smem",
-            .description = "Search for value in emulator memory.\n"
+            .description = "Search for sequence of bytes in guest memory.\n"                      \
+                           "Examples:\n"                                                          \
+                           "smem b 0xff               // Byte aligned search of '0xff'.\n"        \
+                           "smem h 0xabcd             // Half word aligned search of '0xabcd'.\n" \
+                           "smem w 0xcafebabe         // Word aligned search of '0xcafebabe'.\n"  \
+                           "smem g 0xdeadc0dedeadbeef // Double word aligned search of '0xdeadc0dedeadbeef'.\n"
+                           "sm 0xff                   // Byte aligned search of '0xff'.\n"        \
         },
         {
             .cmd_str = "ni",
@@ -300,11 +436,13 @@ debug_cli_create(rv_emu_t* emu)
         },
         {
             .cmd_str = "break",
-            .description = "Set breakpoint.\n"
+            .description = "Set breakpoint.\n" \
+                           "Example: break 0x10218\n"
         },
         {
             .cmd_str = "watch",
-            .description = "Set register watchpoint.\n"
+            .description = "Set register watchpoint.\n" \
+                           "Example: watch sp\n"
         },
         {
             .cmd_str = "sbreak",
@@ -324,19 +462,28 @@ debug_cli_create(rv_emu_t* emu)
         },
         {
             .cmd_str = "adr",
-            .description = "Set the address in guest memory where fuzzed input will be injected\n"
+            .description = "Set the address in guest memory where fuzzed input will be injected.\n" \
+                           "Example: adr 0x1ffea8\n"
+
         },
         {
             .cmd_str = "length",
-            .description = "Set the size of the target buffer which will be fuzzed\n"
+            .description = "Set the fuzzer injection input length.\n" \
+                           "Example: length 4\n"
         },
         {
             .cmd_str = "go",
-            .description = "Try to start the fuzzer."
+            .description = "Try to start the fuzzer.\n"
         },
         {
-            .cmd_str = "help",
-            .description = "Print this help.\n"
+            .cmd_str = "options",
+            .description = "Show values of the adjustable options.\n"
+        },
+        {
+            .cmd_str     = "help",
+            .description = "Displays help text of a command.\n" \
+                           "Example: help xmem\n"
+
         },
         {
             .cmd_str = "quit",
@@ -352,47 +499,6 @@ debug_cli_create(rv_emu_t* emu)
     }
 
     return debug_cli;
-}
-
-static void
-debug_cli_handle_adr(debug_cli_result_t* res)
-{
-    printf("\nFuzzcase injection address(hex): ");
-
-    // Get breakpoint address from user.
-    char fuzz_adr_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
-    memset(fuzz_adr_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
-
-    if (!fgets(fuzz_adr_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
-        ginger_log(ERROR, "Could not get user input!\n");
-        abort();
-    }
-    res->fuzz_buf_adr     = strtoul(fuzz_adr_buf, NULL, 16);
-    res->fuzz_buf_adr_set = true;
-}
-
-static void
-debug_cli_handle_length(debug_cli_result_t* res)
-{
-    printf("\nSet fuzz buffer size(dec): ");
-
-    // Get breakpoint address from user.
-    char fuzz_size_buf[MAX_LENGTH_DEBUG_CLI_COMMAND];
-    memset(fuzz_size_buf, 0, MAX_LENGTH_DEBUG_CLI_COMMAND);
-
-    if (!fgets(fuzz_size_buf, MAX_LENGTH_DEBUG_CLI_COMMAND, stdin)) {
-        ginger_log(ERROR, "Could not get user input!\n");
-        abort();
-    }
-    res->fuzz_buf_size     = strtoul(fuzz_size_buf, NULL, 10);
-    res->fuzz_buf_size_set = true;
-}
-
-static debug_cli_result_t*
-debug_cli_handle_go(debug_cli_result_t* res)
-{
-    printf("\n");
-    return res;
 }
 
 // Run the debug CLI. If a snapshot is taken, return it.
@@ -430,7 +536,7 @@ debug_cli_run(rv_emu_t* emu, cli_t* cli)
             debug_cli_handle_xmem(emu, cli_tokens);
         }
         else if (strncmp(command_str, "smem", 4) == 0) {
-            debug_cli_handle_smem(emu);
+            debug_cli_handle_smem(emu, cli_tokens);
         }
         else if (strncmp(command_str, "ni", 2) == 0) {
             debug_cli_handle_ni(emu);
@@ -439,13 +545,13 @@ debug_cli_run(rv_emu_t* emu, cli_t* cli)
             debug_cli_handle_ir(emu);
         }
         else if (strncmp(command_str, "break", 5) == 0) {
-            debug_cli_handle_break(emu, breakpoints);
+            debug_cli_handle_break(emu, cli_tokens, breakpoints);
         }
         else if (strncmp(command_str, "sbreak", 5) == 0) {
             debug_cli_handle_sbreak(emu, breakpoints);
         }
         else if (strncmp(command_str, "watch", 5) == 0) {
-            debug_cli_handle_watch(emu, watchpoints);
+            debug_cli_handle_watch(emu, cli_tokens, watchpoints);
         }
         else if (strncmp(command_str, "swatch", 5) == 0) {
             debug_cli_handle_swatch(emu, watchpoints);
@@ -457,16 +563,19 @@ debug_cli_run(rv_emu_t* emu, cli_t* cli)
             debug_cli_handle_snapshot(cli_result, emu);
         }
         else if (strncmp(command_str, "adr", 3) == 0) {
-            debug_cli_handle_adr(cli_result);
+            debug_cli_handle_adr(cli_result, cli_tokens);
         }
         else if (strncmp(command_str, "length", 6) == 0) {
-            debug_cli_handle_length(cli_result);
+            debug_cli_handle_length(cli_result, cli_tokens);
         }
         else if (strncmp(command_str, "go", 2) == 0) {
             return debug_cli_handle_go(cli_result);
         }
+        else if (strncmp(command_str, "options", 7) == 0) {
+            debug_cli_handle_options(cli_result);
+        }
         else if (strncmp(command_str, "help", 4) == 0) {
-            debug_cli_handle_help();
+            debug_cli_handle_help(cli, cli_tokens);
         }
         else if (strncmp(command_str, "quit", 4) == 0) {
             debug_cli_handle_quit();

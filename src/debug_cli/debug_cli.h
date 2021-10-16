@@ -5,7 +5,7 @@
 #include "../shared/cli.h"
 
 typedef struct {
-    const rv_emu_t* snapshot;          // The starting point of the fuzzcases.
+    rv_emu_t*       snapshot;          // The starting point of the fuzzcases.
     uint64_t        fuzz_buf_adr;      // Guest address where the fuzzcases will be injected.
     uint64_t        fuzz_buf_size;     // Size of the buffer which fuzzcases will be injected to.
     bool            snapshot_set;      // If the snapshot has been set.
