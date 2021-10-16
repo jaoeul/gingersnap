@@ -130,6 +130,19 @@ cli_str_matching_chars(const char* str1, const char* str2)
     return nb_matching_chars;
 }
 
+// Count matching chars in a and b up to len.
+static uint64_t
+matching_chars(const char* a, const char* b, uint64_t len)
+{
+    uint64_t nb_matching = 0;
+    for (uint64_t i = 0; i < len; i++) {
+        if (a[i] == b[i]) {
+            nb_matching++;
+        }
+    }
+    return nb_matching;
+}
+
 // Return true if exactly one matching command was found and completed,
 // otherwise return false.
 // Used for tab completion and to execute the correct command if only a substring is given.
@@ -138,30 +151,21 @@ cli_complete_command(const cli_t* cli, const char* substr, char** completion)
 {
     uint8_t nb_cli_commands = vector_length(cli->commands);
     uint8_t nb_hits         = 0;
-    size_t  substr_len      = strlen(substr);
-    char    to_complete[substr_len + 1];
+
     uint8_t hits[nb_cli_commands];
     memset(hits, 0, nb_cli_commands);
-
-    // Copy substr and its nullbyte to to_complete.
-    memcpy(to_complete, substr, substr_len + 1);
-
-    // Strip newline from to_complete.
-    size_t to_complete_len = strlen(to_complete) + 1;
-    to_complete[to_complete_len] = '\0';
 
     // Note which commands were hit, and how many.
     for (uint8_t i = 0; i < nb_cli_commands; i++) {
         const struct cli_cmd* curr_cmd = vector_get(cli->commands, i);
-        if (cli_str_starts_with(curr_cmd->cmd_str, to_complete)) {
+        if (cli_str_starts_with(curr_cmd->cmd_str, substr)) {
             hits[nb_hits++] = i;
         }
     }
-
     // Single hit. Go ahead and complete the command.
     if (nb_hits == 1) {
         const struct cli_cmd* hit_command = vector_get(cli->commands, hits[0]);
-        const size_t matched_str_len = strspn(hit_command->cmd_str, to_complete);
+        const uint64_t matched_str_len = matching_chars(hit_command->cmd_str, substr, strlen(substr));
         sprintf(*completion, "%s", hit_command->cmd_str + matched_str_len);
         return true;
     }
@@ -193,7 +197,7 @@ cli_complete_command(const cli_t* cli, const char* substr, char** completion)
         matched_chars[nb_common_chars] = '\0';
 
         // How much of the matched string have already been inputed, and can be ignored?
-        size_t ignore = strlen(to_complete);
+        size_t ignore = strlen(substr);
         sprintf(*completion, "%s", matched_chars + ignore);
     }
     return false;
@@ -372,8 +376,10 @@ cli_get_command(cli_t* cli)
 
                 // Add the completion to input.
                 const size_t comp_len = strlen(completion);
-                strcat(input_tokens->tokens[0], completion);
                 nb_read += comp_len;
+
+                strncat(input_tokens->tokens[0], completion, comp_len);
+
                 free(completion);
                 input_tokens->tokens[0][nb_read + 1] = '\0';
 
