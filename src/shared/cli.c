@@ -95,7 +95,7 @@ cli_parse_command(char* cli_cmd)
 */
 
 static bool
-cli_str_starts_with(const char* string, const char* substr)
+cli_starts_with(const char* string, const char* substr)
 {
     const size_t string_len = strlen(string);
     const size_t substr_len = strlen(substr);
@@ -109,7 +109,7 @@ cli_str_starts_with(const char* string, const char* substr)
 }
 
 static size_t
-cli_str_matching_chars(const char* str1, const char* str2)
+cli_matching_chars(const char* str1, const char* str2)
 {
     const size_t str1_len    = strlen(str1);
     const size_t str2_len    = strlen(str2);
@@ -130,19 +130,6 @@ cli_str_matching_chars(const char* str1, const char* str2)
     return nb_matching_chars;
 }
 
-// Count matching chars in a and b up to len.
-static uint64_t
-matching_chars(const char* a, const char* b, uint64_t len)
-{
-    uint64_t nb_matching = 0;
-    for (uint64_t i = 0; i < len; i++) {
-        if (a[i] == b[i]) {
-            nb_matching++;
-        }
-    }
-    return nb_matching;
-}
-
 // Return true if exactly one matching command was found and completed,
 // otherwise return false.
 // Used for tab completion and to execute the correct command if only a substring is given.
@@ -158,14 +145,14 @@ cli_complete_command(const cli_t* cli, const char* substr, char** completion)
     // Note which commands were hit, and how many.
     for (uint8_t i = 0; i < nb_cli_commands; i++) {
         const struct cli_cmd* curr_cmd = vector_get(cli->commands, i);
-        if (cli_str_starts_with(curr_cmd->cmd_str, substr)) {
+        if (cli_starts_with(curr_cmd->cmd_str, substr)) {
             hits[nb_hits++] = i;
         }
     }
     // Single hit. Go ahead and complete the command.
     if (nb_hits == 1) {
         const struct cli_cmd* hit_command = vector_get(cli->commands, hits[0]);
-        const uint64_t matched_str_len = matching_chars(hit_command->cmd_str, substr, strlen(substr));
+        const size_t matched_str_len = cli_matching_chars(hit_command->cmd_str, substr);
         sprintf(*completion, "%s", hit_command->cmd_str + matched_str_len);
         return true;
     }
@@ -182,7 +169,7 @@ cli_complete_command(const cli_t* cli, const char* substr, char** completion)
                 }
                 const struct cli_cmd* cmd_i = vector_get(cli->commands, hits[i]);
                 const struct cli_cmd* cmd_j = vector_get(cli->commands, hits[j]);
-                const size_t nb_curr_match  = cli_str_matching_chars(cmd_i->cmd_str, cmd_j->cmd_str);
+                const size_t nb_curr_match  = cli_matching_chars(cmd_i->cmd_str, cmd_j->cmd_str);
                 if (nb_curr_match < nb_common_chars) {
                     nb_common_chars = nb_curr_match;
                     match_idx = hits[i];
@@ -212,7 +199,7 @@ cli_show_completions(cli_t* cli, const char* substr)
     printf("\n");
     for (uint8_t i = 0; i < nb_cli_commands; i++) {
         const struct cli_cmd* curr_cmd = vector_get(cli->commands, i);
-        if (cli_str_starts_with(curr_cmd->cmd_str, substr)) {
+        if (cli_starts_with(curr_cmd->cmd_str, substr)) {
             printf("%s\n", curr_cmd->cmd_str);
         }
     }
@@ -230,7 +217,7 @@ cli_print_prompt(cli_t* cli)
 // TODO: Use this when CLI cursor movement is supported.
 __attribute__((used))
 static bool
-cli_str_insert_char(const char* input, const char ins_char, const size_t idx, char** output)
+cli_insert_char(const char* input, const char ins_char, const size_t idx, char** output)
 {
     const size_t input_len = strlen(input);
     if (idx > input_len) {
@@ -263,7 +250,7 @@ cli_gotoxy(const size_t x, const size_t y)
 // If substr is found at exactly one place in the vector, return the index.
 // Else, return -1.
 static int
-cli_str_search_exact_match(vector_t* commands, const char* substr)
+cli_search_exact_match(vector_t* commands, const char* substr)
 {
     const uint8_t nb_cli_commands = vector_length(commands);
     uint8_t       nb_hits         = 0;
@@ -272,7 +259,7 @@ cli_str_search_exact_match(vector_t* commands, const char* substr)
     // Note how many strings were hit.
     for (uint8_t i = 0; i < nb_cli_commands; i++) {
         const struct cli_cmd* curr_cmd = vector_get(commands, i);
-        if (cli_str_starts_with(curr_cmd->cmd_str, substr)) {
+        if (cli_starts_with(curr_cmd->cmd_str, substr)) {
             hit_idx = i;
             nb_hits++;
         }
@@ -369,7 +356,7 @@ cli_get_command(cli_t* cli)
             }
             token_str_t* input_tokens = token_str_tokenize(input_buf, " ");
             nb_read = strlen(input_tokens->tokens[0]);
-            const int match = cli_str_search_exact_match(cli->commands, input_tokens->tokens[0]);
+            const int match = cli_search_exact_match(cli->commands, input_tokens->tokens[0]);
             if (match != -1) {
                 char* completion = calloc(MAX_LENGTH_DEBUG_CLI_COMMAND, sizeof(char));
                 cli_complete_command(cli, input_tokens->tokens[0], &completion);
@@ -378,7 +365,7 @@ cli_get_command(cli_t* cli)
                 const size_t comp_len = strlen(completion);
                 nb_read += comp_len;
 
-                strncat(input_tokens->tokens[0], completion, comp_len);
+                strcat(input_tokens->tokens[0], completion);
 
                 free(completion);
                 input_tokens->tokens[0][nb_read + 1] = '\0';
@@ -438,7 +425,7 @@ cli_add_command(const cli_t* cli, struct cli_cmd command)
 static bool
 cli_execute_command(const cli_t* cli, const char* command, void* arg)
 {
-    const int match = cli_str_search_exact_match(cli->commands, command);
+    const int match = cli_search_exact_match(cli->commands, command);
     if (match == -1) {
         printf("\nCommand %s not found!\n", command);
         return false;
