@@ -45,7 +45,6 @@ vector_append(vector_t* vector, void* data)
     void* dst_adr = (uint8_t*)vector->data + (vector->entry_size * vector->length);
     memcpy(dst_adr, data, vector->entry_size);
     ++vector->length;
-
     return vector->length - 1;
 }
 

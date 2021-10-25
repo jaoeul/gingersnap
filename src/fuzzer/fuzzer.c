@@ -58,38 +58,43 @@ fuzzer_fuzz(fuzzer_t* fuzzer)
         abort();
     }
 
+    if (fuzzer->emu->corpus->inputs->length == 0) {
+        ginger_log(ERROR, "Abort! Empty corpus!\n");
+        abort();
+    }
+
     // Pick a random input from the shared corpus.
     // TODO: Make atomic?
-    const int r          = rand() % fuzzer->corpus->nb_inputs;
-    uint64_t  input_len  = fuzzer->corpus->inputs[r]->length;
-    uint8_t*  input_data = fuzzer->corpus->inputs[r]->data;
+    const int r            = rand() % fuzzer->emu->corpus->inputs->length;
+    input_t*  chosen_input = vector_get(fuzzer->emu->corpus->inputs, r);
 
     // If the input length is less than the fuzzers buffer length, use that instead, as there
     // is no reason to memcpy a bunch of zeroes.
     uint64_t effective_len = 0;
-    if (input_len < fuzzer->fuzz_buf_size) {
-        effective_len = input_len;
+    if (chosen_input->length < fuzzer->fuzz_buf_size) {
+        effective_len = chosen_input->length;
     }
     else {
         effective_len = fuzzer->fuzz_buf_size;
     }
-    fuzzer->curr_fuzzcase_len = effective_len;
+    fuzzer->curr_input->length = effective_len;
 
     // Copy the data from the corpus to a fuzzer owned buffer, which we will mutate.
     // If the mutation crashes the emulator after injecton, we write this input
     // disk.
-    fuzzer->curr_fuzzcase = realloc(fuzzer->curr_fuzzcase, fuzzer->curr_fuzzcase_len);
-    if (!fuzzer->curr_fuzzcase) {
-        ginger_log(ERROR, "[%s] Could not reallocate buffer for input data!\n", __func__);
+    fuzzer->curr_input->data = realloc(fuzzer->curr_input->data, fuzzer->curr_input->length);
+    if (!fuzzer->curr_input->data) {
+        ginger_log(ERROR, "[%s] Could not reallocate buffer for input data! Requested size: %lu\n",
+                   fuzzer->curr_input->length, __func__);
         abort();
     }
-    memcpy(fuzzer->curr_fuzzcase, input_data, fuzzer->curr_fuzzcase_len);
+    memcpy(fuzzer->curr_input->data, chosen_input->data, fuzzer->curr_input->length);
 
     // Mutate the input.
-    fuzzer->mutate(fuzzer->curr_fuzzcase, fuzzer->curr_fuzzcase_len);
+    fuzzer->mutate(fuzzer->curr_input->data, fuzzer->curr_input->length);
 
     // Inject the input.
-    fuzzer->inject(fuzzer, fuzzer->curr_fuzzcase, fuzzer->curr_fuzzcase_len);
+    fuzzer->inject(fuzzer, fuzzer->curr_input->data, fuzzer->curr_input->length);
 
     // Run the emulator until it exits or crashes.
     return fuzzer->emu->run(fuzzer->emu, fuzzer->stats);
@@ -140,7 +145,7 @@ fuzzer_write_crash(fuzzer_t* fuzzer)
     if (!fp) {
         ginger_log(ERROR, "Failed to open crash file for writing!\n");
     }
-    if (!fwrite(fuzzer->curr_fuzzcase, 1, fuzzer->curr_fuzzcase_len, fp)) {
+    if (!fwrite(fuzzer->curr_input->data, 1, fuzzer->curr_input->length, fp)) {
         ginger_log(ERROR, "Failed to write to crash file!\n");
     }
     fclose(fp);
@@ -153,21 +158,21 @@ fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, c
     fuzzer_t* fuzzer = calloc(1, sizeof(fuzzer_t));
 
     // Create and setup the emulator this fuzzer will use.
-    rv_emu_t* emu = emu_create(EMU_TOTAL_MEM);
+    rv_emu_t* emu = emu_create(EMU_TOTAL_MEM, corpus);
+
     // Init the emulator thread id.
     // Load the elf and build the stack.
     emu->setup(emu, target);
 
     fuzzer->tid               = syscall(__NR_gettid);
     fuzzer->emu               = emu;
-    fuzzer->corpus            = corpus;
     fuzzer->fuzz_buf_adr      = fuzz_buf_adr;
     fuzzer->fuzz_buf_size     = fuzz_buf_size;
     fuzzer->crash_dir         = crash_dir;
-    fuzzer->stats             = emu_stats_create();
     fuzzer->clean_snapshot    = snapshot;
-    fuzzer->curr_fuzzcase     = NULL;
-    fuzzer->curr_fuzzcase_len = 0;
+    fuzzer->curr_input        = corpus_input_create();
+    fuzzer->stats             = emu_stats_create();
+    fuzzer->stats->nb_inputs  = corpus->inputs->length;
 
     // API
     fuzzer->fuzz              = fuzzer_fuzz;

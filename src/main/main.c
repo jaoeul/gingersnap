@@ -99,6 +99,12 @@ worker_run(void* arg)
             fuzzer->write_crash(fuzzer);
         }
 
+        // If the fuzz case generated new code coverage, save it to the corpus.
+        if (fuzzer->emu->new_coverage) {
+            corpus_add_input(fuzzer->emu->corpus, fuzzer->curr_input);
+            emu_stats_inc(fuzzer->stats, EMU_COUNTERS_INPUTS);
+        }
+
         // Restore the emulator to its initial state.
         fuzzer->emu->reset(fuzzer->emu, fuzzer->clean_snapshot);
 
@@ -120,6 +126,7 @@ worker_run(void* arg)
             shared_stats->nb_graceful_exits        += fuzzer->stats->nb_graceful_exits;
             shared_stats->nb_unknown_exit_reasons  += fuzzer->stats->nb_unsupported_syscalls;
             shared_stats->nb_resets                += fuzzer->stats->nb_resets;
+            shared_stats->nb_inputs                += fuzzer->stats->nb_inputs;
             shared_stats->nb_segfault_reads        += fuzzer->stats->nb_segfault_reads;
             shared_stats->nb_segfault_writes       += fuzzer->stats->nb_segfault_writes;
             shared_stats->nb_invalid_opcodes       += fuzzer->stats->nb_invalid_opcodes;
@@ -149,6 +156,9 @@ main(int argc, char** argv)
     // Init rng.
     srand(time(NULL));
 
+    // Create shared corpus.
+    corpus_t* shared_corpus = corpus_create("./data/corpus/target6");
+
     // Array of arguments to the target executable.
     heap_str_t target_argv[target_argc];
     memset(target_argv, 0, sizeof(target_argv));
@@ -164,7 +174,7 @@ main(int argc, char** argv)
     // Create an initial emulator, for taking the initial snapshot. This emulator will not be
     // used to fuzz, but the snapshotted state will be passed to the worker emulators as the
     // pre-fuzzed state which they will be reset to after a fuzz case is ran.
-    rv_emu_t* initial_emu = emu_create(EMU_TOTAL_MEM);
+    rv_emu_t* initial_emu = emu_create(EMU_TOTAL_MEM, shared_corpus);
     initial_emu->setup(initial_emu, target);
 
     // Create a debugging CLI using the initial emulator.
@@ -186,15 +196,12 @@ main(int argc, char** argv)
                cli_result->fuzz_buf_size_set);
         cli_result = debug_cli_run(initial_emu, debug_cli);
     }
-    // Create shared corpus.
-    corpus_t* shared_corpus = corpus_create("./data/corpus/target6");
-
     // Can be used for all threads.
     pthread_attr_t thread_attr = {0};
     pthread_attr_init(&thread_attr);
 
     // Per-thread info. Multiple threads should never use the same emulator.
-    const uint8_t nb_cpus = nb_active_cpus();
+    const uint8_t nb_cpus = 1;//nb_active_cpus();
     ginger_log(INFO, "Number active cpus: %u\n", nb_cpus);
     thread_info_t t_info[nb_cpus];
     memset(t_info, 0, sizeof(t_info));

@@ -11,6 +11,8 @@
 #include "riscv_emu.h"
 #include "syscall.h"
 
+#include "../corpus/coverage.h"
+#include "../corpus/corpus.h"
 #include "../shared/endianess_converter.h"
 #include "../shared/logger.h"
 #include "../shared/vector.h"
@@ -327,15 +329,15 @@ jal(rv_emu_t* emu, const uint32_t instruction)
     // When an unsigned int and an int are added together, the int is first
     // converted to unsigned int before the addition takes place. This makes
     // the following addition work.
-    const int32_t jump_offset = j_type_get_immediate(instruction);
-    const uint64_t result     = get_reg(emu, REG_PC) + jump_offset;
+    const int32_t  jump_offset = j_type_get_immediate(instruction);
+    const uint64_t pc          = get_pc(emu);
+    const uint64_t ret         = pc + 4;
+    const uint64_t target      = pc + jump_offset;
 
-    ginger_log(DEBUG, "Executing\tJAL %s 0x%x\n", reg_to_str(get_rd(instruction)), result);
-
-    const uint64_t return_address = get_reg(emu, REG_PC) + 4;
-    set_reg(emu, get_rd(instruction), return_address);
-
-    set_reg(emu, REG_PC, result);
+    ginger_log(DEBUG, "Executing\tJAL %s 0x%x\n", reg_to_str(get_rd(instruction)), target);
+    set_reg(emu, get_rd(instruction), ret);
+    emu->new_coverage = coverage_on_branch(emu->corpus->coverage, pc, target);
+    set_reg(emu, REG_PC, target);
 
     // TODO: Make use of following if statement.
     //
@@ -358,11 +360,15 @@ jalr(rv_emu_t* emu, const uint32_t instruction)
     const int32_t  immediate    = i_type_get_immediate(instruction);
     const uint64_t register_rs1 = get_reg_rs1(emu, instruction);
     const int64_t  target       = (register_rs1 + immediate) & ~1;
+    const uint64_t pc           = get_pc(emu);
+    const uint64_t ret          = pc + 4;
 
     ginger_log(DEBUG, "Executing\tJALR %s\n", reg_to_str(get_rs1(instruction)));
 
-    // Save pc + 4 into register rd.
-    set_reg(emu, get_rd(instruction), get_reg(emu, REG_PC) + 4);
+    // Save ret into register rd.
+    set_reg(emu, get_rd(instruction), ret);
+
+    emu->new_coverage = coverage_on_branch(emu->corpus->coverage, pc, target);
 
     // Jump to target address.
     set_pc(emu, target);
@@ -1274,12 +1280,14 @@ execute_store_instruction(rv_emu_t* emu, const uint32_t instruction)
 static void
 beq(rv_emu_t* emu, const uint32_t instruction)
 {
-    ginger_log(DEBUG, "Executing          BEQ\n");
+    ginger_log(DEBUG, "BEQ\n");
     const uint64_t register_rs1 = get_reg_rs1(emu, instruction);
     const uint64_t register_rs2 = get_reg_rs2(emu, instruction);
-    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const uint64_t pc           = get_pc(emu);
+    const uint64_t target = pc + b_type_get_immediate(instruction);
 
     if (register_rs1 == register_rs2) {
+        emu->new_coverage = coverage_on_branch(emu->corpus->coverage, pc, target);
         set_pc(emu, target);
     }
     else {
@@ -1292,7 +1300,8 @@ bne(rv_emu_t* emu, const uint32_t instruction)
 {
     const uint64_t register_rs1 = get_reg_rs1(emu, instruction);
     const uint64_t register_rs2 = get_reg_rs2(emu, instruction);
-    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const uint64_t pc           = get_pc(emu);
+    const uint64_t target = pc + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BNE\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
@@ -1300,22 +1309,22 @@ bne(rv_emu_t* emu, const uint32_t instruction)
                target);
 
     if (register_rs1 != register_rs2) {
+        emu->new_coverage = coverage_on_branch(emu->corpus->coverage, pc, target);
         set_pc(emu, target);
-        ginger_log(DEBUG, "Branch taken\n");
     }
     else {
         increment_pc(emu);
-        ginger_log(DEBUG, "Branch not taken\n");
     }
 }
 
 static void
 blt(rv_emu_t* emu, const uint32_t instruction)
 {
-    ginger_log(DEBUG, "Executing          BLT\n");
-    const int64_t register_rs1 = (int64_t)get_reg_rs1(emu, instruction);
-    const int64_t register_rs2 = (int64_t)get_reg_rs2(emu, instruction);
-    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    ginger_log(DEBUG, "BLT\n");
+    const int64_t  register_rs1 = get_reg_rs1(emu, instruction);
+    const int64_t  register_rs2 = get_reg_rs2(emu, instruction);
+    const uint64_t pc           = get_pc(emu);
+    const uint64_t target       = pc + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BLT\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
@@ -1323,6 +1332,7 @@ blt(rv_emu_t* emu, const uint32_t instruction)
                target);
 
     if (register_rs1 < register_rs2) {
+        emu->new_coverage = coverage_on_branch(emu->corpus->coverage, pc, target);
         set_pc(emu, target);
     }
     else {
@@ -1333,10 +1343,10 @@ blt(rv_emu_t* emu, const uint32_t instruction)
 static void
 bltu(rv_emu_t* emu, const uint32_t instruction)
 {
-    ginger_log(DEBUG, "Executing          BLTU\n");
     const uint64_t register_rs1 = get_reg_rs1(emu, instruction);
     const uint64_t register_rs2 = get_reg_rs2(emu, instruction);
-    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const uint64_t pc           = get_pc(emu);
+    const uint64_t target       = pc + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BLTU\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
@@ -1344,6 +1354,7 @@ bltu(rv_emu_t* emu, const uint32_t instruction)
                target);
 
     if (register_rs1 < register_rs2) {
+        emu->new_coverage = coverage_on_branch(emu->corpus->coverage, pc, target);
         set_pc(emu, target);
     }
     else {
@@ -1354,10 +1365,10 @@ bltu(rv_emu_t* emu, const uint32_t instruction)
 static void
 bge(rv_emu_t* emu, const uint32_t instruction)
 {
-    ginger_log(DEBUG, "Executing          BGE\n");
-    const int64_t register_rs1 = (int64_t)get_reg_rs1(emu, instruction);
-    const int64_t register_rs2 = (int64_t)get_reg_rs2(emu, instruction);
-    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const int64_t  register_rs1 = get_reg_rs1(emu, instruction);
+    const int64_t  register_rs2 = get_reg_rs2(emu, instruction);
+    const uint64_t pc           = get_pc(emu);
+    const uint64_t target       = pc + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BGE\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
@@ -1365,6 +1376,7 @@ bge(rv_emu_t* emu, const uint32_t instruction)
                target);
 
     if (register_rs1 >= register_rs2) {
+        emu->new_coverage = coverage_on_branch(emu->corpus->coverage, pc, target);
         set_pc(emu, target);
     }
     else {
@@ -1378,7 +1390,8 @@ bgeu(rv_emu_t* emu, const uint32_t instruction)
 {
     const uint64_t register_rs1 = get_reg_rs1(emu, instruction);
     const uint64_t register_rs2 = get_reg_rs2(emu, instruction);
-    const uint64_t target = get_pc(emu) + b_type_get_immediate(instruction);
+    const uint64_t pc           = get_pc(emu);
+    const uint64_t target       = pc + b_type_get_immediate(instruction);
 
     ginger_log(DEBUG, "BGEU\t%s, %s, 0x%x\n",
                reg_to_str(get_rs1(instruction)),
@@ -1386,12 +1399,11 @@ bgeu(rv_emu_t* emu, const uint32_t instruction)
                target);
 
     if (register_rs1 >= register_rs2) {
+        emu->new_coverage = coverage_on_branch(emu->corpus->coverage, pc, target);
         set_pc(emu, target);
-        ginger_log(DEBUG, "Branch taken\n");
     }
     else {
         increment_pc(emu);
-        ginger_log(DEBUG, "Branch not taken\n");
     }
 }
 
@@ -1464,7 +1476,7 @@ emu_execute_next_instruction(rv_emu_t* emu)
 static rv_emu_t*
 emu_fork(const rv_emu_t* emu)
 {
-    rv_emu_t* forked = emu_create(emu->mmu->memory_size);
+    rv_emu_t* forked = emu_create(emu->mmu->memory_size, emu->corpus);
     if (!forked) {
         ginger_log(ERROR, "[%s] Failed to fork emu!\n", __func__);
         abort();
@@ -1516,8 +1528,8 @@ emu_reset(rv_emu_t* dst_emu, const rv_emu_t* src_emu)
     // TODO: This memcpy almost triples the reset time. Optimize.
     memcpy(dst_emu->registers, src_emu->registers, sizeof(dst_emu->registers));
 
-    // Reset the exit reason.
     dst_emu->exit_reason = EMU_EXIT_REASON_NO_EXIT;
+    dst_emu->new_coverage = false;
 }
 
 static void
@@ -1731,7 +1743,7 @@ emu_destroy(rv_emu_t* emu)
 
 // Allocate memory and assign the emulators function pointers to correct values.
 rv_emu_t*
-emu_create(size_t memory_size)
+emu_create(size_t memory_size, corpus_t* corpus)
 {
     rv_emu_t* emu = calloc(1, sizeof(rv_emu_t));
     if (!emu) {
@@ -1788,7 +1800,9 @@ emu_create(size_t memory_size)
     emu->instructions[ARITHMETIC_64_REGISTER_IMMEDIATE] = execute_arithmetic_64_register_immediate_instructions;
     emu->instructions[ARITHMETIC_64_REGISTER_REGISTER]  = execute_arithmetic_64_register_register_instructions;
 
-    emu->exit_reason = EMU_EXIT_REASON_NO_EXIT;
+    emu->exit_reason  = EMU_EXIT_REASON_NO_EXIT;
+    emu->new_coverage = false;
+    emu->corpus       = corpus;
 
     return emu;
 }

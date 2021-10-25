@@ -7,6 +7,9 @@
 #include <stdint.h>
 
 #include "emu_stats.h"
+
+#include "../corpus/corpus.h"
+#include "../corpus/coverage.h"
 #include "../mmu/mmu.h"
 #include "../shared/vector.h"
 #include "../target/target.h"
@@ -99,9 +102,15 @@ struct rv_emu {
 
     // Exit reason.
     enum_emu_exit_reasons_t exit_reason;
+
+    // If the current fuzzcase generated new coverage.
+    bool new_coverage;
+
+    // Data that the injected input is based on. Shared between all emulators.
+    corpus_t* corpus;
 };
 
-rv_emu_t* emu_create(size_t memory_size);
+rv_emu_t* emu_create(size_t memory_size, corpus_t* corpus);
 
 uint64_t get_reg(const rv_emu_t* emu, const uint8_t reg);
 

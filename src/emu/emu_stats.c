@@ -11,7 +11,8 @@
 void
 emu_stats_inc(emu_stats_t* stats, const enum_emu_counters_t counter)
 {
-    switch(counter) {
+    switch(counter)
+    {
     case EMU_COUNTERS_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
         ++stats->nb_unsupported_syscalls;
         break;
@@ -35,6 +36,9 @@ emu_stats_inc(emu_stats_t* stats, const enum_emu_counters_t counter)
         break;
     case EMU_COUNTERS_RESETS:
         ++stats->nb_resets;
+        break;
+    case EMU_COUNTERS_INPUTS:
+        ++stats->nb_inputs;
         break;
     }
 }
@@ -84,6 +88,11 @@ emu_stats_print(emu_stats_t* stats)
 
     // Resets per second.
     sprintf(tmp_buf, " | resets / sec: %.0lf", stats->nb_resets_per_sec);
+    strcat(stats_buf, tmp_buf);
+    memset(tmp_buf, 0, sizeof(tmp_buf));
+
+    // Total number of inputs in the corpus.
+    sprintf(tmp_buf, " | inputs: %lu", stats->nb_inputs);
     strcat(stats_buf, tmp_buf);
     memset(tmp_buf, 0, sizeof(tmp_buf));
 

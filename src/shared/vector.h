@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 typedef struct {
-    void * data;
+    void*  data;
     size_t length;
     size_t capacity;
     size_t entry_size;
