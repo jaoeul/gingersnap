@@ -9,7 +9,7 @@
 #include "../shared/token_str.h"
 #include "../shared/vector.h"
 
-#define MAX_LENGTH_DEBUG_CLI_COMMAND             64
+#define MAX_LENGTH_DEBUG_CLI_COMMAND             256
 #define MAX_LENGTH_DEBUG_CLI_COMMAND_DESCRIPTION 1024
 
 struct cli_cmd {

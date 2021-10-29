@@ -130,11 +130,10 @@ cli_matching_chars(const char* str1, const char* str2)
     return nb_matching_chars;
 }
 
-// Return true if exactly one matching command was found and completed,
-// otherwise return false.
-// Used for tab completion and to execute the correct command if only a substring is given.
-static bool
-cli_complete_command(const cli_t* cli, const char* substr, char** completion)
+// Return the number of completed characters. Used for tab completion and to
+// execute the correct command if only a substring is given.
+static uint64_t
+cli_complete_command(const cli_t* cli, const char* substr, char* completion)
 {
     uint8_t nb_cli_commands = vector_length(cli->commands);
     uint8_t nb_hits         = 0;
@@ -152,9 +151,10 @@ cli_complete_command(const cli_t* cli, const char* substr, char** completion)
     // Single hit. Go ahead and complete the command.
     if (nb_hits == 1) {
         const struct cli_cmd* hit_command = vector_get(cli->commands, hits[0]);
-        const size_t matched_str_len = cli_matching_chars(hit_command->cmd_str, substr);
-        sprintf(*completion, "%s", hit_command->cmd_str + matched_str_len);
-        return true;
+        const size_t matched_str_len      = cli_matching_chars(hit_command->cmd_str, substr);
+        const size_t comp_len             = strlen(hit_command->cmd_str) - matched_str_len;
+        memcpy(completion, (uint8_t*)hit_command->cmd_str + matched_str_len, comp_len);
+        return comp_len;
     }
     // Multiple hits. Complete command as far as possible.
     else if (nb_hits > 1) {
@@ -184,10 +184,12 @@ cli_complete_command(const cli_t* cli, const char* substr, char** completion)
         matched_chars[nb_common_chars] = '\0';
 
         // How much of the matched string have already been inputed, and can be ignored?
-        size_t ignore = strlen(substr);
-        sprintf(*completion, "%s", matched_chars + ignore);
+        const size_t ignore = strlen(substr);
+        sprintf(completion, "%s", matched_chars + ignore);
+        const size_t comp_len = strlen(matched_chars) - ignore;
+        return comp_len;
     }
-    return false;
+    return 0;
 }
 
 static void
@@ -340,7 +342,7 @@ cli_get_command(cli_t* cli)
         else if (curr_char == '\t') {
             // Do the autocompletion here.
             char* completion = calloc(MAX_LENGTH_DEBUG_CLI_COMMAND, sizeof(char));
-            cli_complete_command(cli, input_buf, &completion);
+            cli_complete_command(cli, input_buf, completion);
 
             // Add the completion to input_buf.
             const size_t comp_len = strlen(completion);
@@ -359,16 +361,25 @@ cli_get_command(cli_t* cli)
             const int match = cli_search_exact_match(cli->commands, input_tokens->tokens[0]);
             if (match != -1) {
                 char* completion = calloc(MAX_LENGTH_DEBUG_CLI_COMMAND, sizeof(char));
-                cli_complete_command(cli, input_tokens->tokens[0], &completion);
+                if (!completion) {
+                    printf("Could not realloc memory for completion!\n");
+                    abort();
+                }
+                const uint64_t comp_len = cli_complete_command(cli, input_tokens->tokens[0], completion);
+                if ((nb_read + comp_len) > MAX_LENGTH_DEBUG_CLI_COMMAND) {
+                    printf("Command to long!\n");
+                    return NULL;
+                }
 
                 // Add the completion to input.
-                const size_t comp_len = strlen(completion);
-                nb_read += comp_len;
-
-                strcat(input_tokens->tokens[0], completion);
-
+                input_tokens->tokens[0] = realloc(input_tokens->tokens[0],
+                                                  nb_read + comp_len + 1);
+                if (!input_tokens->tokens[0]) {
+                    printf("Could not realloc memory for completion!\n");
+                    abort();
+                }
+                memcpy(input_tokens->tokens[0] + nb_read, completion, comp_len);
                 free(completion);
-                input_tokens->tokens[0][nb_read + 1] = '\0';
 
                 cli_disable_raw_mode();
                 return input_tokens;
