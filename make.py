@@ -24,7 +24,10 @@ def get_object_files(mode, modules):
 
         # The test binary has its own main function. Never compile together with
         # the real application.
-        if (mode == "debug" or mode == "release" or mode == "auto") and module == "tests":
+        if (mode == "debug" or
+            mode == "release" or
+            mode == "auto" or
+            mode == "asan") and module == "tests":
             continue
         elif mode == "test" and module == "main":
             continue
@@ -42,7 +45,10 @@ def build_output_path(src_file):
 def compile_src(mode, target, src_dir, cflags, linker_flags):
     modules = os.listdir(src_dir)
     for module in modules:
-        if (mode == "debug" or mode == "release" or mode == "auto") and module == "tests":
+        if (mode == "debug" or
+            mode == "release" or
+            mode == "auto" or
+            mode == "asan") and module == "tests":
             continue
 
         # Create build dir for module
@@ -82,6 +88,7 @@ if __name__ == "__main__":
     auto_target    = "auto_gingersnap"
     release_target = "release_gingersnap"
     test_target    = "test_gingersnap"
+    asan_target    = "asan_gingersnap"
 
     # Flags common for all builds.
     general_cflags       = ["-Werror", "-Wall"]
@@ -109,6 +116,12 @@ if __name__ == "__main__":
     release_linker_flags = ["-O3"];
     release_linker_flags.extend(general_linker_flags)
 
+    # ASAN build.
+    asan_cflags = ["-Og", "-g", "-fsanitize=address"];
+    asan_cflags.extend(general_cflags)
+    asan_linker_flags = ["-fsanitize=address"];
+    asan_linker_flags.extend(general_linker_flags)
+
     # Default target is debug.
     if len(sys.argv) < 2:
         compile_src("debug", debug_target, "./src", debug_cflags, debug_linker_flags)
@@ -121,8 +134,12 @@ if __name__ == "__main__":
             compile_src("release", release_target, "./src", release_cflags, release_linker_flags)
         elif sys.argv[1] == "t":
             compile_src("test", test_target, "./src", test_cflags, debug_linker_flags)
+        elif sys.argv[1] == "asan":
+            compile_src("asan", asan_target, "./src", asan_cflags, asan_linker_flags)
         elif sys.argv[1] == "c":
                 print(subprocess.run(["rm", "-rf", "./build"]))
                 print(subprocess.run(["rm", debug_target]))
                 print(subprocess.run(["rm", release_target]))
                 print(subprocess.run(["rm", test_target]))
+                print(subprocess.run(["rm", auto_target]))
+                print(subprocess.run(["rm", asan_target]))
