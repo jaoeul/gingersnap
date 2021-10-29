@@ -159,6 +159,11 @@ main(int argc, char** argv)
     // Create shared corpus.
     corpus_t* shared_corpus = corpus_create("./data/corpus/target6");
 
+    if (argc < 2) {
+        ginger_log(ERROR, "Please provide path to target executable!\n");
+        abort();
+    }
+
     // Array of arguments to the target executable.
     heap_str_t target_argv[target_argc];
     memset(target_argv, 0, sizeof(target_argv));
