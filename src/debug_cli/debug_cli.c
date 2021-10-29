@@ -146,6 +146,7 @@ debug_cli_handle_xmem(rv_emu_t* emu, const token_str_t* xmem_args)
     }
     else {
         printf("\nInvalid number of args to xmem!\n");
+        return;
     }
     emu->mmu->print(emu->mmu, adr, range, size_letter);
 }
@@ -501,7 +502,7 @@ debug_cli_create(rv_emu_t* emu)
     return debug_cli;
 }
 
-// Run the debug CLI. If a snapshot is taken, return it.
+// Run the debug CLI. If all result values are set, return a `debug_cli_result_t*`.
 debug_cli_result_t*
 debug_cli_run(rv_emu_t* emu, cli_t* cli)
 {
