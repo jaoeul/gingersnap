@@ -65,8 +65,12 @@ fuzzer_fuzz(fuzzer_t* fuzzer)
 
     // Pick a random input from the shared corpus.
     // TODO: Make atomic?
-    const int r            = rand() % fuzzer->emu->corpus->inputs->length;
-    input_t*  chosen_input = vector_get(fuzzer->emu->corpus->inputs, r);
+    const int r                 = rand() % fuzzer->emu->corpus->inputs->length;
+    const input_t* chosen_input = vector_get(fuzzer->emu->corpus->inputs, r);
+    if (!chosen_input) {
+        ginger_log(ERROR, "Abort! Failed to pick an input from the corpus!n");
+        abort();
+    }
 
     // If the input length is less than the fuzzers buffer length, use that instead, as there
     // is no reason to memcpy a bunch of zeroes.
@@ -77,18 +81,20 @@ fuzzer_fuzz(fuzzer_t* fuzzer)
     else {
         effective_len = fuzzer->fuzz_buf_size;
     }
-    fuzzer->curr_input->length = effective_len;
+    if (effective_len == 0) {
+        ginger_log(ERROR, "Abort! Fuzz case length is 0!\n");
+        abort();
+    }
 
     // Copy the data from the corpus to a fuzzer owned buffer, which we will mutate.
     // If the mutation crashes the emulator after injecton, we write this input
-    // disk.
-    fuzzer->curr_input->data = realloc(fuzzer->curr_input->data, fuzzer->curr_input->length);
-    if (!fuzzer->curr_input->data) {
+    // to disk.
+    fuzzer->curr_input = corpus_input_copy(chosen_input);
+    if (!fuzzer->curr_input) {
         ginger_log(ERROR, "[%s] Could not reallocate buffer for input data! Requested size: %lu\n",
                    fuzzer->curr_input->length, __func__);
         abort();
     }
-    memcpy(fuzzer->curr_input->data, chosen_input->data, fuzzer->curr_input->length);
 
     // Mutate the input.
     fuzzer->mutate(fuzzer->curr_input->data, fuzzer->curr_input->length);
@@ -108,21 +114,22 @@ fuzzer_write_crash(fuzzer_t* fuzzer)
     char timestamp[21]  = {0};
 
     // Base filename on crash type and system time.
-    switch(fuzzer->emu->exit_reason) {
-        case EMU_EXIT_REASON_SEGFAULT_READ:
-            memcpy(filename, "segfault-read-", 14);
-            break;
-        case EMU_EXIT_REASON_SEGFAULT_WRITE:
-            memcpy(filename, "segfault-write-", 15);
-            break;
-        default:
-            return;
+    switch(fuzzer->emu->exit_reason)
+    {
+    case EMU_EXIT_REASON_SEGFAULT_READ:
+        memcpy(filename, "segfault-read-", 14);
+        break;
+    case EMU_EXIT_REASON_SEGFAULT_WRITE:
+        memcpy(filename, "segfault-write-", 15);
+        break;
+    default:
+        return;
     }
-    struct timespec spec;
 
     // Year, month, day, hour, minute, second.
+    struct timespec spec;
     clock_gettime(CLOCK_REALTIME, &spec);
-    time_t curr_time = spec.tv_sec;
+    time_t curr_time    = spec.tv_sec;
     struct tm* timeinfo = localtime(&curr_time);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d-%H:%M:%S:", timeinfo);
     strcat(filename, timestamp);
@@ -170,7 +177,7 @@ fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, c
     fuzzer->fuzz_buf_size     = fuzz_buf_size;
     fuzzer->crash_dir         = crash_dir;
     fuzzer->clean_snapshot    = snapshot;
-    fuzzer->curr_input        = corpus_input_create();
+    //fuzzer->curr_input        = corpus_input_create(32);
     fuzzer->stats             = emu_stats_create();
     fuzzer->stats->nb_inputs  = corpus->inputs->length;
 

@@ -104,6 +104,11 @@ worker_run(void* arg)
             corpus_add_input(fuzzer->emu->corpus, fuzzer->curr_input);
             emu_stats_inc(fuzzer->stats, EMU_COUNTERS_INPUTS);
         }
+        // We do not care for inputs which did not generate new coverage, so we
+        // can free it.
+        else {
+            corpus_input_destroy(fuzzer->curr_input);
+        }
 
         // Restore the emulator to its initial state.
         fuzzer->emu->reset(fuzzer->emu, fuzzer->clean_snapshot);

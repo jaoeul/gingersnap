@@ -119,9 +119,11 @@ corpus_destroy(corpus_t* corpus)
 }
 
 input_t*
-corpus_input_create(void)
+corpus_input_create(const size_t capacity)
 {
     input_t* input = calloc(1, sizeof(input_t));
+    input->data    = calloc(capacity, 1);
+    input->length  = capacity;
     return input;
 }
 
@@ -135,9 +137,16 @@ corpus_input_destroy(input_t* input)
     }
 
     // The `input` structure itself should however always be allcated.
-    if (!input) {
-        ginger_log(ERROR, "[%s] Double free!\n");
-        abort();
+    if (input) {
+        free(input);
     }
-    free(input);
+}
+
+input_t*
+corpus_input_copy(const input_t* src)
+{
+    input_t* dst = corpus_input_create(src->length);
+    dst->length  = src->length;
+    memcpy(dst->data, src->data, dst->length);
+    return dst;
 }
