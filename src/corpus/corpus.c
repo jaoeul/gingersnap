@@ -114,6 +114,9 @@ corpus_create(const char* corpus_dir)
 void
 corpus_destroy(corpus_t* corpus)
 {
+    for (uint64_t i = 0; i < vector_length(corpus->inputs); i++) {
+        corpus_input_destroy(vector_get(corpus->inputs, i));
+    }
     vector_destroy(corpus->inputs);
     free(corpus);
 }
