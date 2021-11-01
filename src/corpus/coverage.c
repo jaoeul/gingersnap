@@ -11,12 +11,14 @@
 #define COVERAGE_NOT_COVERED 0
 #define COVERAGE_COVERED     1
 
-// Defined in `main.c`.
 extern global_config_t global_config;
 
 bool
 coverage_on_branch(coverage_t* cov, uint64_t from, uint64_t to)
 {
+    if (!global_config_get_coverage()) {
+        return false;
+    }
     const coverage_hash_key_t key = {
         .from = from,
         .to   = to,
