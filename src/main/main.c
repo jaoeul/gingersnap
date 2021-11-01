@@ -215,7 +215,6 @@ nb_active_cpus(void)
 void
 init_default_config(void)
 {
-    global_config_set_verbosity(false);
     global_config_set_coverage(true);
     global_config_set_nb_cpus(nb_active_cpus());
 }
