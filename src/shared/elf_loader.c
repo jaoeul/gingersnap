@@ -39,11 +39,11 @@ elf_parse(const char* path)
     // If LSB elf file
     if (elf->data[5] == 1) {
         elf->is_lsb = true;
-        ginger_log(INFO, "Elf is LSB\n");
+        ginger_log(INFO, "Elf byteorder: LSB\n");
     }
     // Else MSB elf file
     else if (elf->data[5] == 2) {
-        ginger_log(INFO, "Elf is MSB\n");
+        ginger_log(INFO, "Elf byteorder: MSB\n");
         elf->is_lsb = false;
     }
     else {
@@ -97,7 +97,7 @@ elf_parse(const char* path)
     elf->nb_prg_hdrs = byte_arr_to_u64(bytes_nb_prg_hdrs, 2, elf->is_lsb);
     elf->prg_hdrs    = calloc(elf->nb_prg_hdrs, sizeof(program_header_t));
 
-    ginger_log(INFO, "Program header offset:     0x%lx\n", program_header_offset);
+    ginger_log(INFO, "Program header offset: 0x%lx\n", program_header_offset);
     ginger_log(INFO, "Number of program headers: %lu\n", elf->nb_prg_hdrs);
 
     // Parse program headers

@@ -1653,7 +1653,7 @@ emu_load_elf(rv_emu_t* emu, const target_t* target)
         }
 
         // TODO: Make permissions print out part of ginger_log().
-        ginger_log(INFO, "Wrote program header %lu of size 0x%lx to virtual address 0x%lx with perms ", i,
+        ginger_log(INFO, "Wrote program header %lu of size 0x%lx to guest address 0x%lx with perms ", i,
                    curr_prg_hdr->file_size, curr_prg_hdr->virtual_address);
         print_permissions(curr_prg_hdr->flags);
         printf("\n");
