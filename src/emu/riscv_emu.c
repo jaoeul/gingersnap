@@ -1692,12 +1692,12 @@ emu_build_stack(rv_emu_t* emu, const target_t* target)
             ginger_log(ERROR, "Failed allocate memory for target program argument!\n");
         }
         guest_arg_addresses[i] = arg_adr;
-        emu->mmu->write(emu->mmu, arg_adr, (uint8_t*)target->argv[i].str, target->argv[i].len);
+        emu->mmu->write(emu->mmu, arg_adr, (uint8_t*)target->argv[i].string, target->argv[i].length);
 
         // Make arg segment read and writeable.
         emu->mmu->set_permissions(emu->mmu, arg_adr, PERM_READ | PERM_WRITE, ARG_MAX);
 
-        ginger_log(INFO, "arg[%d] \"%s\" written to guest adr: 0x%lx\n", i, target->argv[i].str, arg_adr);
+        ginger_log(INFO, "arg[%d] \"%s\" written to guest adr: 0x%lx\n", i, target->argv[i].string, arg_adr);
     }
 
     ginger_log(INFO, "Building initial stack at guest address: 0x%x\n", emu->registers[REG_SP]);

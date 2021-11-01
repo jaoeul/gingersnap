@@ -177,7 +177,6 @@ fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, c
     fuzzer->fuzz_buf_size     = fuzz_buf_size;
     fuzzer->crash_dir         = crash_dir;
     fuzzer->clean_snapshot    = snapshot;
-    //fuzzer->curr_input        = corpus_input_create(32);
     fuzzer->stats             = emu_stats_create();
     fuzzer->stats->nb_inputs  = corpus->inputs->length;
 

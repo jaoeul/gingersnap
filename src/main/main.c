@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include <getopt.h>
 #include <malloc.h>
 #include <pthread.h>
 #include <sched.h>
@@ -10,6 +11,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "config.h"
+
 #include "../emu/riscv_emu.h"
 #include "../emu/emu_stats.h"
 #include "../fuzzer/fuzzer.h"
@@ -18,13 +21,16 @@
 #include "../shared/elf_loader.h"
 #include "../shared/endianess_converter.h"
 #include "../shared/endianess_converter.h"
-#include "../shared/heap_str.h"
+#include "../shared/hstring.h"
 #include "../shared/logger.h"
 #include "../shared/print_utils.h"
 #include "../shared/vector.h"
 #include "../target/target.h"
 
 #define cpu_relax() asm volatile("rep; nop")
+
+// Declared in `config.h`.
+extern global_config_t global_config;
 
 // Used as argument to the threads running the emulators.
 typedef struct {
@@ -36,30 +42,7 @@ typedef struct {
     uint64_t        fuzz_buf_adr;
     uint64_t        fuzz_buf_size;
     const rv_emu_t* clean_snapshot;
-    const char*     crash_dir;
 } thread_info_t;
-
-// Parse `/proc/cpuinfo`.
-uint8_t
-nb_active_cpus(void)
-{
-    uint8_t nb_cpus = 0;
-    char*   line = NULL;
-    size_t  len  = 0;
-    ssize_t read = 0;
-
-    FILE* fp = fopen("/proc/cpuinfo", "rb");
-    if (!fp) {
-        ginger_log(ERROR, "Could not open /proc/cpuinfo\n");
-        abort();
-    }
-    while ((read = getline(&line, &len, fp)) != -1) {
-        if (strstr(line, "processor")) {
-            nb_cpus++;
-        }
-    }
-    return nb_cpus;
-}
 
 // Do the all the thread local setup of fuzzers and start them. Report stats from
 // the thread local data to the main stats structure after a set time interval.
@@ -77,10 +60,10 @@ worker_run(void* arg)
     corpus_t*       corpus         = t_info->corpus;
     const rv_emu_t* clean_snapshot = t_info->clean_snapshot;
     emu_stats_t*    shared_stats   = t_info->shared_stats;
-    const char*     crash_dir      = t_info->crash_dir;
 
     // Create the thread local fuzzer.
-    fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target, clean_snapshot, crash_dir);
+    fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target, clean_snapshot,
+                                     global_config_get_output_dir());
 
     // A timestamp which is used for comparison.
     struct timespec checkpoint;
@@ -145,41 +128,120 @@ worker_run(void* arg)
     }
 }
 
+static void
+handle_cli_args(int argc, char** argv)
+{
+    int ok = 1;
+    static struct option long_options[] = {
+        {"verbosity",  no_argument,       NULL, 'v'},
+        {"coverage",   no_argument,       NULL, 'c'},
+        {"jobs",       required_argument, NULL, 'j'},
+        {"output-dir", required_argument, NULL, 'o'},
+        {"corpus-dir", required_argument, NULL, 'i'},
+        {"target",     required_argument, NULL, 't'},
+        {NULL, 0, NULL, 0}
+    };
+
+    int ch = -1;
+    while ((ch = getopt_long(argc, argv, "vcj:o:t:", long_options, NULL)) != -1) {
+        switch (ch)
+        {
+        case 'v':
+            global_config_set_verbosity(true);
+            break;
+        case 'c':
+            global_config_set_coverage(true);
+            break;
+        case 'j':
+            global_config_set_nb_cpus(strtoul(optarg, NULL, 10));
+            break;
+        case 'o':
+            global_config_set_output_dir(optarg);
+            break;
+        case 'i':
+            global_config_set_corpus_dir(optarg);
+            break;
+        case 't':
+            global_config_set_target(optarg);
+            break;
+        default:
+            exit(1);
+        }
+    }
+
+    if (!global_config_get_target()) {
+        ginger_log(ERROR, "Missing 'target' cli arg!\n");
+        ok = 0;
+    }
+    if (!global_config_get_corpus_dir()) {
+        ginger_log(ERROR, "Missing 'corpus-dir' cli arg!\n");
+        ok = 0;
+    }
+    if (!ok) {
+        exit(1);
+    }
+    ginger_log(INFO, "nb fuzzing cores: %lu\n", global_config_get_nb_cpus());
+    ginger_log(INFO, "Verbose printouts: %s\n", global_config_get_verbosity() ? "true" : "false");
+    ginger_log(INFO, "Tracking coverage: %s\n", global_config_get_coverage() ? "true" : "false");
+    ginger_log(INFO, "Output (crashes) dir: %s\n", global_config_get_output_dir());
+    ginger_log(INFO, "Input (corpus) dir: %s\n", global_config_get_corpus_dir());
+    ginger_log(INFO, "Target argv: %s\n", global_config_get_target());
+}
+
+static uint8_t
+nb_active_cpus(void)
+{
+    uint8_t nb_cpus = 0;
+    char*   line = NULL;
+    size_t  len  = 0;
+    ssize_t read = 0;
+
+    FILE* fp = fopen("/proc/cpuinfo", "rb");
+    if (!fp) {
+        printf("Could not open /proc/cpuinfo\n");
+        abort();
+    }
+    while ((read = getline(&line, &len, fp)) != -1) {
+        if (strstr(line, "processor")) {
+            nb_cpus++;
+        }
+    }
+    return nb_cpus;
+}
+
+void
+init_default_config(void)
+{
+    global_config_set_verbosity(false);
+    global_config_set_coverage(true);
+    global_config_set_nb_cpus(nb_active_cpus());
+    global_config_set_output_dir("./crashes");
+}
+
 int
 main(int argc, char** argv)
 {
-    // The cpu which the main thread will run on.
-    const int main_cpu = 0;
-    // Print stats every second.
-    const uint64_t print_stats_interval_ns = 1e9;
-    // We do not want feed argv[0] of gingersnap to the target.
-    const int target_argc = argc - 1;
-    // For checking that initialization of the fuzzer is ok.
-    int ok = -1;
-    // Path to directory where crashes are stored.
-    const char* crash_dir = "./data/crashes";
-    // Init rng.
+    init_default_config();       // Sets the default config.
+    handle_cli_args(argc, argv); // Provided cli args overwrites the default config.
+
+    const int      main_cpu                = 0; // The cpu which the main thread will run on.
+    const uint64_t print_stats_interval_ns = 1e9; // Print stats every second.
+    int            ok                      = -1; // For checking that initialization of the fuzzer is ok.
+    corpus_t*      shared_corpus           = corpus_create(global_config_get_corpus_dir());
     srand(time(NULL));
 
-    // Create shared corpus.
-    corpus_t* shared_corpus = corpus_create("./data/corpus/target6");
-
-    if (argc < 2) {
-        ginger_log(ERROR, "Please provide path to target executable!\n");
-        abort();
-    }
-
     // Array of arguments to the target executable.
-    heap_str_t target_argv[target_argc];
+    token_str_t* target_tokens = token_str_tokenize(global_config_get_target(), " ");
+    hstring_t    target_argv[target_tokens->nb_tokens];
     memset(target_argv, 0, sizeof(target_argv));
-    for (int i = 0; i < target_argc; i++) {
-        heap_str_t arg;
-        heap_str_set(&arg, argv[i + 1]);
+    for (int i = 0; i < target_tokens->nb_tokens; i++) {
+        hstring_t arg;
+        hstring_set(&arg, target_tokens->tokens[i]);
         target_argv[i] = arg;
     }
 
     // Multiple emus can use the same target since it is only read from and never written to.
-    const target_t* target = target_create(target_argc, target_argv);
+    const target_t* target = target_create(target_tokens->nb_tokens, target_argv);
 
     // Create an initial emulator, for taking the initial snapshot. This emulator will not be
     // used to fuzz, but the snapshotted state will be passed to the worker emulators as the
@@ -211,7 +273,7 @@ main(int argc, char** argv)
     pthread_attr_init(&thread_attr);
 
     // Per-thread info. Multiple threads should never use the same emulator.
-    const uint8_t nb_cpus = 1;//nb_active_cpus();
+    const uint64_t nb_cpus = global_config_get_nb_cpus();
     ginger_log(INFO, "Number active cpus: %u\n", nb_cpus);
     thread_info_t t_info[nb_cpus];
     memset(t_info, 0, sizeof(t_info));
@@ -240,7 +302,6 @@ main(int argc, char** argv)
         t_info[i].clean_snapshot = cli_result->snapshot;
         t_info[i].fuzz_buf_adr   = cli_result->fuzz_buf_adr;
         t_info[i].fuzz_buf_size  = cli_result->fuzz_buf_size;
-        t_info[i].crash_dir      = crash_dir;
 
         ok = pthread_create(&t_info[i].thread_id, &thread_attr, &worker_run, &t_info[i]);
         if (ok != 0) {

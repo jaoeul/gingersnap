@@ -8,6 +8,8 @@
 
 #include "logger.h"
 
+#include "../main/config.h"
+
 #define LOG_LENGTH_MAX 1024
 
 #define BLACK  "\033[0;30m"
@@ -34,15 +36,13 @@ colorize_stop(char* output_buffer)
     strncat(output_buffer, RESET, 5);
 }
 
-
 void
 ginger_log(uint8_t log_level, const char* fmt, ...)
 {
-#if defined EMU_RELEASE || AUTO_DEBUG
-    if (log_level < INFO) {
+    if (!global_config_get_verbosity() && log_level < INFO) {
         return;
     }
-#endif
+
     char log_buffer[LOG_LENGTH_MAX] = {0};
     strncat(log_buffer, "[", 2);
 

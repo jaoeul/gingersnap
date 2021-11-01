@@ -17,7 +17,7 @@ elf_parse(const char* path)
 
     FILE* fileptr = fopen(path, "rb");
     if (!fileptr) {
-        ginger_log(ERROR, "Could not find specified executable: %s\n", path);
+        ginger_log(ERROR, "Could not open specified executable: %s\n", path);
         abort();
     }
 
@@ -32,9 +32,9 @@ elf_parse(const char* path)
     }
     fclose(fileptr);
 
-    size_t   program_header_size        = 0;
-    uint64_t program_header_offset      = 0;
-    uint8_t bytes_nb_prg_hdrs[2] = {0};
+    size_t   program_header_size   = 0;
+    uint64_t program_header_offset = 0;
+    uint8_t bytes_nb_prg_hdrs[2]   = {0};
 
     // If LSB elf file
     if (elf->data[5] == 1) {
@@ -55,9 +55,8 @@ elf_parse(const char* path)
     if (elf->data[4] == 1) {
         uint8_t bytes_entry_point[4]            = {0};
         uint8_t bytes_program_header_offset[4]  = {0};
-
-        elf->is_64_bit           = false;
-        program_header_size = 0x20;
+        elf->is_64_bit                          = false;
+        program_header_size                     = 0x20;
 
         for (uint8_t i = 0; i < 4; i++) {
             bytes_entry_point[i] = elf->data[0x18 + i];
