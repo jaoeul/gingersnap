@@ -97,6 +97,12 @@ corpus_print(corpus_t* corpus)
     printf("\n");
 }
 
+void
+corpus_write_progress(corpus_t* corpus, const char* output_dir)
+{
+
+}
+
 corpus_t*
 corpus_create(const char* corpus_dir)
 {

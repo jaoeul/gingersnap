@@ -18,6 +18,7 @@
 #include "../fuzzer/fuzzer.h"
 #include "../debug_cli/debug_cli.h"
 #include "../shared/cli.h"
+#include "../shared/dir.h"
 #include "../shared/elf_loader.h"
 #include "../shared/endianess_converter.h"
 #include "../shared/endianess_converter.h"
@@ -63,7 +64,7 @@ worker_run(void* arg)
 
     // Create the thread local fuzzer.
     fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target, clean_snapshot,
-                                     global_config_get_output_dir());
+                                     global_config_get_crashes_dir());
 
     // A timestamp which is used for comparison.
     struct timespec checkpoint;
@@ -132,12 +133,12 @@ handle_cli_args(int argc, char** argv)
 {
     int ok = 1;
     static struct option long_options[] = {
-        {"verbosity",   no_argument,       NULL, 'v'},
-        {"no-coverage", no_argument,       NULL, 'n'},
-        {"jobs",        required_argument, NULL, 'j'},
-        {"output-dir",  required_argument, NULL, 'o'},
-        {"corpus-dir",  required_argument, NULL, 'c'},
-        {"target",      required_argument, NULL, 't'},
+        {"verbosity",    no_argument,       NULL, 'v'},
+        {"no-coverage",  no_argument,       NULL, 'n'},
+        {"jobs",         required_argument, NULL, 'j'},
+        {"progress-dir", required_argument, NULL, 'p'},
+        {"corpus-dir",   required_argument, NULL, 'c'},
+        {"target",       required_argument, NULL, 't'},
         {NULL, 0, NULL, 0}
     };
 
@@ -154,8 +155,8 @@ handle_cli_args(int argc, char** argv)
         case 'j':
             global_config_set_nb_cpus(strtoul(optarg, NULL, 10));
             break;
-        case 'o':
-            global_config_set_output_dir(optarg);
+        case 'p':
+            global_config_set_progress_dir(optarg);
             break;
         case 'c':
             global_config_set_corpus_dir(optarg);
@@ -172,10 +173,6 @@ handle_cli_args(int argc, char** argv)
         ginger_log(ERROR, "Missing 'target' cli arg!\n");
         ok = 0;
     }
-    if (!global_config_get_output_dir()) {
-        ginger_log(ERROR, "Missing 'output-dir' cli arg!\n");
-        ok = 0;
-    }
     if (!global_config_get_corpus_dir()) {
         ginger_log(ERROR, "Missing 'corpus-dir' cli arg!\n");
         ok = 0;
@@ -186,9 +183,9 @@ handle_cli_args(int argc, char** argv)
     ginger_log(INFO, "nb fuzzing cores: %lu\n", global_config_get_nb_cpus());
     ginger_log(INFO, "Verbose printouts: %s\n", global_config_get_verbosity() ? "true" : "false");
     ginger_log(INFO, "Tracking coverage: %s\n", global_config_get_coverage() ? "true" : "false");
-    ginger_log(INFO, "Output (crashes) dir: %s\n", global_config_get_output_dir());
-    ginger_log(INFO, "Input (corpus) dir: %s\n", global_config_get_corpus_dir());
+    ginger_log(INFO, "Corpus dir: %s\n", global_config_get_corpus_dir());
     ginger_log(INFO, "Target argv: %s\n", global_config_get_target());
+    ginger_log(INFO, "Progress dir: %s\n", global_config_get_progress_dir());
 }
 
 static uint8_t
@@ -212,11 +209,58 @@ nb_active_cpus(void)
     return nb_cpus;
 }
 
-void
+static void
 init_default_config(void)
 {
     global_config_set_coverage(true);
     global_config_set_nb_cpus(nb_active_cpus());
+    global_config_set_progress_dir("./progress");
+}
+
+static bool
+output_dirs_create(void)
+{
+    char*       crash_dir    = calloc(1024, 1);
+    const char* progress_dir = global_config_get_progress_dir();
+
+    strcpy(crash_dir, progress_dir);
+    strcat(crash_dir, "/crashes");
+    if (!create_dir_ifn_exist(progress_dir)) {
+        ginger_log(ERROR, "Failed to create %s dir!\n", progress_dir);
+        exit(1);
+    }
+
+    if (!create_dir_ifn_exist(crash_dir)) {
+        ginger_log(ERROR, "Failed to create %s dir!\n", crash_dir);
+        exit(1);
+    }
+    global_config_set_crashes_dir(crash_dir);
+    ginger_log(INFO, "Crashes dir: %s\n", global_config_get_crashes_dir());
+
+    if (global_config_get_coverage()) {
+        char* inputs_dir = calloc(1024, 1);
+        strcpy(inputs_dir, progress_dir);
+        strcat(inputs_dir, "/inputs");
+        if (!create_dir_ifn_exist(inputs_dir)) {
+            ginger_log(ERROR, "Failed to create %s dir!\n", inputs_dir);
+            exit(1);
+        }
+        global_config_set_inputs_dir(inputs_dir);
+        ginger_log(INFO, "Inputs dir: %s\n", global_config_get_inputs_dir());
+    }
+    return true;
+}
+
+static void
+output_dirs_destroy(void)
+{
+    char* crash_dir  = global_config_get_crashes_dir();
+    free(crash_dir);
+
+    if (global_config_get_coverage()) {
+        char* inputs_dir = global_config_get_inputs_dir();
+        free(inputs_dir);
+    }
 }
 
 int
@@ -230,6 +274,11 @@ main(int argc, char** argv)
     int            ok                      = -1; // For checking that initialization of the fuzzer is ok.
     corpus_t*      shared_corpus           = corpus_create(global_config_get_corpus_dir());
     srand(time(NULL));
+
+    if (!output_dirs_create()) {
+        ginger_log(ERROR, "Failed to create output dirs!\n");
+        exit(1);
+    }
 
     // Array of arguments to the target executable.
     token_str_t* target_tokens = token_str_tokenize(global_config_get_target(), " ");
@@ -382,6 +431,7 @@ main(int argc, char** argv)
     ginger_log(INFO, "All threads joined. Freeing allocated data!\n");
     corpus_destroy(shared_corpus);
     target_destroy((void*)target);
+    output_dirs_destroy();
 
     return 0;
 }

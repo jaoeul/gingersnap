@@ -40,6 +40,9 @@ corpus_add_input(corpus_t* corpus, input_t* input_ptr);
 void
 corpus_print(corpus_t*);
 
+void
+corpus_write_progress(corpus_t* corpus, const char* output_dir);
+
 input_t*
 corpus_input_create(const size_t capacity);
 

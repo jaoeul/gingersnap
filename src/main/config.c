@@ -21,9 +21,21 @@ global_config_set_nb_cpus(uint64_t nb_cpus)
 }
 
 void
-global_config_set_output_dir(char* output_dir)
+global_config_set_progress_dir(char* progress_dir)
 {
-    global_config.output_dir = output_dir;
+    global_config.progress_dir = progress_dir;
+}
+
+void
+global_config_set_crashes_dir(char* crashes_dir)
+{
+    global_config.crashes_dir = crashes_dir;
+}
+
+void
+global_config_set_inputs_dir(char* inputs_dir)
+{
+    global_config.inputs_dir = inputs_dir;
 }
 
 void
@@ -57,9 +69,21 @@ global_config_get_nb_cpus(void)
 }
 
 char*
-global_config_get_output_dir(void)
+global_config_get_progress_dir(void)
 {
-    return global_config.output_dir;
+    return global_config.progress_dir;
+}
+
+char*
+global_config_get_crashes_dir(void)
+{
+    return global_config.crashes_dir;
+}
+
+char*
+global_config_get_inputs_dir(void)
+{
+    return global_config.inputs_dir;
 }
 
 char*

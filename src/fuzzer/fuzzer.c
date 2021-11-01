@@ -7,6 +7,7 @@
 #include "fuzzer.h"
 
 #include "../emu/riscv_emu.h"
+#include "../shared/dir.h"
 #include "../shared/logger.h"
 
 // Change randomize random amount of bytes in a buffer, up to the total number
