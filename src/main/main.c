@@ -114,7 +114,6 @@ worker_run(void* arg)
             shared_stats->nb_graceful_exits        += fuzzer->stats->nb_graceful_exits;
             shared_stats->nb_unknown_exit_reasons  += fuzzer->stats->nb_unsupported_syscalls;
             shared_stats->nb_resets                += fuzzer->stats->nb_resets;
-            shared_stats->nb_inputs                += fuzzer->stats->nb_inputs;
             shared_stats->nb_segfault_reads        += fuzzer->stats->nb_segfault_reads;
             shared_stats->nb_segfault_writes       += fuzzer->stats->nb_segfault_writes;
             shared_stats->nb_invalid_opcodes       += fuzzer->stats->nb_invalid_opcodes;
@@ -133,12 +132,12 @@ handle_cli_args(int argc, char** argv)
 {
     int ok = 1;
     static struct option long_options[] = {
-        {"verbosity",  no_argument,       NULL, 'v'},
-        {"coverage",   no_argument,       NULL, 'c'},
-        {"jobs",       required_argument, NULL, 'j'},
-        {"output-dir", required_argument, NULL, 'o'},
-        {"corpus-dir", required_argument, NULL, 'i'},
-        {"target",     required_argument, NULL, 't'},
+        {"verbosity",   no_argument,       NULL, 'v'},
+        {"no-coverage", no_argument,       NULL, 'n'},
+        {"jobs",        required_argument, NULL, 'j'},
+        {"output-dir",  required_argument, NULL, 'o'},
+        {"corpus-dir",  required_argument, NULL, 'c'},
+        {"target",      required_argument, NULL, 't'},
         {NULL, 0, NULL, 0}
     };
 
@@ -149,8 +148,8 @@ handle_cli_args(int argc, char** argv)
         case 'v':
             global_config_set_verbosity(true);
             break;
-        case 'c':
-            global_config_set_coverage(true);
+        case 'n':
+            global_config_set_coverage(false);
             break;
         case 'j':
             global_config_set_nb_cpus(strtoul(optarg, NULL, 10));
@@ -158,7 +157,7 @@ handle_cli_args(int argc, char** argv)
         case 'o':
             global_config_set_output_dir(optarg);
             break;
-        case 'i':
+        case 'c':
             global_config_set_corpus_dir(optarg);
             break;
         case 't':
@@ -171,6 +170,10 @@ handle_cli_args(int argc, char** argv)
 
     if (!global_config_get_target()) {
         ginger_log(ERROR, "Missing 'target' cli arg!\n");
+        ok = 0;
+    }
+    if (!global_config_get_output_dir()) {
+        ginger_log(ERROR, "Missing 'output-dir' cli arg!\n");
         ok = 0;
     }
     if (!global_config_get_corpus_dir()) {
@@ -215,7 +218,6 @@ init_default_config(void)
     global_config_set_verbosity(false);
     global_config_set_coverage(true);
     global_config_set_nb_cpus(nb_active_cpus());
-    global_config_set_output_dir("./crashes");
 }
 
 int
@@ -349,7 +351,9 @@ main(int argc, char** argv)
             const uint64_t nb_resets_this_round = shared_stats->nb_resets - prev_nb_resets;
             shared_stats->nb_resets_per_sec = nb_resets_this_round / (elapsed_ns / 1e9);
 
+            // Get the number of total inputs currently in the corpus.
             emu_stats_print(shared_stats);
+            shared_stats->nb_inputs = shared_corpus->inputs->length;
 
             // Reset the timer checkpoint.
             clock_gettime(CLOCK_MONOTONIC, &checkpoint);
