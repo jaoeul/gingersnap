@@ -12,8 +12,9 @@
 #include <unistd.h>
 
 #include "config.h"
+#include "sig_handler.h"
 
-#include "../emu/riscv_emu.h"
+#include "../emu/emu_generic.h"
 #include "../emu/emu_stats.h"
 #include "../fuzzer/fuzzer.h"
 #include "../debug_cli/debug_cli.h"
@@ -42,7 +43,7 @@ typedef struct {
     corpus_t*       corpus;       // Data which the fuzz inputs are based on. Shared between threads.
     uint64_t        fuzz_buf_adr;
     uint64_t        fuzz_buf_size;
-    const rv_emu_t* clean_snapshot;
+    const emu_t*    clean_snapshot;
 } thread_info_t;
 
 // Do the all the thread local setup of fuzzers and start them. Report stats from
@@ -59,7 +60,7 @@ worker_run(void* arg)
     const uint64_t  fuzz_buf_adr   = t_info->fuzz_buf_adr;
     const uint64_t  fuzz_buf_size  = t_info->fuzz_buf_size;
     corpus_t*       corpus         = t_info->corpus;
-    const rv_emu_t* clean_snapshot = t_info->clean_snapshot;
+    const emu_t*    clean_snapshot = t_info->clean_snapshot;
     emu_stats_t*    shared_stats   = t_info->shared_stats;
 
     // Create the thread local fuzzer.
@@ -266,6 +267,7 @@ output_dirs_destroy(void)
 int
 main(int argc, char** argv)
 {
+    init_sig_handler();
     init_default_config();       // Sets the default config.
     handle_cli_args(argc, argv); // Provided cli args overwrites the default config.
 
@@ -296,7 +298,7 @@ main(int argc, char** argv)
     // Create an initial emulator, for taking the initial snapshot. This emulator will not be
     // used to fuzz, but the snapshotted state will be passed to the worker emulators as the
     // pre-fuzzed state which they will be reset to after a fuzz case is ran.
-    rv_emu_t* initial_emu = emu_create(EMU_TOTAL_MEM, shared_corpus);
+    emu_t* initial_emu = emu_generic_create(EMU_TOTAL_MEM, shared_corpus, ENUM_EMU_SUPPORTED_ARCHS_RISC_V);
     initial_emu->setup(initial_emu, target);
 
     // Create a debugging CLI using the initial emulator.

@@ -5,7 +5,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "riscv_emu.h"
+#include "emu_generic.h"
+#include "emu_riscv.h"
 #include "syscall.h"
 
 #include "../shared/logger.h"
@@ -35,30 +36,30 @@ struct kernel_stat
 };
 
 void
-handle_syscall(rv_emu_t* emu, const uint64_t num)
+handle_syscall(emu_t* emu, const uint64_t num)
 {
     switch(num) {
 
     // close. Only stdin, stdout and stderr are supported.
     case 57:
         {
-            const uint64_t fd = get_reg(emu, REG_A0);
+            const uint64_t fd = emu->get_reg(emu, RISC_V_REG_A0);
             if (fd > 2) {
                 ginger_log(ERROR, "Close syscall is only supported for stdin, stdout and stderr file descriptors!\n");
                 ginger_log(ERROR, "fd: %lu\n", fd);
                 exit(1);
             }
             // Fake success.
-            set_reg(emu, REG_A0, 0);
+            emu->set_reg(emu, RISC_V_REG_A0, 0);
         }
         break;
 
     // write. Only stdout and stderr are supported.
     case 64:
         {
-            const uint64_t fd            = get_reg(emu, REG_A0);
-            const uint64_t buf_guest_adr = get_reg(emu, REG_A1);
-            const uint64_t len           = get_reg(emu, REG_A2);
+            const uint64_t fd            = emu->get_reg(emu, RISC_V_REG_A0);
+            const uint64_t buf_guest_adr = emu->get_reg(emu, RISC_V_REG_A1);
+            const uint64_t len           = emu->get_reg(emu, RISC_V_REG_A2);
 
             if (fd != 1 && fd != 2) {
                 ginger_log(ERROR, "Write syscall is only supported for stdout and stderr file descriptors!\n");
@@ -68,7 +69,7 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
 
             if (!GUEST_VERBOSE_PRINTS) {
                 // Fake that all bytes were written.
-                set_reg(emu, REG_A0, len);
+                emu->set_reg(emu, RISC_V_REG_A0, len);
                 return;
             }
 
@@ -82,7 +83,7 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
             }
 
             ginger_log(DEBUG, "Guest wrote: %s\n", print_buf);
-            set_reg(emu, REG_A0, len);
+            emu->set_reg(emu, RISC_V_REG_A0, len);
         }
         break;
 
@@ -90,8 +91,8 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
     // and stderr file descriptors for now.
     case 80:
         {
-            const uint64_t fd                = get_reg(emu, REG_A0);
-            const uint64_t statbuf_guest_adr = get_reg(emu, REG_A1);
+            const uint64_t fd                = emu->get_reg(emu, RISC_V_REG_A0);
+            const uint64_t statbuf_guest_adr = emu->get_reg(emu, RISC_V_REG_A1);
 
             ginger_log(DEBUG, "fstat syscall\n");
             ginger_log(DEBUG, "fd: %lu\n", fd);
@@ -153,7 +154,7 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
             }
 
             // Return success.
-            set_reg(emu, REG_A0, 0);
+            emu->set_reg(emu, RISC_V_REG_A0, 0);
         }
         break;
 
@@ -165,11 +166,11 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
     // brk. Allocate/deallocate heap.
     case 214:
         {
-            const uint64_t brk_val = get_reg(emu, REG_A0);
+            const uint64_t brk_val = emu->get_reg(emu, RISC_V_REG_A0);
             ginger_log(DEBUG, "brk address: 0x%lx\n", brk_val);
 
             if (brk_val == 0) {
-                set_reg(emu, REG_A0, emu->mmu->curr_alloc_adr);
+                emu->set_reg(emu, RISC_V_REG_A0, emu->mmu->curr_alloc_adr);
                 return;
             }
 
@@ -194,7 +195,7 @@ handle_syscall(rv_emu_t* emu, const uint64_t num)
             }
 
             // Return the new brk address.
-            set_reg(emu, REG_A0, heap_end);
+            emu->set_reg(emu, RISC_V_REG_A0, heap_end);
         }
         break;
 

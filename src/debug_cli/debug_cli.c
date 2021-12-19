@@ -102,7 +102,7 @@ is_reg_str(const char* reg_str)
 }
 
 static void
-debug_cli_handle_xmem(rv_emu_t* emu, const token_str_t* xmem_args)
+debug_cli_handle_xmem(emu_t* emu, const token_str_t* xmem_args)
 {
     char     size_letter = 'w';
     uint64_t range       = 1;
@@ -153,7 +153,7 @@ debug_cli_handle_xmem(rv_emu_t* emu, const token_str_t* xmem_args)
 
 // Search emulator memory for user specified value.
 static void
-debug_cli_handle_smem(rv_emu_t* emu, token_str_t* smem_args)
+debug_cli_handle_smem(emu_t* emu, token_str_t* smem_args)
 {
     char     size_letter = 'b';
     uint64_t needle      = 0;
@@ -205,19 +205,19 @@ debug_cli_handle_smem(rv_emu_t* emu, token_str_t* smem_args)
 }
 
 static void
-debug_cli_handle_ni(rv_emu_t* emu)
+debug_cli_handle_ni(emu_t* emu)
 {
     emu->execute(emu);
 }
 
 static void
-debug_cli_handle_ir(rv_emu_t* emu)
+debug_cli_handle_ir(emu_t* emu)
 {
     emu->print_regs(emu);
 }
 
 static void
-debug_cli_handle_break(rv_emu_t* emu, token_str_t* break_args, vector_t* breakpoints)
+debug_cli_handle_break(emu_t* emu, token_str_t* break_args, vector_t* breakpoints)
 {
     if (break_args->nb_tokens != 2) {
         printf("\nInvalid number of args to break!\n");
@@ -242,7 +242,7 @@ debug_cli_handle_break(rv_emu_t* emu, token_str_t* break_args, vector_t* breakpo
 }
 
 static void
-debug_cli_handle_sbreak(rv_emu_t* emu, vector_t* breakpoints)
+debug_cli_handle_sbreak(emu_t* emu, vector_t* breakpoints)
 {
     size_t nb_breakpoints = vector_length(breakpoints);
     if (nb_breakpoints == 0) {
@@ -257,7 +257,7 @@ debug_cli_handle_sbreak(rv_emu_t* emu, vector_t* breakpoints)
 }
 
 static void
-debug_cli_handle_watch(rv_emu_t* emu, token_str_t* watch_args, vector_t* watchpoints)
+debug_cli_handle_watch(emu_t* emu, token_str_t* watch_args, vector_t* watchpoints)
 {
     if (watch_args->nb_tokens != 2) {
         printf("\nInvalid number of args to watch!\n");
@@ -272,7 +272,7 @@ debug_cli_handle_watch(rv_emu_t* emu, token_str_t* watch_args, vector_t* watchpo
 }
 
 static void
-debug_cli_handle_swatch(rv_emu_t* emu, vector_t* watchpoints)
+debug_cli_handle_swatch(emu_t* emu, vector_t* watchpoints)
 {
     size_t nb_watchpoints = vector_length(watchpoints);
     if (nb_watchpoints == 0) {
@@ -289,12 +289,12 @@ debug_cli_handle_swatch(rv_emu_t* emu, vector_t* watchpoints)
 
 // TODO: Break on register watchpoints.
 static void
-debug_cli_handle_continue(rv_emu_t* emu, vector_t* breakpoints)
+debug_cli_handle_continue(emu_t* emu, vector_t* breakpoints)
 {
     for (;;) {
         emu->execute(emu);
         for (size_t i = 0; i < vector_length(breakpoints); i++) {
-            uint64_t curr_pc = get_reg(emu, REG_PC);
+            uint64_t curr_pc = emu->get_pc(emu);
 
             if (curr_pc == *(uint64_t*)vector_get(breakpoints, i)) {
                 printf("\nHit breakpoint %zu\t0x%zx\n", i, curr_pc);
@@ -305,7 +305,7 @@ debug_cli_handle_continue(rv_emu_t* emu, vector_t* breakpoints)
 }
 
 static void
-debug_cli_handle_snapshot(debug_cli_result_t* res, rv_emu_t* snapshot)
+debug_cli_handle_snapshot(debug_cli_result_t* res, emu_t* snapshot)
 {
     res->snapshot     = snapshot;
     res->snapshot_set = true;
@@ -405,7 +405,7 @@ debug_cli_handle_quit(void)
 }
 
 cli_t*
-debug_cli_create(rv_emu_t* emu)
+debug_cli_create(emu_t* emu)
 {
     struct cli_cmd debug_cli_commands[] = {
         {
@@ -504,7 +504,7 @@ debug_cli_create(rv_emu_t* emu)
 
 // Run the debug CLI. If all result values are set, return a `debug_cli_result_t*`.
 debug_cli_result_t*
-debug_cli_run(rv_emu_t* emu, cli_t* cli)
+debug_cli_run(emu_t* emu, cli_t* cli)
 {
     static token_str_t* prev_cli_tokens; // Static variables are zero initialized, at program start.
     vector_t*           breakpoints = vector_create(sizeof(uint64_t));

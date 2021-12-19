@@ -7,8 +7,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../emu/riscv_emu.h"
-
 #include "endianess_converter.h"
 #include "logger.h"
 #include "print_utils.h"

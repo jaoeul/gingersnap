@@ -6,7 +6,6 @@
 
 #include "fuzzer.h"
 
-#include "../emu/riscv_emu.h"
 #include "../shared/dir.h"
 #include "../shared/logger.h"
 
@@ -161,12 +160,12 @@ fuzzer_write_crash(fuzzer_t* fuzzer)
 
 fuzzer_t*
 fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, const target_t* target,
-              const rv_emu_t* snapshot, const char* crash_dir)
+              const emu_t* snapshot, const char* crash_dir)
 {
     fuzzer_t* fuzzer = calloc(1, sizeof(fuzzer_t));
 
     // Create and setup the emulator this fuzzer will use.
-    rv_emu_t* emu = emu_create(EMU_TOTAL_MEM, corpus);
+    emu_t* emu = emu_generic_create(EMU_TOTAL_MEM, corpus, snapshot->arch);
 
     // Init the emulator thread id.
     // Load the elf and build the stack.

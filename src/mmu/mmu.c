@@ -68,13 +68,13 @@ mmu_print_mem(mmu_t* mmu, size_t start_adr, const size_t range,
 
 __attribute__((used))
 static void
-print_emu_memory_allocated(rv_emu_t* emu)
+print_emu_memory_allocated(mmu_t* mmu)
 {
-    for (size_t i = 0; i < emu->mmu->curr_alloc_adr - 1; i++) {
+    for (size_t i = 0; i < mmu->curr_alloc_adr - 1; i++) {
         printf("Address: 0x%lx\t", i);
-        printf("Value: 0x%x\t", emu->mmu->memory[i]);
+        printf("Value: 0x%x\t", mmu->memory[i]);
         printf("Perm: ");
-        print_permissions(emu->mmu->permissions[i]);
+        print_permissions(mmu->permissions[i]);
         printf("\t");
         printf("In dirty block: ");
 
@@ -84,7 +84,7 @@ print_emu_memory_allocated(rv_emu_t* emu)
         const size_t bit         = block % 64;
         const uint64_t shift_bit = 1;
 
-        if ((emu->mmu->dirty_state->dirty_bitmap[index] & (shift_bit << bit)) == 0) {
+        if ((mmu->dirty_state->dirty_bitmap[index] & (shift_bit << bit)) == 0) {
             printf("NO");
         }
         else {

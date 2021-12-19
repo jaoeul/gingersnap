@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <sys/stat.h>
 
-#include "../emu/riscv_emu.h"
-
 enum {
     BYTE_SIZE     = 1,
     HALFWORD_SIZE = 2,
