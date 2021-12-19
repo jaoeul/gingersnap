@@ -34,7 +34,7 @@ elf_parse(const char* path)
 
     size_t   program_header_size   = 0;
     uint64_t program_header_offset = 0;
-    uint8_t bytes_nb_prg_hdrs[2]   = {0};
+    uint8_t  bytes_nb_prg_hdrs[2]  = {0};
 
     // If LSB elf file
     if (elf->data[5] == 1) {

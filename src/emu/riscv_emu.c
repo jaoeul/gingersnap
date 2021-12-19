@@ -1759,21 +1759,6 @@ emu_create(size_t memory_size, corpus_t* corpus)
         return NULL;
     }
 
-    // TODO: Might delete.
-    emu->files = vector_create(sizeof(uint64_t));
-    if (!emu->files) {
-            ginger_log(ERROR, "[%s]Could not create file handle table!\n", __func__);
-            emu_destroy(emu);
-            return NULL;
-    }
-    // Initial file descriptors.
-    uint64_t _stdin  = 0;
-    uint64_t _stdout = 1;
-    uint64_t _stderr = 2;
-    vector_append(emu->files, &_stdin);
-    vector_append(emu->files, &_stdout);
-    vector_append(emu->files, &_stderr);
-
     // API.
     emu->setup      = emu_setup;
     emu->execute    = emu_execute_next_instruction;

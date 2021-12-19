@@ -94,9 +94,6 @@ struct rv_emu {
 
     uint64_t stack_size;
 
-    // File handle table. Indexed by file descriptors.
-    vector_t* files;
-
     // Memory management unit
     mmu_t* mmu;
 
