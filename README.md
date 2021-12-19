@@ -10,42 +10,56 @@ bytewise granuality of memory permissions, allowing us to detect read or writes 
 one byte off.
 
 # Usage
-1. Launch gingersnap.
-```bash
-gingersnap <target> <target_argv_1> ... <target_argv_n>
 ```
+Usage:
+gingersnap -t "<target_path> <target_argv1> ... <target_argvn>" -c <corpus_path>
 
-2. Run the emulator until desireable pre-fuzzing state is achieved.
+Flags:
+   -t     Target program and arguments.
+   -c     Path to directory with corpus files.
+   -j     Number of cores to use for fuzzing. Defauts to all active cores on the
+          system.
+   -p     Progress directory, where inputs which generated new coverage will be
+          stored. Defaults to `./progress`.
+   -v     Print stdout from emulators to stdout.
+   -n     No coverage. Do not track coverage.
+   -h     Print this help text.
 
-This could, for example, be done by setting a breakpoint on an address where a
-call to memcpy occurs, which reads user input into a buffer. Gingersnap provides
-a basic debugging CLI to examine guest memory and setting breakpoints, to aid
-in this step.
+Available pre-fuzzing commands:
+   xmem       Examine emulator memory.
+   smem       Search for sequence of bytes in guest memory.
+   ni         Execute next instruction.
+   ir         Show emulator registers.
+   break      Set breakpoint.
+   watch      Set register watchpoint.
+   sbreak     Show all breakpoints.
+   swatch     Show all watchpoints.
+   continue   Run emulator until breakpoint or program exit.
+   snapshot   Take a snapshot.
+   adr        Set the address in guest memory where fuzzed input will be injected.
+   length     Set the fuzzer injection input length.
+   go         Try to start the fuzzer.
+   options    Show values of the adjustable options.
+   help       Displays help text of a command.
+   quit       Quit debugging and exit this program.
 
-```gingersnap
-x
-break
-continue
-```
+Run `help <command>` in gingersnap for further details and examples of command
+usage.
 
-3. Take snapshot.
-```gingersnap
-snapshot
-```
+Typical usage example:
+   Step 1: Run the emulator to desireable pre-fuzzing state. This can be done by
+           single-stepping or by setting a breakpoint and continuing exection.
+       (gingersnap) ni
+       (gingersnap) break <guest_address>
+       (gingersnap) continue
 
-4. Set the guest address of the buffer to fuzz.
-```gingersnap
-set fuzzbuff start
-```
+   Step 2: Set the address and length of the buffer in guest memory where
+           fuzzcases will be injected. This is a required step.
+       (gingersnap) adr <guest_address>
+       (gingersnap) len <length>
 
-5. Set the length of the target buffer.
-```gingersnap
-set fuzzbuff size
-```
-
-6. Start the fuzzer.
-```gingersnap
-start fuzzer
+   Step 3: Start fuzzing:
+       (gingersnap) go
 ```
 
 # Components
