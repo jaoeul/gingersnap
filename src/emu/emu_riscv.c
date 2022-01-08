@@ -1733,12 +1733,13 @@ emu_riscv_fork(const emu_t* emu)
 
 // Free all the internal data of the risc v emulator. The `emu_t` struct
 // itself is freed by calling `emu_generic_destroy()`.
-static void
-emu_riscv_destroy_prepare(emu_t* emu)
+void
+emu_riscv_destroy(emu_t* emu)
 {
     if (emu) {
         mmu_destroy(emu->mmu);
     }
+    free(emu);
     return;
 }
 
@@ -1766,7 +1767,6 @@ emu_riscv_create(size_t memory_size, corpus_t* corpus)
     emu->run             = emu_riscv_run;
     emu->run_until       = emu_riscv_run_until;
     emu->stack_push      = emu_riscv_stack_push;
-    emu->destroy_prepare = emu_riscv_destroy_prepare;
     emu->print_regs      = emu_riscv_print_registers;
     emu->get_pc          = emu_riscv_get_pc;
     emu->get_reg         = emu_riscv_get_reg;

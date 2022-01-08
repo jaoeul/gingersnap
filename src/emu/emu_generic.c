@@ -36,6 +36,12 @@ emu_generic_create(size_t memory_size, corpus_t* corpus, enum_emu_supported_arch
 void
 emu_generic_destroy(emu_t* emu)
 {
-    emu->destroy_prepare(emu);
-    free(emu);
+    switch (emu->arch)
+    {
+        case ENUM_EMU_SUPPORTED_ARCHS_RISC_V:
+            emu_riscv_destroy(emu);
+            break;
+        case ENUM_EMU_SUPPORTED_ARCHS_X86_64:
+            abort();
+    }
 }

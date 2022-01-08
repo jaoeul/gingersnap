@@ -36,9 +36,12 @@ typedef enum {
     RISC_V_REG_T6,
     RISC_V_REG_PC,
     RISC_V_REG_LAST,
-} risc_v_reg_t;
+} enum_risc_v_reg_t;
 
 emu_t*
 emu_riscv_create(size_t memory_size, corpus_t* corpus);
+
+void
+emu_riscv_destroy(emu_t* emu);
 
 #endif
