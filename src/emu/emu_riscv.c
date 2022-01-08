@@ -1731,13 +1731,13 @@ emu_riscv_fork(const emu_t* emu)
     return forked;
 }
 
-// Free the memory allocated for an emulator.
+// Free all the internal data of the risc v emulator. The `emu_t` struct
+// itself is freed by calling `emu_generic_destroy()`.
 static void
-emu_riscv_destroy(emu_t* emu)
+emu_riscv_destroy_prepare(emu_t* emu)
 {
     if (emu) {
         mmu_destroy(emu->mmu);
-        free(emu);
     }
     return;
 }
@@ -1755,23 +1755,22 @@ emu_riscv_create(size_t memory_size, corpus_t* corpus)
     emu->mmu = mmu_create(memory_size, emu->stack_size);
     if (!emu->mmu) {
         ginger_log(ERROR, "[%s]Could not create mmu!\n", __func__);
-        emu_riscv_destroy(emu);
-        return NULL;
+        abort();
     }
 
     // API.
-    emu->setup      = emu_riscv_setup;
-    emu->execute    = emu_riscv_execute_next_instruction;
-    emu->fork       = emu_riscv_fork;
-    emu->reset      = emu_riscv_reset;
-    emu->run        = emu_riscv_run;
-    emu->run_until  = emu_riscv_run_until;
-    emu->stack_push = emu_riscv_stack_push;
-    emu->destroy    = emu_riscv_destroy;
-    emu->print_regs = emu_riscv_print_registers;
-    emu->get_pc     = emu_riscv_get_pc;
-    emu->get_reg    = emu_riscv_get_reg;
-    emu->set_reg    = emu_riscv_set_reg;
+    emu->setup           = emu_riscv_setup;
+    emu->execute         = emu_riscv_execute_next_instruction;
+    emu->fork            = emu_riscv_fork;
+    emu->reset           = emu_riscv_reset;
+    emu->run             = emu_riscv_run;
+    emu->run_until       = emu_riscv_run_until;
+    emu->stack_push      = emu_riscv_stack_push;
+    emu->destroy_prepare = emu_riscv_destroy_prepare;
+    emu->print_regs      = emu_riscv_print_registers;
+    emu->get_pc          = emu_riscv_get_pc;
+    emu->get_reg         = emu_riscv_get_reg;
+    emu->set_reg         = emu_riscv_set_reg;
 
     // Functions corresponding to opcodes.
     emu->instructions[ENUM_RISCV_LUI]                              = emu_riscv_lui;

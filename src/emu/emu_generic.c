@@ -32,3 +32,10 @@ emu_generic_create(size_t memory_size, corpus_t* corpus, enum_emu_supported_arch
     }
     return NULL;
 }
+
+void
+emu_generic_destroy(emu_t* emu)
+{
+    emu->destroy_prepare(emu);
+    free(emu);
+}

@@ -191,7 +191,7 @@ fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, c
 void
 fuzzer_destroy(fuzzer_t* fuzzer)
 {
-    fuzzer->emu->destroy(fuzzer->emu);
+    emu_generic_destroy(fuzzer->emu);
     emu_stats_destroy(fuzzer->stats);
     free(fuzzer);
 }

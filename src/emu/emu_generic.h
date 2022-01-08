@@ -52,10 +52,13 @@ struct emu_s {
     // Pushes a specified amount of bytes onto the stack.
     void (*stack_push)(emu_t* emu, uint8_t bytes[], size_t nb_bytes);
 
-    // Destroys the emulator.
-    void (*destroy)(emu_t* emu);
+    // Frees all the internal data of the emulator. The `emu_t` struct itself
+    // should be freed with a call to `emu_generic_destroy()`. We need to do
+    // this since we want to keep the cpu structure generic, enabling different
+    // architectures to allocate different internal structures.
+    void (*destroy_prepare)(emu_t* emu);
 
-    // All risc v instructions are implemented as separate functions. Their opcode
+    // All cpu instructions are implemented as separate functions. Their opcode
     // corresponds to an index in this array of function pointers.
     void (*instructions[256])(emu_t* emu, uint32_t instruction);
 
@@ -93,5 +96,8 @@ struct emu_s {
 // implemented as a empty function.
 emu_t*
 emu_generic_create(size_t memory_size, corpus_t* corpus, enum_emu_supported_archs_t arch);
+
+void
+emu_generic_destroy(emu_t* emu);
 
 #endif
