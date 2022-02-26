@@ -38,7 +38,7 @@ fuzzer_inject(fuzzer_t* fuzzer, const uint8_t* input, const uint64_t len)
     memcpy(tmp_perms, fuzzer->emu->mmu->permissions + fuzzer->fuzz_buf_adr, len);
 
     // Change permissions of the target buffer to writeable.
-    fuzzer->emu->mmu->set_permissions(fuzzer->emu->mmu, fuzzer->fuzz_buf_adr, PERM_WRITE, len);
+    fuzzer->emu->mmu->set_permissions(fuzzer->emu->mmu, fuzzer->fuzz_buf_adr, MMU_PERM_WRITE, len);
 
     // Write the input into the target buffer.
     fuzzer->emu->mmu->write(fuzzer->emu->mmu, fuzzer->fuzz_buf_adr, input, len);
@@ -50,7 +50,6 @@ fuzzer_inject(fuzzer_t* fuzzer, const uint8_t* input, const uint64_t len)
 static enum_emu_exit_reasons_t
 fuzzer_fuzz(fuzzer_t* fuzzer)
 {
-    // Can be removed for perf.
     const pid_t actual_tid = syscall(__NR_gettid);
     if (fuzzer->tid != actual_tid) {
         ginger_log(ERROR, "[%s] Thread tried to execute someone elses emu!\n", __func__);
@@ -68,7 +67,7 @@ fuzzer_fuzz(fuzzer_t* fuzzer)
     const int r                 = rand() % fuzzer->emu->corpus->inputs->length;
     const input_t* chosen_input = vector_get(fuzzer->emu->corpus->inputs, r);
     if (!chosen_input) {
-        ginger_log(ERROR, "Abort! Failed to pick an input from the corpus!n");
+        ginger_log(ERROR, "Abort! Failed to pick an input from the corpus!\n");
         abort();
     }
 

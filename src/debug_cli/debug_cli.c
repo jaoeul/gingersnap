@@ -234,7 +234,7 @@ debug_cli_handle_break(emu_t* emu, token_str_t* break_args, vector_t* breakpoint
         return;
     }
 
-    if ((emu->mmu->permissions[break_adr] & PERM_EXEC) == 0) {
+    if ((emu->mmu->permissions[break_adr] & MMU_PERM_EXEC) == 0) {
         printf("\nCould not set breakpoint at 0x%zx! No execute permissions!\n", break_adr);
         return;
     }

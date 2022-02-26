@@ -250,7 +250,7 @@ emu_riscv_get_next_instruction(const emu_t* emu)
     uint8_t instruction_bytes[4] = {0};
     for (int i = 0; i < 4; i++) {
         const uint8_t current_permission = emu->mmu->permissions[emu->registers[RISC_V_REG_PC] + i];
-        if ((current_permission & PERM_EXEC) == 0) {
+        if ((current_permission & MMU_PERM_EXEC) == 0) {
             ginger_log(ERROR, "No exec perm set on address: 0x%x\n", emu->registers[RISC_V_REG_PC] + i);
             abort();
         }

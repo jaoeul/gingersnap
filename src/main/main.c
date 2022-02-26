@@ -355,7 +355,7 @@ main(int argc, char** argv)
     // pre-fuzzed state which they will be reset to after a fuzz case is ran.
     emu_t* initial_emu = emu_generic_create(EMU_TOTAL_MEM,
                                             shared_corpus,
-                                            ENUM_EMU_SUPPORTED_ARCHS_RISC_V);
+                                            ENUM_EMU_SUPPORTED_ARCHS_X86_64);
 
     initial_emu->load_elf(initial_emu, target);
     initial_emu->build_stack(initial_emu, target);

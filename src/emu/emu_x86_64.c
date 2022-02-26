@@ -9,73 +9,98 @@
 static void
 emu_x86_64_execute_next_instruction(emu_t* emu)
 {
+    ginger_log(ERROR, "[%s] Unimplemented!\n", __func__);
+    abort();
 }
 
 static emu_t*
 emu_x86_64_fork(const emu_t* emu)
 {
+    ginger_log(ERROR, "[%s] Unimplemented!\n", __func__);
+    abort();
     return NULL;
 }
 
 static void
 emu_x86_64_reset(emu_t* dst_emu, const emu_t* src_emu)
 {
+    ginger_log(ERROR, "[%s] Unimplemented!\n", __func__);
+    abort();
 }
 
 static void
 emu_x86_64_print_regs(emu_t* emu)
 {
+    ginger_log(ERROR, "[%s] Unimplemented!\n", __func__);
+    abort();
 }
 
 static enum_emu_exit_reasons_t
 emu_x86_64_run (emu_t* emu, emu_stats_t* stats)
 {
+    ginger_log(ERROR, "[%s] Unimplemented!\n", __func__);
+    abort();
     return -1;
 }
 
 static enum_emu_exit_reasons_t
 emu_x86_64_run_until(emu_t* emu, emu_stats_t* stats, const uint64_t break_adr)
 {
+    ginger_log(ERROR, "[%s] Unimplemented!\n", __func__);
+    abort();
     return -1;
 }
 
 static void
 emu_x86_64_stack_push(emu_t* emu, uint8_t bytes[], size_t nb_bytes)
 {
+    const uint8_t write_ok = emu->mmu->write(emu->mmu,
+                                             emu->registers[ENUM_X86_64_REG_RSP] - nb_bytes,
+                                             bytes,
+                                             nb_bytes);
+    if (write_ok != 0) {
+        emu->exit_reason = EMU_EXIT_REASON_SEGFAULT_WRITE;
+        return;
+    }
+    emu->registers[ENUM_X86_64_REG_RSP] -= nb_bytes;
 }
 
 static uint64_t
 emu_x86_64_get_reg(const emu_t* emu, const uint8_t reg)
 {
-    return 0;
+    return emu->registers[reg];
 }
 
 static void
 emu_x86_64_set_reg(emu_t* emu, const uint8_t reg, const uint64_t value)
 {
+    emu->registers[reg] = value;
 }
 
 static uint64_t
 emu_x86_64_get_pc(const emu_t* emu)
 {
+    ginger_log(ERROR, "[%s] Unimplemented!\n", __func__);
+    abort();
     return 0;
 }
 
 static void
 emu_x86_64_set_pc(emu_t* emu, const uint64_t value)
 {
+    emu->registers[ENUM_X86_64_REG_RIP] = value;
 }
 
 static uint64_t
 emu_x86_64_get_sp(const emu_t* emu)
 {
-    return 0;
+    return emu->registers[ENUM_X86_64_REG_RSP];
 }
 
 static void
-emu_x86_64_set_sp
-(emu_t* emu, const uint64_t value)
+emu_x86_64_set_sp (emu_t* emu, const uint64_t value)
 {
+    emu->registers[ENUM_X86_64_REG_RSP] = value;
 }
 
 emu_t*
@@ -95,6 +120,7 @@ emu_x86_64_create(size_t memory_size, corpus_t* corpus)
         abort();
     }
 
+    // API
     emu->execute    = emu_x86_64_execute_next_instruction;
     emu->fork       = emu_x86_64_fork;
     emu->reset      = emu_x86_64_reset;
@@ -108,6 +134,10 @@ emu_x86_64_create(size_t memory_size, corpus_t* corpus)
     emu->set_pc     = emu_x86_64_set_pc;
     emu->get_sp     = emu_x86_64_get_sp;
     emu->set_sp     = emu_x86_64_set_sp;
+
+    emu->exit_reason  = EMU_EXIT_REASON_NO_EXIT;
+    emu->new_coverage = false;
+    emu->corpus       = corpus;
 
     return emu;
 }

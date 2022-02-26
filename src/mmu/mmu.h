@@ -8,33 +8,29 @@
 #define DIRTY_BLOCK_SIZE  64
 
 typedef struct dirty_state dirty_state_t;
+typedef struct mmu         mmu_t;
 
-typedef struct mmu mmu_t;
+typedef uint8_t            mmu_perm_t;
+typedef uint8_t            mmu_alloc_error_t;
+typedef uint8_t            mmu_read_error_t;
+typedef uint8_t            mmu_write_error_t;
 
-enum {
-    PERM_EXEC  = 1 << 0,
-    PERM_WRITE = 1 << 1,
-    PERM_READ  = 1 << 2,
-    PERM_RAW   = 1 << 3, // Read after write.
-} enum_perm_t;
+static const mmu_perm_t MMU_PERM_EXEC  = 1 << 0;
+static const mmu_perm_t MMU_PERM_WRITE = 1 << 1;
+static const mmu_perm_t MMU_PERM_READ  = 1 << 2;
+static const mmu_perm_t MMU_PERM_RAW   = 1 << 3; // Read after write.
 
-enum {
-    ALLOC_NO_ERROR = 0,        // No error.
-    ALLOC_ERROR_MEM_FULL,      // Emulator memory is already full.
-    ALLOC_ERROR_WOULD_OVERRUN, // Allocation would overrun the memory size.
-} enum_alloc_error_t;
+static const mmu_alloc_error_t MMU_ALLOC_NO_ERROR = 0;        // No error.
+static const mmu_alloc_error_t MMU_ALLOC_ERROR_MEM_FULL;      // Emulator memory is already full.
+static const mmu_alloc_error_t MMU_ALLOC_ERROR_WOULD_OVERRUN; // Allocation would overrun the memory size.
 
-enum {
-    READ_NO_ERROR = 0,           // No error.
-    READ_ERROR_NO_PERM,          // Attempted to read from an address with no read permission.
-    READ_ERROR_ADR_OUT_OF_RANGE, // Attempted to read from an address which is outside emulator memory.
-} enum_read_error_t;
+static const mmu_read_error_t MMU_READ_NO_ERROR = 0;           // No error.
+static const mmu_read_error_t MMU_READ_ERROR_NO_PERM;          // Attempted to read from an address with no read permission.
+static const mmu_read_error_t MMU_READ_ERROR_ADR_OUT_OF_RANGE; // Attempted to read from an address which is outside emulator memory.
 
-enum {
-    WRITE_NO_ERROR = 0,           // No error.
-    WRITE_ERROR_NO_PERM,          // Attempted to write from an address with no read permission.
-    WRITE_ERROR_ADR_OUT_OF_RANGE, // Attempted to write from an address which is outside emulator memory.
-} enum_write_error_t;
+static const mmu_write_error_t MMU_WRITE_NO_ERROR = 0;           // No error.
+static const mmu_write_error_t MMU_WRITE_ERROR_NO_PERM;          // Attempted to write from an address with no read permission.
+static const mmu_write_error_t MMU_WRITE_ERROR_ADR_OUT_OF_RANGE; // Attempted to write from an address which is outside emulator memory.
 
 struct dirty_state {
     void (*make_dirty)(dirty_state_t* state, size_t address);

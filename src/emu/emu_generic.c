@@ -49,7 +49,7 @@ emu_generic_load_elf(emu_t* emu, const target_t* target)
         // header will be loaded to writeable. We have to do this since the
         // memory we are about to write to is not yet allocated, and does not
         // have WRITE permissions set.
-        emu->mmu->set_permissions(emu->mmu, curr_prg_hdr->virtual_address, PERM_WRITE, curr_prg_hdr->memory_size);
+        emu->mmu->set_permissions(emu->mmu, curr_prg_hdr->virtual_address, MMU_PERM_WRITE, curr_prg_hdr->memory_size);
 
         // Load the executable segments of the binary into the emulator
         // NOTE: This write dirties the executable memory. Might want to make it
@@ -117,7 +117,7 @@ emu_generic_build_stack(emu_t* emu, const target_t* target)
         emu->mmu->write(emu->mmu, arg_adr, (uint8_t*)target->argv[i].string, target->argv[i].length);
 
         // Make arg segment read and writeable.
-        emu->mmu->set_permissions(emu->mmu, arg_adr, PERM_READ | PERM_WRITE, ARG_MAX);
+        emu->mmu->set_permissions(emu->mmu, arg_adr, MMU_PERM_READ | MMU_PERM_WRITE, ARG_MAX);
 
         ginger_log(INFO, "arg[%d] \"%s\" written to guest adr: 0x%lx\n", i, target->argv[i].string, arg_adr);
     }
@@ -188,4 +188,3 @@ emu_generic_destroy(emu_t* emu)
             abort();
     }
 }
-
