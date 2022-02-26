@@ -167,9 +167,8 @@ fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, c
     // Create and setup the emulator this fuzzer will use.
     emu_t* emu = emu_generic_create(EMU_TOTAL_MEM, corpus, snapshot->arch);
 
-    // Init the emulator thread id.
-    // Load the elf and build the stack.
-    emu->setup(emu, target);
+    emu->load_elf(emu, target);
+    emu->build_stack(emu, target);
 
     fuzzer->tid               = syscall(__NR_gettid);
     fuzzer->emu               = emu;

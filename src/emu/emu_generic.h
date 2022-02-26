@@ -28,57 +28,33 @@ typedef enum {
 
 typedef struct emu_s emu_t;
 struct emu_s {
-    // Does all the necessary setup needed before execution can begin.
-    void (*setup)(emu_t* emu, const target_t* target);
+    // Arch independent functions.
+    void (*load_elf)   (emu_t* emu, const target_t* target);
+    void (*build_stack)(emu_t* emu, const target_t* target);
 
-    // Executes the next instruction.
-    void (*execute)(emu_t* emu);
+    // Arch dependent functions.
+    void                    (*setup)            (emu_t* emu, const target_t* target); // Does all the necessary setup needed before execution can begin.
+    void                    (*execute)          (emu_t* emu);      // Executes the next instruction.
+    emu_t*                  (*fork)             (const emu_t* emu); // Forks the emulator.
+    void                    (*reset)            (emu_t* dst_emu, const emu_t* src_emu); // Resets the state of the emulator to that of another one.
+    void                    (*print_regs)       (emu_t* emu);
+    enum_emu_exit_reasons_t (*run)              (emu_t* emu, emu_stats_t* stats); // Run an emulator until it exits or crashes. Increment exit counters.
+    enum_emu_exit_reasons_t (*run_until)        (emu_t* emu, emu_stats_t* stats, const uint64_t break_adr); // Run an emulator until it exits, crashes or the program counter reaches the breakpoint.
+    void                    (*stack_push)       (emu_t* emu, uint8_t bytes[], size_t nb_bytes); // Pushes a specified amount of bytes onto the stack.
+    uint64_t                (*get_reg)          (const emu_t* emu, const uint8_t reg);
+    uint64_t                (*get_pc)           (const emu_t* emu);
+    uint64_t                (*get_sp)           (const emu_t* emu);
+    void                    (*set_reg)          (emu_t* emu, const uint8_t reg, const uint64_t value);
+    void                    (*set_pc)           (emu_t* emu, const uint64_t value);
+    void                    (*set_sp)           (emu_t* emu, const uint64_t value);
+    void                    (*instructions[256])(emu_t* emu, uint32_t instruction);
 
-    // Forks the emulator.
-    emu_t* (*fork)(const emu_t* emu);
-
-    // Resets the state of the emulator to that of another one.
-    void (*reset)(emu_t* dst_emu, const emu_t* src_emu);
-
-    // Print the register state.
-    void (*print_regs)(emu_t* emu);
-
-    // Run an emulator until it exits or crashes. Increment exit counters.
-    enum_emu_exit_reasons_t (*run)(emu_t* emu, emu_stats_t* stats);
-
-    // Run an emulator until it exits, crashes or the program counter reaches the breakpoint.
-    enum_emu_exit_reasons_t (*run_until)(emu_t* emu, emu_stats_t* stats, const uint64_t break_adr);
-
-    // Pushes a specified amount of bytes onto the stack.
-    void (*stack_push)(emu_t* emu, uint8_t bytes[], size_t nb_bytes);
-
-    // All cpu instructions are implemented as separate functions. Their opcode
-    // corresponds to an index in this array of function pointers.
-    void (*instructions[256])(emu_t* emu, uint32_t instruction);
-
-    uint64_t (*get_reg)(const emu_t* emu, const uint8_t reg);
-
-    void (*set_reg)(emu_t* emu, const uint8_t reg, const uint64_t value);
-
-    uint64_t (*get_pc)(const emu_t* emu);
-
-    uint64_t registers[33];
-
-    uint64_t stack_size;
-
-    // Memory management unit
-    mmu_t* mmu;
-
-    // Exit reason.
-    enum_emu_exit_reasons_t exit_reason;
-
-    // If the current fuzzcase generated new coverage.
-    bool new_coverage;
-
-    // Data that the injected input is based on. Shared between all emulators.
-    corpus_t* corpus;
-
-    // Architecture of the CPU.
+    uint64_t                   registers[33];
+    uint64_t                   stack_size;
+    mmu_t*                     mmu;
+    enum_emu_exit_reasons_t    exit_reason;
+    bool                       new_coverage;
+    corpus_t*                  corpus; // Shared between all emulators.
     enum_emu_supported_archs_t arch;
 };
 

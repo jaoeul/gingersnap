@@ -353,8 +353,12 @@ main(int argc, char** argv)
     // Create an initial emulator, for taking the initial snapshot. This emulator will not be
     // used to fuzz, but the snapshotted state will be passed to the worker emulators as the
     // pre-fuzzed state which they will be reset to after a fuzz case is ran.
-    emu_t* initial_emu = emu_generic_create(EMU_TOTAL_MEM, shared_corpus, ENUM_EMU_SUPPORTED_ARCHS_RISC_V);
-    initial_emu->setup(initial_emu, target);
+    emu_t* initial_emu = emu_generic_create(EMU_TOTAL_MEM,
+                                            shared_corpus,
+                                            ENUM_EMU_SUPPORTED_ARCHS_RISC_V);
+
+    initial_emu->load_elf(initial_emu, target);
+    initial_emu->build_stack(initial_emu, target);
 
     // Create a debugging CLI using the initial emulator.
     cli_t* debug_cli = debug_cli_create(initial_emu);
