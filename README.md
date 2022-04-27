@@ -9,6 +9,12 @@ in an emulator gives us full control, and by implementing the mmu ourselves, we 
 bytewise granuality of memory permissions, allowing us to detect read or writes only
 one byte off.
 
+# Building
+mkdir build
+cd build
+cmake ..
+make -j
+
 # Usage
 ```
 Usage:
