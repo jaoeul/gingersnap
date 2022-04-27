@@ -12,7 +12,7 @@
 #include "../corpus/corpus.h"
 #include "../corpus/coverage.h"
 #include "../mmu/mmu.h"
-#include "../shared/vector.h"
+#include "../utils/vector.h"
 #include "../target/target.h"
 
 // 256 MiB

@@ -8,9 +8,9 @@
 #include "../fuzzer/fuzzer.h"
 #include "../emu/riscv_emu.h"
 #include "../debug_cli/debug_cli.h"
-#include "../shared/endianess_converter.h"
-#include "../shared/logger.h"
-#include "../shared/print_utils.h"
+#include "../utils/endianess_converter.h"
+#include "../utils/logger.h"
+#include "../utils/print_utils.h"
 
 typedef void (*test_fn)(void);
 

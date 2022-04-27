@@ -5,8 +5,8 @@
 #include "coverage.h"
 
 #include "../main/config.h"
-#include "../shared/hash.h"
-#include "../shared/logger.h"
+#include "../utils/hash.h"
+#include "../utils/logger.h"
 
 #define COVERAGE_NOT_COVERED 0
 #define COVERAGE_COVERED     1

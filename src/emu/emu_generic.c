@@ -15,10 +15,10 @@
 
 #include "../corpus/coverage.h"
 #include "../corpus/corpus.h"
-#include "../shared/endianess_converter.h"
-#include "../shared/logger.h"
-//#include "../shared/target.h"
-#include "../shared/vector.h"
+#include "../utils/endianess_converter.h"
+#include "../utils/logger.h"
+//#include "../utils/target.h"
+#include "../utils/vector.h"
 
 static void
 emu_generic_load_elf(emu_t* emu, const target_t* target)

@@ -1,7 +1,7 @@
 #ifndef MMU_H
 #define MMU_H
 
-#include "../shared/vector.h"
+#include "../utils/vector.h"
 
 // Amount of bytes in single block
 // TODO: Tune this value for performance

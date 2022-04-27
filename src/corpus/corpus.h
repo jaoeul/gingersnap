@@ -7,7 +7,7 @@
 
 #include "coverage.h"
 
-#include "../shared/vector.h"
+#include "../utils/vector.h"
 
 #define MAX_NB_CORPUS_INPUTS 1024
 

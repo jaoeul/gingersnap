@@ -2,7 +2,7 @@
 #define DEBUG_CLI_H
 
 #include "../emu/emu_generic.h"
-#include "../shared/cli.h"
+#include "../utils/cli.h"
 
 typedef struct {
     emu_t*          snapshot;          // The starting point of the fuzzcases.

@@ -7,8 +7,8 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include "../shared/logger.h"
-#include "../shared/vector.h"
+#include "../utils/logger.h"
+#include "../utils/vector.h"
 
 #define NO_MOVE_ARROW 0
 

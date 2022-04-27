@@ -4,7 +4,7 @@
 #include "emu_x86_64.h"
 
 #include "../mmu/mmu.h"
-#include "../shared/logger.h"
+#include "../utils/logger.h"
 
 static void
 emu_x86_64_execute_next_instruction(emu_t* emu)

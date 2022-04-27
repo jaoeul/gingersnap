@@ -5,7 +5,7 @@
 
 #include "emu_stats.h"
 
-#include "../shared/logger.h"
+#include "../utils/logger.h"
 
 // Increment counters.
 void

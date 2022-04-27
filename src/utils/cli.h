@@ -6,8 +6,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "../shared/token_str.h"
-#include "../shared/vector.h"
+#include "../utils/token_str.h"
+#include "../utils/vector.h"
 
 #define MAX_LENGTH_DEBUG_CLI_COMMAND             256
 #define MAX_LENGTH_DEBUG_CLI_COMMAND_DESCRIPTION 1024

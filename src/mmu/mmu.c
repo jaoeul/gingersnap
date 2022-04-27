@@ -29,10 +29,10 @@
 
 #include "mmu.h"
 
-#include "../shared/endianess_converter.h"
-#include "../shared/logger.h"
-#include "../shared/print_utils.h"
-#include "../shared/vector.h"
+#include "../utils/endianess_converter.h"
+#include "../utils/logger.h"
+#include "../utils/print_utils.h"
+#include "../utils/vector.h"
 
 // Print value of memory with corresponding permissions of an emulator.
 static void

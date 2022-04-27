@@ -6,8 +6,8 @@
 
 #include "fuzzer.h"
 
-#include "../shared/dir.h"
-#include "../shared/logger.h"
+#include "../utils/dir.h"
+#include "../utils/logger.h"
 
 // Change randomize random amount of bytes in a buffer, up to the total number
 // of bytes in buffer.

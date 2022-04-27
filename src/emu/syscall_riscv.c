@@ -9,8 +9,8 @@
 #include "emu_riscv.h"
 #include "syscall.h"
 
-#include "../shared/logger.h"
-#include "../shared/print_utils.h"
+#include "../utils/logger.h"
+#include "../utils/print_utils.h"
 
 static const bool GUEST_VERBOSE_PRINTS = true;
 

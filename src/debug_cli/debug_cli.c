@@ -7,10 +7,10 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include "../shared/cli.h"
-#include "../shared/logger.h"
-#include "../shared/print_utils.h"
-#include "../shared/vector.h"
+#include "../utils/cli.h"
+#include "../utils/logger.h"
+#include "../utils/print_utils.h"
+#include "../utils/vector.h"
 
 #define MAX_NB_BREAKPOINTS 256
 #define MAX_LEN_REG_STR    4

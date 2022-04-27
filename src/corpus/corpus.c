@@ -6,8 +6,8 @@
 #include "corpus.h"
 #include "coverage.h"
 
-#include "../shared/logger.h"
-#include "../shared/vector.h"
+#include "../utils/logger.h"
+#include "../utils/vector.h"
 
 // Copy input data to the shared corpus in a thread safe manner.
 bool

@@ -14,9 +14,9 @@
 
 #include "../corpus/coverage.h"
 #include "../corpus/corpus.h"
-#include "../shared/endianess_converter.h"
-#include "../shared/logger.h"
-#include "../shared/vector.h"
+#include "../utils/endianess_converter.h"
+#include "../utils/logger.h"
+#include "../utils/vector.h"
 
 // Risc V 32i + 64i Instructions and corresponding opcode.
 enum ENUM_RISCV_OPCODE {

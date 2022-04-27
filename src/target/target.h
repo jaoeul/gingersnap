@@ -1,8 +1,8 @@
 #ifndef TARGET_H
 #define TARGET_H
 
-#include "../shared/elf_loader.h"
-#include "../shared/hstring.h"
+#include "../utils/elf_loader.h"
+#include "../utils/hstring.h"
 
 typedef struct {
     int        argc;
