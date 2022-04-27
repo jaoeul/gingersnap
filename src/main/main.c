@@ -183,6 +183,12 @@ worker_run(void* arg)
 static void
 handle_cli_args(int argc, char** argv)
 {
+    // Reguire atleast target program and corpus dir.
+    if (argc < 3) {
+        usage_string_print();
+        exit(0);
+    }
+
     int ok = 1;
     static struct option long_options[] = {
         {"target",       required_argument, NULL, 't'},
@@ -330,6 +336,7 @@ main(int argc, char** argv)
     const uint64_t print_stats_interval_ns = 1e9; // Print stats every second.
     int            ok                      = -1;  // For checking initialization steps.
     corpus_t*      shared_corpus           = corpus_create(global_config_get_corpus_dir());
+
     srand(time(NULL));
 
     if (!output_dirs_create()) {
