@@ -20,7 +20,7 @@ make -j
 # Usage
 ```
 Usage:
-gingersnap -t "<target_path> <target_argv1> ... <target_argvn>" -c <corpus_path>
+gingersnap -t "<target> <arg_1> ... <arg_n>" -c <corpus_dir>
 
 Flags:
    -t     Target program and arguments.

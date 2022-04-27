@@ -33,7 +33,7 @@
 
 static const char usage_string[] = ""
 "Usage:\n"
-"gingersnap -t \"<target_path> <target_argv1> ... <target_argvn>\" -c <corpus_path>\n\n"
+"gingersnap -t \"<target> <arg_1> ... <arg_n>\" -c <corpus_dir>\n\n"
 "Flags:\n"
 "   -t     Target program and arguments.\n"
 "   -c     Path to directory with corpus files.\n"
