@@ -10,10 +10,12 @@ bytewise granuality of memory permissions, allowing us to detect read or writes 
 one byte off.
 
 # Building
+```
 mkdir build
 cd build
 cmake ..
 make -j
+```
 
 # Usage
 ```
