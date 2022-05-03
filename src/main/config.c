@@ -55,8 +55,11 @@ global_config_set_target(char* target)
 void
 global_config_set_arch(char* arch)
 {
-    if (strcmp(arch, "riscv") == 0) {
-        global_config.arch = RISCV_64;
+    if (strcmp(arch, "rv64i") == 0) {
+        global_config.arch = ENUM_SUPPORTED_ARCHS_RISCV64I;
+    }
+    else {
+        global_config.arch = ENUM_SUPPORTED_ARCHS_NONE;
     }
 }
 

@@ -20,7 +20,7 @@ make -j
 # Usage
 ```
 Usage:
-gingersnap -t "<target> <arg_1> ... <arg_n>" -c <corpus_dir>
+gingersnap -t "<target> <arg_1> ... <arg_n>" -c <corpus_dir> -a <arch>
  -t, --target        Target program and arguments.
  -c, --corpus        Path to directory with corpus files.
  -j, --jobs          Number of cores to use for fuzzing. Defauts to all active cores on the

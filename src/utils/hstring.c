@@ -8,7 +8,7 @@ hstring_t*
 hstring_from(const char* src)
 {
     const size_t length  = strlen(src);
-    hstring_t* dst        = calloc(1, sizeof(hstring_t));
+    hstring_t* dst       = calloc(1, sizeof(hstring_t));
     dst->string          = calloc(length + 1, 1);
     dst->length          = length;
     memcpy(dst->string, src, dst->length);
@@ -35,7 +35,7 @@ hstring_get(hstring_t* string)
 }
 
 uint64_t
-hstring_lengthgth(hstring_t* string)
+hstring_length(hstring_t* string)
 {
     return string->length;
 }

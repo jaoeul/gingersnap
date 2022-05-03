@@ -6,8 +6,8 @@
 #include <stdint.h>
 
 typedef enum {
-    RISCV_64,
-    MIPS_64,
+    ENUM_SUPPORTED_ARCHS_NONE,
+    ENUM_SUPPORTED_ARCHS_RISCV64I,
 } enum_supported_archs_t;
 
 typedef struct {

@@ -32,17 +32,19 @@
 
 static const char usage_string[] = ""
 "Usage:\n"
-"gingersnap -t \"<target> <arg_1> ... <arg_n>\" -c <corpus_dir>\n"
+"gingersnap -t \"<target> <arg_1> ... <arg_n>\" -c <corpus_dir> -a <arch>\n"
 " -t, --target        Target program and arguments.\n"
 " -c, --corpus        Path to directory with corpus files.\n"
+" -a, --arch          Architecture to emulate.\n"
 " -j, --jobs          Number of cores to use for fuzzing. Defauts to all active cores on the\n"
 "                     system.\n"
 " -p, --progress      Progress directory, where inputs which generated new coverage will be\n"
 "                     stored. Defaults to `./progress`.\n"
-" -a, --arch          Architecture to emulate.\n"
 " -v, --verbose       Print stdout from emulators to stdout.\n"
 " -n, --no-coverage   No coverage. Do not track coverage.\n"
 " -h, --help          Print this help text.\n\n"
+"Supported architectures:\n"
+" - rv64i [RISC V 64 bit]\n\n"
 "Available pre-fuzzing commands:\n"
 " xmem       Examine emulator memory.\n"
 " smem       Search for sequence of bytes in guest memory.\n"
@@ -65,15 +67,15 @@ static const char usage_string[] = ""
 "Typical usage example:\n"
 "Step 1: Run the emulator to desireable pre-fuzzing state. This can be done by\n"
 "        single-stepping or by setting a breakpoint and continuing exection.\n"
-" (gingersnap) ni\n"
-" (gingersnap) break <guest_address>\n"
-" (gingersnap) continue\n\n"
+"(gingersnap) ni\n"
+"(gingersnap) break <guest_address>\n"
+"(gingersnap) continue\n\n"
 "Step 2: Set the address and length of the buffer in guest memory where\n"
 "        fuzzcases will be injected. This is a required step.\n"
-" (gingersnap) adr <guest_address>\n"
-" (gingersnap) len <length>\n\n"
+"(gingersnap) adr <guest_address>\n"
+"(gingersnap) len <length>\n\n"
 "Step 3: Start fuzzing:\n"
-" (gingersnap) go\n";
+"(gingersnap) go\n";
 
 // Declared in `config.h`.
 extern global_config_t global_config;
@@ -89,6 +91,16 @@ typedef struct {
     uint64_t        fuzz_buf_size;
     const emu_t*    clean_snapshot;
 } thread_info_t;
+
+static char*
+arch_to_str(enum_supported_archs_t arch)
+{
+    switch (arch)
+    {
+    case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        return "RISCV64i\n";
+    }
+}
 
 static void
 usage_string_print(void)
@@ -182,19 +194,13 @@ worker_run(void* arg)
 static void
 handle_cli_args(int argc, char** argv)
 {
-    // Reguire atleast target program, corpus dir and arch.
-    if (argc < 4) {
-        usage_string_print();
-        exit(0);
-    }
-
-    int ok = 1;
+    bool ok = true;
     static struct option long_options[] = {
         {"target",       required_argument, NULL, 't'},
         {"corpus",       required_argument, NULL, 'c'},
+        {"arch",         required_argument, NULL, 'a'},
         {"jobs",         required_argument, NULL, 'j'},
         {"progress",     required_argument, NULL, 'p'},
-        {"arch",         required_argument, NULL, 'a'},
         {"verbosity",    no_argument,       NULL, 'v'},
         {"no-coverage",  no_argument,       NULL, 'n'},
         {"help",         no_argument,       NULL, 'h'},
@@ -211,14 +217,14 @@ handle_cli_args(int argc, char** argv)
         case 'c':
             global_config_set_corpus_dir(optarg);
             break;
+        case 'a':
+            global_config_set_arch(optarg);
+            break;
         case 'j':
             global_config_set_nb_cpus(strtoul(optarg, NULL, 10));
             break;
         case 'p':
             global_config_set_progress_dir(optarg);
-            break;
-        case 'a':
-            global_config_set_arch(optarg);
             break;
         case 'v':
             global_config_set_verbosity(true);
@@ -235,22 +241,29 @@ handle_cli_args(int argc, char** argv)
     }
 
     if (!global_config_get_target()) {
-        ginger_log(ERROR, "Missing 'target' cli arg!\n");
-        ok = 0;
+        ginger_log(ERROR, "Missing required argument [-t, --target]\n");
+        ok = false;
     }
     if (!global_config_get_corpus_dir()) {
-        ginger_log(ERROR, "Missing 'corpus-dir' cli arg!\n");
-        ok = 0;
+        ginger_log(ERROR, "Missing required argument [-c, --corpus]\n");
+        ok = false;
+    }
+    if (global_config_get_arch() == ENUM_SUPPORTED_ARCHS_NONE) {
+        ginger_log(ERROR, "Missing required argument [-a, --arch]\n");
+        ok = false;
     }
     if (!ok) {
+        usage_string_print();
         exit(1);
     }
-    ginger_log(INFO, "nb fuzzing cores: %lu\n", global_config_get_nb_cpus());
-    ginger_log(INFO, "Verbose printouts: %s\n", global_config_get_verbosity() ? "true" : "false");
-    ginger_log(INFO, "Tracking coverage: %s\n", global_config_get_coverage() ? "true" : "false");
-    ginger_log(INFO, "Corpus dir: %s\n", global_config_get_corpus_dir());
-    ginger_log(INFO, "Target argv: %s\n", global_config_get_target());
-    ginger_log(INFO, "Progress dir: %s\n", global_config_get_progress_dir());
+
+    ginger_log(INFO, "Jobs:      %lu\n", global_config_get_nb_cpus());
+    ginger_log(INFO, "Verbosity: %s\n", global_config_get_verbosity() ? "true" : "false");
+    ginger_log(INFO, "Coverage:  %s\n", global_config_get_coverage() ? "true" : "false");
+    ginger_log(INFO, "Corpus:    %s\n", global_config_get_corpus_dir());
+    ginger_log(INFO, "Target:    %s\n", global_config_get_target());
+    ginger_log(INFO, "Progress:  %s\n", global_config_get_progress_dir());
+    ginger_log(INFO, "Arch:      %s\n", arch_to_str(global_config_get_arch()));
 }
 
 static uint8_t
