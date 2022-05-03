@@ -23,14 +23,17 @@ Usage:
 gingersnap -t "<target> <arg_1> ... <arg_n>" -c <corpus_dir> -a <arch>
  -t, --target        Target program and arguments.
  -c, --corpus        Path to directory with corpus files.
+ -a, --arch          Architecture to emulate.
  -j, --jobs          Number of cores to use for fuzzing. Defauts to all active cores on the
                      system.
  -p, --progress      Progress directory, where inputs which generated new coverage will be
                      stored. Defaults to `./progress`.
- -a, --arch          Architecture to emulate.
  -v, --verbose       Print stdout from emulators to stdout.
  -n, --no-coverage   No coverage. Do not track coverage.
  -h, --help          Print this help text.
+
+Supported architectures:
+ - rv64i [RISC V 64 bit]
 
 Available pre-fuzzing commands:
  xmem       Examine emulator memory.
@@ -56,17 +59,17 @@ usage.
 Typical usage example:
 Step 1: Run the emulator to desireable pre-fuzzing state. This can be done by
         single-stepping or by setting a breakpoint and continuing exection.
- (gingersnap) ni
- (gingersnap) break <guest_address>
- (gingersnap) continue
+(gingersnap) ni
+(gingersnap) break <guest_address>
+(gingersnap) continue
 
 Step 2: Set the address and length of the buffer in guest memory where
         fuzzcases will be injected. This is a required step.
- (gingersnap) adr <guest_address>
- (gingersnap) len <length>
+(gingersnap) adr <guest_address>
+(gingersnap) len <length>
 
 Step 3: Start fuzzing:
- (gingersnap) go
+(gingersnap) go
 ```
 
 # Components
