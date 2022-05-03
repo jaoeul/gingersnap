@@ -97,8 +97,8 @@ arch_to_str(enum_supported_archs_t arch)
 {
     switch (arch)
     {
-    case ENUM_SUPPORTED_ARCHS_RISCV64I:
-        return "RISCV64i\n";
+        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+            return "RISCV64i\n";
     }
 }
 
@@ -257,13 +257,13 @@ handle_cli_args(int argc, char** argv)
         exit(1);
     }
 
-    ginger_log(INFO, "Jobs:      %lu\n", global_config_get_nb_cpus());
-    ginger_log(INFO, "Verbosity: %s\n", global_config_get_verbosity() ? "true" : "false");
-    ginger_log(INFO, "Coverage:  %s\n", global_config_get_coverage() ? "true" : "false");
-    ginger_log(INFO, "Corpus:    %s\n", global_config_get_corpus_dir());
-    ginger_log(INFO, "Target:    %s\n", global_config_get_target());
-    ginger_log(INFO, "Progress:  %s\n", global_config_get_progress_dir());
-    ginger_log(INFO, "Arch:      %s\n", arch_to_str(global_config_get_arch()));
+    ginger_log(INFO, "Jobs:         %lu\n", global_config_get_nb_cpus());
+    ginger_log(INFO, "Verbosity:    %s\n", global_config_get_verbosity() ? "true" : "false");
+    ginger_log(INFO, "Coverage:     %s\n", global_config_get_coverage() ? "true" : "false");
+    ginger_log(INFO, "Corpus dir:   %s\n", global_config_get_corpus_dir());
+    ginger_log(INFO, "Target:       %s\n", global_config_get_target());
+    ginger_log(INFO, "Progress dir: %s\n", global_config_get_progress_dir());
+    ginger_log(INFO, "Arch:         %s\n", arch_to_str(global_config_get_arch()));
 }
 
 static uint8_t
@@ -350,7 +350,9 @@ main(int argc, char** argv)
 
     init_sig_handler();
     init_default_config();
-    handle_cli_args(argc, argv); // Provided cli args overwrites the default config.
+
+    // Provided cli args overwrites the default config.
+    handle_cli_args(argc, argv);
 
     srand(time(NULL));
 
@@ -376,14 +378,14 @@ main(int argc, char** argv)
     // used to fuzz, but the snapshotted state will be passed to the worker emulators as the
     // pre-fuzzed state which they will be reset to after a fuzz case is ran.
     corpus_t* shared_corpus = corpus_create(global_config_get_corpus_dir());
-    emu_t*    initial_emu   = emu_riscv_create(EMU_TOTAL_MEM,
-                                               shared_corpus);
+
+    emu_t* initial_emu = emu_riscv_create(EMU_TOTAL_MEM, shared_corpus);
 
     initial_emu->load_elf(initial_emu, target);
     initial_emu->build_stack(initial_emu, target);
 
     // Create a debugging CLI using the initial emulator.
-    cli_t* debug_cli = debug_cli_create(initial_emu);
+    cli_t* debug_cli = debug_cli_create();
 
     // Run the CLI. If we get a snapshot from it, use it, otherwise exit the program. The snapshot
     // is simply a pointer to the `initial_emu`.

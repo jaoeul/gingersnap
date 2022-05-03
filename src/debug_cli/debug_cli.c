@@ -359,15 +359,25 @@ debug_cli_handle_options(debug_cli_result_t* res)
     else {
         printf("\nFuzz input injection address not set.");
     }
+
     if (res->fuzz_buf_size_set) {
         printf("\nTarget buffer length:  %lu", res->fuzz_buf_size);
     }
     else {
         printf("\nFuzz input injection buffer size not set.");
     }
+
     if (res->snapshot_set) {
         printf("\nClean emulator snapshot:");
-        res->snapshot->print_regs(res->snapshot);
+
+        switch (global_config_get_arch()) {
+            case ENUM_SUPPORTED_ARCHS_RISCV64I:
+                {
+                emu_t* snapshot = res->snapshot;
+                snapshot->print_regs(res->snapshot);
+                break;
+                }
+        }
     }
     else {
         printf("\nNo snapshot taken.");
@@ -405,7 +415,7 @@ debug_cli_handle_quit(void)
 }
 
 cli_t*
-debug_cli_create(emu_t* emu)
+debug_cli_create(void)
 {
     struct cli_cmd debug_cli_commands[] = {
         {
