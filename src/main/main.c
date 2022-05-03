@@ -32,48 +32,48 @@
 
 static const char usage_string[] = ""
 "Usage:\n"
-"gingersnap -t \"<target> <arg_1> ... <arg_n>\" -c <corpus_dir>\n\n"
-"Flags:\n"
-"   -t     Target program and arguments.\n"
-"   -c     Path to directory with corpus files.\n"
-"   -j     Number of cores to use for fuzzing. Defauts to all active cores on the\n"
-"          system.\n"
-"   -p     Progress directory, where inputs which generated new coverage will be\n"
-"          stored. Defaults to `./progress`.\n"
-"   -v     Print stdout from emulators to stdout.\n"
-"   -n     No coverage. Do not track coverage.\n"
-"   -h     Print this help text.\n\n"
+"gingersnap -t \"<target> <arg_1> ... <arg_n>\" -c <corpus_dir>\n"
+" -t, --target        Target program and arguments.\n"
+" -c, --corpus        Path to directory with corpus files.\n"
+" -j, --jobs          Number of cores to use for fuzzing. Defauts to all active cores on the\n"
+"                     system.\n"
+" -p, --progress      Progress directory, where inputs which generated new coverage will be\n"
+"                     stored. Defaults to `./progress`.\n"
+" -a, --arch          Architecture to emulate.\n"
+" -v, --verbose       Print stdout from emulators to stdout.\n"
+" -n, --no-coverage   No coverage. Do not track coverage.\n"
+" -h, --help          Print this help text.\n\n"
 "Available pre-fuzzing commands:\n"
-"   xmem       Examine emulator memory.\n"
-"   smem       Search for sequence of bytes in guest memory.\n"
-"   ni         Execute next instruction.\n"
-"   ir         Show emulator registers.\n"
-"   break      Set breakpoint.\n"
-"   watch      Set register watchpoint.\n"
-"   sbreak     Show all breakpoints.\n"
-"   swatch     Show all watchpoints.\n"
-"   continue   Run emulator until breakpoint or program exit.\n"
-"   snapshot   Take a snapshot.\n"
-"   adr        Set the address in guest memory where fuzzed input will be injected.\n"
-"   length     Set the fuzzer injection input length.\n"
-"   go         Try to start the fuzzer.\n"
-"   options    Show values of the adjustable options.\n"
-"   help       Displays help text of a command.\n"
-"   quit       Quit debugging and exit this program.\n\n"
+" xmem       Examine emulator memory.\n"
+" smem       Search for sequence of bytes in guest memory.\n"
+" ni         Execute next instruction.\n"
+" ir         Show emulator registers.\n"
+" break      Set breakpoint.\n"
+" watch      Set register watchpoint.\n"
+" sbreak     Show all breakpoints.\n"
+" swatch     Show all watchpoints.\n"
+" continue   Run emulator until breakpoint or program exit.\n"
+" snapshot   Take a snapshot.\n"
+" adr        Set the address in guest memory where fuzzed input will be injected.\n"
+" length     Set the fuzzer injection input length.\n"
+" go         Try to start the fuzzer.\n"
+" options    Show values of the adjustable options.\n"
+" help       Displays help text of a command.\n"
+" quit       Quit debugging and exit this program.\n\n"
 "Run `help <command>` in gingersnap for further details and examples of command\n"
 "usage.\n\n"
 "Typical usage example:\n"
-"   Step 1: Run the emulator to desireable pre-fuzzing state. This can be done by\n"
-"           single-stepping or by setting a breakpoint and continuing exection.\n"
-"       (gingersnap) ni\n"
-"       (gingersnap) break <guest_address>\n"
-"       (gingersnap) continue\n\n"
-"   Step 2: Set the address and length of the buffer in guest memory where\n"
-"           fuzzcases will be injected. This is a required step.\n"
-"       (gingersnap) adr <guest_address>\n"
-"       (gingersnap) len <length>\n\n"
-"   Step 3: Start fuzzing:\n"
-"       (gingersnap) go\n";
+"Step 1: Run the emulator to desireable pre-fuzzing state. This can be done by\n"
+"        single-stepping or by setting a breakpoint and continuing exection.\n"
+" (gingersnap) ni\n"
+" (gingersnap) break <guest_address>\n"
+" (gingersnap) continue\n\n"
+"Step 2: Set the address and length of the buffer in guest memory where\n"
+"        fuzzcases will be injected. This is a required step.\n"
+" (gingersnap) adr <guest_address>\n"
+" (gingersnap) len <length>\n\n"
+"Step 3: Start fuzzing:\n"
+" (gingersnap) go\n";
 
 // Declared in `config.h`.
 extern global_config_t global_config;
@@ -182,8 +182,8 @@ worker_run(void* arg)
 static void
 handle_cli_args(int argc, char** argv)
 {
-    // Reguire atleast target program and corpus dir.
-    if (argc < 3) {
+    // Reguire atleast target program, corpus dir and arch.
+    if (argc < 4) {
         usage_string_print();
         exit(0);
     }
@@ -191,9 +191,10 @@ handle_cli_args(int argc, char** argv)
     int ok = 1;
     static struct option long_options[] = {
         {"target",       required_argument, NULL, 't'},
-        {"corpus-dir",   required_argument, NULL, 'c'},
+        {"corpus",       required_argument, NULL, 'c'},
         {"jobs",         required_argument, NULL, 'j'},
-        {"progress-dir", required_argument, NULL, 'p'},
+        {"progress",     required_argument, NULL, 'p'},
+        {"arch",         required_argument, NULL, 'a'},
         {"verbosity",    no_argument,       NULL, 'v'},
         {"no-coverage",  no_argument,       NULL, 'n'},
         {"help",         no_argument,       NULL, 'h'},
@@ -201,14 +202,14 @@ handle_cli_args(int argc, char** argv)
     };
 
     int ch = -1;
-    while ((ch = getopt_long(argc, argv, "t:c:j:p:vnh", long_options, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "t:c:j:p:a:vnh", long_options, NULL)) != -1) {
         switch (ch)
         {
-        case 'v':
-            global_config_set_verbosity(true);
+        case 't':
+            global_config_set_target(optarg);
             break;
-        case 'n':
-            global_config_set_coverage(false);
+        case 'c':
+            global_config_set_corpus_dir(optarg);
             break;
         case 'j':
             global_config_set_nb_cpus(strtoul(optarg, NULL, 10));
@@ -216,11 +217,14 @@ handle_cli_args(int argc, char** argv)
         case 'p':
             global_config_set_progress_dir(optarg);
             break;
-        case 'c':
-            global_config_set_corpus_dir(optarg);
+        case 'a':
+            global_config_set_arch(optarg);
             break;
-        case 't':
-            global_config_set_target(optarg);
+        case 'v':
+            global_config_set_verbosity(true);
+            break;
+        case 'n':
+            global_config_set_coverage(false);
             break;
         case 'h':
             usage_string_print();

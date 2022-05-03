@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "config.h"
 
 global_config_t global_config = { 0 };
@@ -50,6 +52,14 @@ global_config_set_target(char* target)
     global_config.target = target;
 }
 
+void
+global_config_set_arch(char* arch)
+{
+    if (strcmp(arch, "riscv") == 0) {
+        global_config.arch = RISCV_64;
+    }
+}
+
 bool
 global_config_get_verbosity(void)
 {
@@ -96,4 +106,10 @@ char*
 global_config_get_target(void)
 {
     return global_config.target;
+}
+
+enum_supported_archs_t
+global_config_get_arch(void)
+{
+    return global_config.arch;
 }

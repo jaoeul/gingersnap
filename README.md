@@ -21,53 +21,52 @@ make -j
 ```
 Usage:
 gingersnap -t "<target> <arg_1> ... <arg_n>" -c <corpus_dir>
-
-Flags:
-   -t     Target program and arguments.
-   -c     Path to directory with corpus files.
-   -j     Number of cores to use for fuzzing. Defauts to all active cores on the
-          system.
-   -p     Progress directory, where inputs which generated new coverage will be
-          stored. Defaults to `./progress`.
-   -v     Print stdout from emulators to stdout.
-   -n     No coverage. Do not track coverage.
-   -h     Print this help text.
+ -t, --target        Target program and arguments.
+ -c, --corpus        Path to directory with corpus files.
+ -j, --jobs          Number of cores to use for fuzzing. Defauts to all active cores on the
+                     system.
+ -p, --progress      Progress directory, where inputs which generated new coverage will be
+                     stored. Defaults to `./progress`.
+ -a, --arch          Architecture to emulate.
+ -v, --verbose       Print stdout from emulators to stdout.
+ -n, --no-coverage   No coverage. Do not track coverage.
+ -h, --help          Print this help text.
 
 Available pre-fuzzing commands:
-   xmem       Examine emulator memory.
-   smem       Search for sequence of bytes in guest memory.
-   ni         Execute next instruction.
-   ir         Show emulator registers.
-   break      Set breakpoint.
-   watch      Set register watchpoint.
-   sbreak     Show all breakpoints.
-   swatch     Show all watchpoints.
-   continue   Run emulator until breakpoint or program exit.
-   snapshot   Take a snapshot.
-   adr        Set the address in guest memory where fuzzed input will be injected.
-   length     Set the fuzzer injection input length.
-   go         Try to start the fuzzer.
-   options    Show values of the adjustable options.
-   help       Displays help text of a command.
-   quit       Quit debugging and exit this program.
+ xmem       Examine emulator memory.
+ smem       Search for sequence of bytes in guest memory.
+ ni         Execute next instruction.
+ ir         Show emulator registers.
+ break      Set breakpoint.
+ watch      Set register watchpoint.
+ sbreak     Show all breakpoints.
+ swatch     Show all watchpoints.
+ continue   Run emulator until breakpoint or program exit.
+ snapshot   Take a snapshot.
+ adr        Set the address in guest memory where fuzzed input will be injected.
+ length     Set the fuzzer injection input length.
+ go         Try to start the fuzzer.
+ options    Show values of the adjustable options.
+ help       Displays help text of a command.
+ quit       Quit debugging and exit this program.
 
 Run `help <command>` in gingersnap for further details and examples of command
 usage.
 
 Typical usage example:
-   Step 1: Run the emulator to desireable pre-fuzzing state. This can be done by
-           single-stepping or by setting a breakpoint and continuing exection.
-       (gingersnap) ni
-       (gingersnap) break <guest_address>
-       (gingersnap) continue
+Step 1: Run the emulator to desireable pre-fuzzing state. This can be done by
+        single-stepping or by setting a breakpoint and continuing exection.
+ (gingersnap) ni
+ (gingersnap) break <guest_address>
+ (gingersnap) continue
 
-   Step 2: Set the address and length of the buffer in guest memory where
-           fuzzcases will be injected. This is a required step.
-       (gingersnap) adr <guest_address>
-       (gingersnap) len <length>
+Step 2: Set the address and length of the buffer in guest memory where
+        fuzzcases will be injected. This is a required step.
+ (gingersnap) adr <guest_address>
+ (gingersnap) len <length>
 
-   Step 3: Start fuzzing:
-       (gingersnap) go
+Step 3: Start fuzzing:
+ (gingersnap) go
 ```
 
 # Components
