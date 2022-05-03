@@ -1,6 +1,7 @@
 #ifndef EMU_STATS_H
 #define EMU_STATS_H
 
+#include <pthread.h>
 #include <stdint.h>
 
 typedef enum {

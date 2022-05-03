@@ -14,7 +14,6 @@
 #include "config.h"
 #include "sig_handler.h"
 
-#include "../emu/emu_generic.h"
 #include "../emu/emu_stats.h"
 #include "../fuzzer/fuzzer.h"
 #include "../debug_cli/debug_cli.h"
@@ -328,14 +327,13 @@ output_dirs_destroy(void)
 int
 main(int argc, char** argv)
 {
-    init_sig_handler();
-    init_default_config();
-    handle_cli_args(argc, argv); // Provided cli args overwrites the default config.
-
     const int      main_cpu                = 0;   // The cpu which the main thread will run on.
     const uint64_t print_stats_interval_ns = 1e9; // Print stats every second.
     int            ok                      = -1;  // For checking initialization steps.
-    corpus_t*      shared_corpus           = corpus_create(global_config_get_corpus_dir());
+
+    init_sig_handler();
+    init_default_config();
+    handle_cli_args(argc, argv); // Provided cli args overwrites the default config.
 
     srand(time(NULL));
 
@@ -360,9 +358,9 @@ main(int argc, char** argv)
     // Create an initial emulator, for taking the initial snapshot. This emulator will not be
     // used to fuzz, but the snapshotted state will be passed to the worker emulators as the
     // pre-fuzzed state which they will be reset to after a fuzz case is ran.
-    emu_t* initial_emu = emu_generic_create(EMU_TOTAL_MEM,
-                                            shared_corpus,
-                                            ENUM_EMU_SUPPORTED_ARCHS_X86_64);
+    corpus_t* shared_corpus = corpus_create(global_config_get_corpus_dir());
+    emu_t*    initial_emu   = emu_riscv_create(EMU_TOTAL_MEM,
+                                               shared_corpus);
 
     initial_emu->load_elf(initial_emu, target);
     initial_emu->build_stack(initial_emu, target);

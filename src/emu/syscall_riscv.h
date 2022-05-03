@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "emu_generic.h"
-
 // Syscall number is passed in a7.
 // Syscall arguments are passed in a0 to a5.
 // Unused arguments are set to 0. (Legacy, and can be ignored for eventual performance gain).

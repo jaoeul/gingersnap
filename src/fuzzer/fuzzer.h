@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #include "../corpus/corpus.h"
-#include "../emu/emu_generic.h"
+#include "../emu/emu_riscv.h"
 
 typedef struct fuzzer fuzzer_t;
 

@@ -5,7 +5,6 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "emu_generic.h"
 #include "emu_riscv.h"
 #include "syscall.h"
 

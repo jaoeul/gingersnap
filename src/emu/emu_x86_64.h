@@ -1,6 +1,9 @@
 #ifndef X86_64_EMU_H
 #define X86_64_EMU_H
 
+#include "../corpus/corpus.h"
+#include "../emu/emu_riscv.h"
+
 typedef enum {
     ENUM_X86_64_REG_RAX,
     ENUM_X86_64_REG_RBX,

@@ -164,7 +164,7 @@ fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, c
     fuzzer_t* fuzzer = calloc(1, sizeof(fuzzer_t));
 
     // Create and setup the emulator this fuzzer will use.
-    emu_t* emu = emu_generic_create(EMU_TOTAL_MEM, corpus, snapshot->arch);
+    emu_t* emu = emu_riscv_create(EMU_TOTAL_MEM, corpus);
 
     emu->load_elf(emu, target);
     emu->build_stack(emu, target);
@@ -189,7 +189,7 @@ fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, c
 void
 fuzzer_destroy(fuzzer_t* fuzzer)
 {
-    emu_generic_destroy(fuzzer->emu);
+    emu_riscv_destroy(fuzzer->emu);
     emu_stats_destroy(fuzzer->stats);
     free(fuzzer);
 }

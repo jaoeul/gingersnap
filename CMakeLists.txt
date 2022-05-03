@@ -44,10 +44,8 @@ add_executable(gingersnap
     src/emu/emu_x86_64.h
     src/emu/syscall_riscv.h
     src/emu/emu_stats.h
-    src/emu/emu_generic.c
     src/emu/emu_x86_64.c
     src/emu/emu_stats.c
-    src/emu/emu_generic.h
     src/fuzzer/fuzzer.h
     src/fuzzer/fuzzer.c
 )

@@ -1,6 +1,5 @@
 #include <stdlib.h>
 
-#include "emu_generic.h"
 #include "emu_x86_64.h"
 
 #include "../mmu/mmu.h"

@@ -189,7 +189,7 @@ mmu_allocate(mmu_t* mmu, size_t size, uint8_t* error)
 }
 
 // TODO: Should we check for write outside of allocated memory?
-static mmu_write_error_t
+static uint8_t
 mmu_write(mmu_t* mmu, size_t dst_adr, const uint8_t* src_buffer, size_t size)
 {
     if (dst_adr + size > mmu->memory_size) {
