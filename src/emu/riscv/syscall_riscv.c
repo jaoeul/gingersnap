@@ -5,11 +5,11 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "emu_riscv.h"
+#include "riscv.h"
 #include "syscall.h"
 
-#include "../utils/logger.h"
-#include "../utils/print_utils.h"
+#include "../../utils/logger.h"
+#include "../../utils/print_utils.h"
 
 static const bool GUEST_VERBOSE_PRINTS = true;
 
@@ -35,30 +35,30 @@ struct kernel_stat
 };
 
 void
-handle_syscall(emu_t* emu, const uint64_t num)
+handle_syscall(riscv_t* riscv, const uint64_t num)
 {
     switch(num) {
 
     // close. Only stdin, stdout and stderr are supported.
     case 57:
         {
-            const uint64_t fd = emu->get_reg(emu, RISC_V_REG_A0);
+            const uint64_t fd = riscv->get_reg(riscv, RISC_V_REG_A0);
             if (fd > 2) {
                 ginger_log(ERROR, "Close syscall is only supported for stdin, stdout and stderr file descriptors!\n");
                 ginger_log(ERROR, "fd: %lu\n", fd);
                 exit(1);
             }
             // Fake success.
-            emu->set_reg(emu, RISC_V_REG_A0, 0);
+            riscv->set_reg(riscv, RISC_V_REG_A0, 0);
         }
         break;
 
     // write. Only stdout and stderr are supported.
     case 64:
         {
-            const uint64_t fd            = emu->get_reg(emu, RISC_V_REG_A0);
-            const uint64_t buf_guest_adr = emu->get_reg(emu, RISC_V_REG_A1);
-            const uint64_t len           = emu->get_reg(emu, RISC_V_REG_A2);
+            const uint64_t fd            = riscv->get_reg(riscv, RISC_V_REG_A0);
+            const uint64_t buf_guest_adr = riscv->get_reg(riscv, RISC_V_REG_A1);
+            const uint64_t len           = riscv->get_reg(riscv, RISC_V_REG_A2);
 
             if (fd != 1 && fd != 2) {
                 ginger_log(ERROR, "Write syscall is only supported for stdout and stderr file descriptors!\n");
@@ -68,21 +68,21 @@ handle_syscall(emu_t* emu, const uint64_t num)
 
             if (!GUEST_VERBOSE_PRINTS) {
                 // Fake that all bytes were written.
-                emu->set_reg(emu, RISC_V_REG_A0, len);
+                riscv->set_reg(riscv, RISC_V_REG_A0, len);
                 return;
             }
 
             uint8_t print_buf[len + 1];
             memset(print_buf, 0, len + 1);
 
-            const uint8_t read_ok = emu->mmu->read(emu->mmu, print_buf, buf_guest_adr, len);
+            const uint8_t read_ok = riscv->mmu->read(riscv->mmu, print_buf, buf_guest_adr, len);
             if (read_ok != 0) {
-                emu->exit_reason = EMU_EXIT_REASON_SEGFAULT_READ;
+                riscv->exit_reason = EMU_EXIT_REASON_SEGFAULT_READ;
                 break;
             }
 
             ginger_log(DEBUG, "Guest wrote: %s\n", print_buf);
-            emu->set_reg(emu, RISC_V_REG_A0, len);
+            riscv->set_reg(riscv, RISC_V_REG_A0, len);
         }
         break;
 
@@ -90,8 +90,8 @@ handle_syscall(emu_t* emu, const uint64_t num)
     // and stderr file descriptors for now.
     case 80:
         {
-            const uint64_t fd                = emu->get_reg(emu, RISC_V_REG_A0);
-            const uint64_t statbuf_guest_adr = emu->get_reg(emu, RISC_V_REG_A1);
+            const uint64_t fd                = riscv->get_reg(riscv, RISC_V_REG_A0);
+            const uint64_t statbuf_guest_adr = riscv->get_reg(riscv, RISC_V_REG_A1);
 
             ginger_log(DEBUG, "fstat syscall\n");
             ginger_log(DEBUG, "fd: %lu\n", fd);
@@ -141,40 +141,40 @@ handle_syscall(emu_t* emu, const uint64_t num)
                 k_statbuf.st_blksize      = 1024;
             }
             else {
-                emu->exit_reason = EMU_EXIT_REASON_FSTAT_BAD_FD;
+                riscv->exit_reason = EMU_EXIT_REASON_FSTAT_BAD_FD;
                 return;
             }
 
             // Write the statbuf into guest memory.
-            const uint8_t write_ok = emu->mmu->write(emu->mmu, statbuf_guest_adr, (uint8_t*)&k_statbuf, sizeof(k_statbuf));
+            const uint8_t write_ok = riscv->mmu->write(riscv->mmu, statbuf_guest_adr, (uint8_t*)&k_statbuf, sizeof(k_statbuf));
             if (write_ok != 0) {
-                emu->exit_reason = EMU_EXIT_REASON_SEGFAULT_WRITE;
+                riscv->exit_reason = EMU_EXIT_REASON_SEGFAULT_WRITE;
                 break;
             }
 
             // Return success.
-            emu->set_reg(emu, RISC_V_REG_A0, 0);
+            riscv->set_reg(riscv, RISC_V_REG_A0, 0);
         }
         break;
 
     // exit. Emulator gracefully called the exit syscall. Graceful exit.
     case 93:
-        emu->exit_reason = EMU_EXIT_REASON_GRACEFUL;
+        riscv->exit_reason = EMU_EXIT_REASON_GRACEFUL;
         break;
 
     // brk. Allocate/deallocate heap.
     case 214:
         {
-            const uint64_t brk_val = emu->get_reg(emu, RISC_V_REG_A0);
+            const uint64_t brk_val = riscv->get_reg(riscv, RISC_V_REG_A0);
             ginger_log(DEBUG, "brk address: 0x%lx\n", brk_val);
 
             if (brk_val == 0) {
-                emu->set_reg(emu, RISC_V_REG_A0, emu->mmu->curr_alloc_adr);
+                riscv->set_reg(riscv, RISC_V_REG_A0, riscv->mmu->curr_alloc_adr);
                 return;
             }
 
             // How much memory to allocate?
-            const int64_t new_alloc_size = brk_val - emu->mmu->curr_alloc_adr;
+            const int64_t new_alloc_size = brk_val - riscv->mmu->curr_alloc_adr;
 
             // TODO: Support freeing memory.
             if (new_alloc_size < 0) {
@@ -182,24 +182,24 @@ handle_syscall(emu_t* emu, const uint64_t num)
                 exit(1);
             }
 
-            if (emu->mmu->curr_alloc_adr + new_alloc_size > emu->mmu->memory_size) {
+            if (riscv->mmu->curr_alloc_adr + new_alloc_size > riscv->mmu->memory_size) {
                 ginger_log(ERROR, "brk. New allocation would run the emulator out of total memory!\n");
                 exit(1);
             }
 
             uint8_t alloc_error = 0;
-            const uint64_t heap_end = emu->mmu->allocate(emu->mmu, new_alloc_size, &alloc_error) + new_alloc_size;
+            const uint64_t heap_end = riscv->mmu->allocate(riscv->mmu, new_alloc_size, &alloc_error) + new_alloc_size;
             if (alloc_error != 0) {
                 ginger_log(ERROR, "[%s] Failed to allocate memory on the heap!\n", __func__);
             }
 
             // Return the new brk address.
-            emu->set_reg(emu, RISC_V_REG_A0, heap_end);
+            riscv->set_reg(riscv, RISC_V_REG_A0, heap_end);
         }
         break;
 
     default:
-        emu->exit_reason = EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED;
+        riscv->exit_reason = EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED;
         break;
     }
 }

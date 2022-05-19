@@ -1,7 +1,7 @@
 #ifndef DEBUG_CLI_H
 #define DEBUG_CLI_H
 
-#include "../emu/emu_riscv.h"
+#include "../emu/emu_generic.h"
 #include "../main/config.h"
 #include "../utils/cli.h"
 

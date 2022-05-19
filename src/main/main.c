@@ -14,6 +14,7 @@
 #include "config.h"
 #include "sig_handler.h"
 
+#include "../emu/emu_generic.h"
 #include "../emu/emu_stats.h"
 #include "../fuzzer/fuzzer.h"
 #include "../debug_cli/debug_cli.h"
@@ -126,8 +127,13 @@ worker_run(void* arg)
     emu_stats_t*    shared_stats   = t_info->shared_stats;
 
     // Create the thread local fuzzer.
-    fuzzer_t* fuzzer = fuzzer_create(corpus, fuzz_buf_adr, fuzz_buf_size, target, clean_snapshot,
-                                     global_config_get_crashes_dir());
+    fuzzer_t* fuzzer = fuzzer_create(global_config_get_arch(),
+                                    corpus,
+                                    fuzz_buf_adr,
+                                    fuzz_buf_size,
+                                    target,
+                                    clean_snapshot,
+                                    global_config_get_crashes_dir());
 
     // A timestamp which is used for comparison.
     struct timespec checkpoint;
@@ -138,8 +144,9 @@ worker_run(void* arg)
         fuzzer->fuzz(fuzzer);
 
         // If we crashed, write input to disk.
-        if (fuzzer->emu->exit_reason != EMU_EXIT_REASON_GRACEFUL) {
-            if (fuzzer->emu->exit_reason == EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED) {
+        enum_emu_exit_reasons_t exit_reason = fuzzer->emu->get_exit_reason(fuzzer->emu);
+        if (exit_reason != EMU_EXIT_REASON_GRACEFUL) {
+            if (exit_reason == EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED) {
                 ginger_log(ERROR, "Unsupported syscall!\n");
                 abort();
             }
@@ -147,8 +154,8 @@ worker_run(void* arg)
         }
 
         // If the fuzz case generated new code coverage, save it to the corpus.
-        if (fuzzer->emu->new_coverage) {
-            corpus_add_input(fuzzer->emu->corpus, fuzzer->curr_input);
+        if (fuzzer->emu->get_new_coverage(fuzzer->emu)) {
+            corpus_add_input(fuzzer->emu->get_corpus(fuzzer->emu), fuzzer->curr_input);
             emu_stats_inc(fuzzer->stats, EMU_COUNTERS_INPUTS);
         }
         // We do not care for inputs which did not generate new coverage, so we
@@ -379,7 +386,7 @@ main(int argc, char** argv)
     // pre-fuzzed state which they will be reset to after a fuzz case is ran.
     corpus_t* shared_corpus = corpus_create(global_config_get_corpus_dir());
 
-    emu_t* initial_emu = emu_riscv_create(EMU_TOTAL_MEM, shared_corpus);
+    emu_t* initial_emu = emu_create(global_config_get_arch(), EMU_TOTAL_MEM, shared_corpus);
 
     initial_emu->load_elf(initial_emu, target);
     initial_emu->build_stack(initial_emu, target);

@@ -6,6 +6,7 @@
 
 #include "fuzzer.h"
 
+#include "../emu/emu_generic.h"
 #include "../utils/dir.h"
 #include "../utils/logger.h"
 
@@ -33,39 +34,43 @@ fuzzer_mutate(uint8_t* input, const uint64_t len)
 static void
 fuzzer_inject(fuzzer_t* fuzzer, const uint8_t* input, const uint64_t len)
 {
+    mmu_t* mmu = fuzzer->emu->get_mmu(fuzzer->emu);
+
     // Save current permissions of the target buffer.
     uint8_t tmp_perms[len];
-    memcpy(tmp_perms, fuzzer->emu->mmu->permissions + fuzzer->fuzz_buf_adr, len);
+    memcpy(tmp_perms, mmu->permissions + fuzzer->fuzz_buf_adr, len);
 
     // Change permissions of the target buffer to writeable.
-    fuzzer->emu->mmu->set_permissions(fuzzer->emu->mmu, fuzzer->fuzz_buf_adr, MMU_PERM_WRITE, len);
+    mmu->set_permissions(mmu, fuzzer->fuzz_buf_adr, MMU_PERM_WRITE, len);
 
     // Write the input into the target buffer.
-    fuzzer->emu->mmu->write(fuzzer->emu->mmu, fuzzer->fuzz_buf_adr, input, len);
+    mmu->write(mmu, fuzzer->fuzz_buf_adr, input, len);
 
     // Change the permissions of the target buffer back.
-    memcpy(fuzzer->emu->mmu->permissions + fuzzer->fuzz_buf_adr, tmp_perms, len);
+    memcpy(mmu->permissions + fuzzer->fuzz_buf_adr, tmp_perms, len);
 }
 
 static enum_emu_exit_reasons_t
 fuzzer_fuzz(fuzzer_t* fuzzer)
 {
     const pid_t actual_tid = syscall(__NR_gettid);
+    corpus_t* corpus = fuzzer->emu->get_corpus(fuzzer->emu);
+
     if (fuzzer->tid != actual_tid) {
         ginger_log(ERROR, "[%s] Thread tried to execute someone elses emu!\n", __func__);
         ginger_log(ERROR, "[%s] acutal_tid 0x%x, emu->tid: 0x%x\n", __func__, actual_tid, fuzzer->tid);
         abort();
     }
 
-    if (fuzzer->emu->corpus->inputs->length == 0) {
+    if (corpus->inputs->length == 0) {
         ginger_log(ERROR, "Abort! Empty corpus!\n");
         abort();
     }
 
     // Pick a random input from the shared corpus.
     // TODO: Make atomic?
-    const int r                 = rand() % fuzzer->emu->corpus->inputs->length;
-    const input_t* chosen_input = vector_get(fuzzer->emu->corpus->inputs, r);
+    const int r                 = rand() % corpus->inputs->length;
+    const input_t* chosen_input = vector_get(corpus->inputs, r);
     if (!chosen_input) {
         ginger_log(ERROR, "Abort! Failed to pick an input from the corpus!\n");
         abort();
@@ -113,7 +118,8 @@ fuzzer_write_crash(fuzzer_t* fuzzer)
     char timestamp[21]  = {0};
 
     // Base filename on crash type and system time.
-    switch(fuzzer->emu->exit_reason)
+    enum_emu_exit_reasons_t exit_reason = fuzzer->emu->get_exit_reason(fuzzer->emu);
+    switch (exit_reason)
     {
     case EMU_EXIT_REASON_SEGFAULT_READ:
         memcpy(filename, "segfault-read-", 14);
@@ -158,13 +164,13 @@ fuzzer_write_crash(fuzzer_t* fuzzer)
 }
 
 fuzzer_t*
-fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, const target_t* target,
-              const emu_t* snapshot, const char* crash_dir)
+fuzzer_create(enum_supported_archs_t arch, corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size,
+              const target_t* target, const emu_t* snapshot, const char* crash_dir)
 {
     fuzzer_t* fuzzer = calloc(1, sizeof(fuzzer_t));
 
     // Create and setup the emulator this fuzzer will use.
-    emu_t* emu = emu_riscv_create(EMU_TOTAL_MEM, corpus);
+    emu_t* emu = emu_create(arch, EMU_TOTAL_MEM, corpus);
 
     emu->load_elf(emu, target);
     emu->build_stack(emu, target);
@@ -189,7 +195,7 @@ fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, c
 void
 fuzzer_destroy(fuzzer_t* fuzzer)
 {
-    emu_riscv_destroy(fuzzer->emu);
+    emu_destroy(fuzzer->emu);
     emu_stats_destroy(fuzzer->stats);
     free(fuzzer);
 }

@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #include "../corpus/corpus.h"
-#include "../emu/emu_riscv.h"
+#include "../emu/emu_generic.h"
 
 typedef struct fuzzer fuzzer_t;
 
@@ -35,8 +35,8 @@ struct fuzzer {
 };
 
 fuzzer_t*
-fuzzer_create(corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size, const target_t* target,
-              const emu_t* snapshot, const char* crash_dir);
+fuzzer_create(enum_supported_archs_t arch, corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size,
+              const target_t* target, const emu_t* snapshot, const char* crash_dir);
 
 void
 fuzzer_destroy(fuzzer_t* fuzzer);

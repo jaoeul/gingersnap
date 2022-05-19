@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "../emu/emu_generic.h"
 #include "../utils/cli.h"
 #include "../utils/logger.h"
 #include "../utils/print_utils.h"
@@ -148,7 +149,8 @@ debug_cli_handle_xmem(emu_t* emu, const token_str_t* xmem_args)
         printf("\nInvalid number of args to xmem!\n");
         return;
     }
-    emu->mmu->print(emu->mmu, adr, range, size_letter);
+    mmu_t* mmu = emu->get_mmu(emu);
+    mmu->print(mmu, adr, range, size_letter);
 }
 
 // Search emulator memory for user specified value.
@@ -191,7 +193,8 @@ debug_cli_handle_smem(emu_t* emu, token_str_t* smem_args)
         return;
     }
 
-    vector_t* search_result = emu->mmu->search(emu->mmu, needle, size_letter);
+    mmu_t* mmu = emu->get_mmu(emu);
+    vector_t* search_result = mmu->search(mmu, needle, size_letter);
     if (search_result) {
         printf("\n%zu hit(s) of 0x%zx\n", vector_length(search_result), needle);
         for (size_t i = 0; i < search_result->length; i++) {
@@ -219,6 +222,8 @@ debug_cli_handle_ir(emu_t* emu)
 static void
 debug_cli_handle_break(emu_t* emu, token_str_t* break_args, vector_t* breakpoints)
 {
+    mmu_t* mmu = emu->get_mmu(emu);
+
     if (break_args->nb_tokens != 2) {
         printf("\nInvalid number of args to break!\n");
         return;
@@ -229,12 +234,12 @@ debug_cli_handle_break(emu_t* emu, token_str_t* break_args, vector_t* breakpoint
         break_adr = strtoul(break_args->tokens[1], NULL, 16);
     }
 
-    if (break_adr > emu->mmu->memory_size) {
+    if (break_adr > mmu->memory_size) {
         printf("\nCould not set breakpoint at 0x%zx as it is outside of emulator memory!\n", break_adr);
         return;
     }
 
-    if ((emu->mmu->permissions[break_adr] & MMU_PERM_EXEC) == 0) {
+    if ((mmu->permissions[break_adr] & MMU_PERM_EXEC) == 0) {
         printf("\nCould not set breakpoint at 0x%zx! No execute permissions!\n", break_adr);
         return;
     }

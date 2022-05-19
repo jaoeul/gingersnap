@@ -8,6 +8,7 @@
 typedef enum {
     ENUM_SUPPORTED_ARCHS_NONE,
     ENUM_SUPPORTED_ARCHS_RISCV64I,
+    ENUM_SUPPORTED_ARCHS_MIPS64,
 } enum_supported_archs_t;
 
 typedef struct {
