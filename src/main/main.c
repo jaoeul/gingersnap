@@ -98,8 +98,12 @@ arch_to_str(enum_supported_archs_t arch)
 {
     switch (arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
-            return "RISCV64i\n";
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
+            return "RISCV64i LSB\n";
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
+            return "MIPS64 MSB\n";
+        default:
+            return "Unrecognized\n";
     }
 }
 

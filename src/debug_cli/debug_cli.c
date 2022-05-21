@@ -376,12 +376,18 @@ debug_cli_handle_options(debug_cli_result_t* res)
         printf("\nClean emulator snapshot:");
 
         switch (global_config_get_arch()) {
-            case ENUM_SUPPORTED_ARCHS_RISCV64I:
+            case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
                 {
                 emu_t* snapshot = res->snapshot;
                 snapshot->print_regs(res->snapshot);
                 break;
                 }
+            case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
+                ginger_log(ERROR, "MIPS not yet implemented!\n");
+                break;
+            default:
+                ginger_log(ERROR, "Unrecognized arch!\n");
+                abort();
         }
     }
     else {

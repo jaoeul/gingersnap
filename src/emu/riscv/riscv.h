@@ -68,7 +68,7 @@ struct riscv_s {
     void                       (*stack_push) (riscv_t* self, uint8_t bytes[], size_t nb_bytes);
     uint64_t                   (*get_pc)     (const riscv_t* self);
     uint64_t                   (*get_reg)    (const riscv_t* self, const uint8_t reg);
-    void                       (*set_reg)    (riscv_t* self, const const uint8_t reg, const uint64_t value);
+    void                       (*set_reg)    (riscv_t* self, const uint8_t reg, const uint64_t value);
 };
 
 riscv_t*

@@ -7,11 +7,14 @@ emu_load_elf(emu_t* self, const target_t* target)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
             self->riscv->load_elf(self->riscv, target);
             break;
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -21,11 +24,14 @@ emu_build_stack(emu_t* self, const target_t* target)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
             self->riscv->build_stack(self->riscv, target);
             break;
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -35,11 +41,14 @@ emu_execute(emu_t* self)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
             self->riscv->execute(self->riscv);
             break;
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -49,14 +58,17 @@ emu_fork(const emu_t* self)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             emu_t* forked = calloc(1, sizeof(emu_t));
             forked->riscv = self->riscv->fork(self->riscv);
             return forked;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -66,13 +78,16 @@ emu_reset(emu_t* self, const emu_t* src)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             self->riscv->reset(self->riscv, src->riscv);
             break;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -82,13 +97,16 @@ emu_print_regs(emu_t* self)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             self->riscv->print_regs(self->riscv);
             break;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -98,12 +116,15 @@ emu_run(emu_t* self, emu_stats_t* stats)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             return self->riscv->run(self->riscv, stats);
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -113,12 +134,15 @@ emu_run_until(emu_t* self, emu_stats_t* stats, const uint64_t break_adr)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             return self->riscv->run_until(self->riscv, stats, break_adr);
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -128,13 +152,16 @@ emu_stack_push(emu_t* self, uint8_t bytes[], size_t nb_bytes)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             self->riscv->stack_push(self->riscv, bytes, nb_bytes);
             break;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -150,12 +177,15 @@ emu_get_pc(const emu_t* self)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             return self->riscv->get_pc(self->riscv);
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -165,12 +195,15 @@ emu_get_stack_size(const emu_t* self)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             return self->riscv->stack_size;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -180,12 +213,15 @@ emu_get_mmu(const emu_t* self)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             return self->riscv->mmu;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -195,12 +231,15 @@ emu_get_exit_reason(const emu_t* self)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             return self->riscv->exit_reason;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -210,12 +249,15 @@ emu_get_new_coverage(const emu_t* self)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             return self->riscv->new_coverage;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -225,12 +267,15 @@ emu_get_corpus(const emu_t* self)
 {
     switch (self->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             return self->riscv->corpus;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
@@ -242,13 +287,16 @@ emu_create(enum_supported_archs_t arch, size_t memory_size, corpus_t* corpus)
 
     switch (arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             emu->riscv = riscv_create(memory_size, corpus);
             break;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 
@@ -278,13 +326,16 @@ emu_destroy(emu_t* emu)
 {
     switch (emu->arch)
     {
-        case ENUM_SUPPORTED_ARCHS_RISCV64I:
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
         {
             riscv_destroy(emu->riscv);
             break;
         }
-        case ENUM_SUPPORTED_ARCHS_MIPS64:
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
             ginger_log(ERROR, "MIPS not yet implemented!\n");
+            abort();
+        default:
+            ginger_log(ERROR, "Unrecognized arch!\n");
             abort();
     }
 }
