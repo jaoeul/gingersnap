@@ -59,7 +59,7 @@ global_config_set_arch(char* arch)
         global_config.arch = ENUM_SUPPORTED_ARCHS_RISCV64I;
     }
     else {
-        global_config.arch = ENUM_SUPPORTED_ARCHS_NONE;
+        global_config.arch = ENUM_SUPPORTED_ARCHS_INVALID;
     }
 }
 

@@ -255,22 +255,22 @@ handle_cli_args(int argc, char** argv)
         ginger_log(ERROR, "Missing required argument [-c, --corpus]\n");
         ok = false;
     }
-    if (global_config_get_arch() == ENUM_SUPPORTED_ARCHS_NONE) {
-        ginger_log(ERROR, "Missing required argument [-a, --arch]\n");
+    if (global_config_get_arch() == ENUM_SUPPORTED_ARCHS_INVALID) {
+        ginger_log(ERROR, "Invalid or missing required argument [-a, --arch]\n");
         ok = false;
     }
+
     if (!ok) {
-        usage_string_print();
         exit(1);
     }
 
     ginger_log(INFO, "Jobs:         %lu\n", global_config_get_nb_cpus());
-    ginger_log(INFO, "Verbosity:    %s\n", global_config_get_verbosity() ? "true" : "false");
-    ginger_log(INFO, "Coverage:     %s\n", global_config_get_coverage() ? "true" : "false");
-    ginger_log(INFO, "Corpus dir:   %s\n", global_config_get_corpus_dir());
-    ginger_log(INFO, "Target:       %s\n", global_config_get_target());
-    ginger_log(INFO, "Progress dir: %s\n", global_config_get_progress_dir());
-    ginger_log(INFO, "Arch:         %s\n", arch_to_str(global_config_get_arch()));
+    ginger_log(INFO, "Verbosity:    %s\n",  global_config_get_verbosity() ? "true" : "false");
+    ginger_log(INFO, "Coverage:     %s\n",  global_config_get_coverage() ? "true" : "false");
+    ginger_log(INFO, "Corpus dir:   %s\n",  global_config_get_corpus_dir());
+    ginger_log(INFO, "Target:       %s\n",  global_config_get_target());
+    ginger_log(INFO, "Progress dir: %s\n",  global_config_get_progress_dir());
+    ginger_log(INFO, "Arch:         %s\n",  arch_to_str(global_config_get_arch()));
 }
 
 static uint8_t
