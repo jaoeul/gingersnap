@@ -8,6 +8,7 @@ add_executable(gingersnap
     src/debug_cli/debug_cli.c
     src/emu/emu_generic.c
     src/emu/emu_stats.c
+    src/emu/mips64msb/mips64msb.c
     src/emu/riscv/riscv.c
     src/emu/riscv/syscall_riscv.c
     src/fuzzer/fuzzer.c
@@ -31,7 +32,8 @@ add_executable(gingersnap
 target_compile_options(gingersnap
     PRIVATE
     -Werror
-    -Wall)
+    -Wall
+    )
 
 target_link_libraries(gingersnap
     pthread)

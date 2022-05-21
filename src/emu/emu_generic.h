@@ -1,9 +1,11 @@
 #ifndef EMU_GENERIC_H
 #define EMU_GENERIC_H
 
+#include "mips64msb/mips64msb.h"
+#include "riscv/riscv.h"
+
 #include "../corpus/corpus.h"
 #include "../emu/emu_stats.h"
-#include "../emu/riscv/riscv.h"
 #include "../main/config.h"
 #include "../mmu/mmu.h"
 #include "../target/target.h"
@@ -36,7 +38,8 @@ struct emu_s {
     // The cpu backend. Which architecture is to be used is determined by the
     // `arch` member enum.
     union {
-        riscv_t* riscv;
+        riscv_t*     riscv;
+        mips64msb_t* mips64msb;
     };
 };
 

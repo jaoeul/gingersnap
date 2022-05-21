@@ -44,6 +44,33 @@ emu_stats_inc(emu_stats_t* stats, const enum_emu_counters_t counter)
 }
 
 void
+emu_stats_report_exit_reason(emu_stats_t* stats, enum_emu_exit_reasons_t exit_reason)
+{
+    switch(exit_reason) {
+    case EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_REASON_SYSCALL_NOT_SUPPORTED);
+        break;
+    case EMU_EXIT_REASON_FSTAT_BAD_FD:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_FSTAT_BAD_FD);
+        break;
+    case EMU_EXIT_REASON_SEGFAULT_READ:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_SEGFAULT_READ);
+        break;
+    case EMU_EXIT_REASON_SEGFAULT_WRITE:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_SEGFAULT_WRITE);
+        break;
+    case EMU_EXIT_REASON_INVALID_OPCODE:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_INVALID_OPCODE);
+        break;
+    case EMU_EXIT_REASON_GRACEFUL:
+        emu_stats_inc(stats, EMU_COUNTERS_EXIT_GRACEFUL);
+        break;
+    case EMU_EXIT_REASON_NO_EXIT:
+        break;
+    }
+}
+
+void
 emu_stats_print(emu_stats_t* stats)
 {
     char stats_buf[1024] = {0};

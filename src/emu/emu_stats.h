@@ -47,6 +47,8 @@ typedef struct {
 
 void emu_stats_inc(emu_stats_t* stats, const enum_emu_counters_t counter);
 
+void emu_stats_report_exit_reason(emu_stats_t* stats, enum_emu_exit_reasons_t exit_reason);
+
 void emu_stats_print(emu_stats_t* stats);
 
 emu_stats_t* emu_stats_create(void);

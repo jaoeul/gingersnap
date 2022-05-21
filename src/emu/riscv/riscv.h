@@ -46,6 +46,23 @@ typedef enum {
     RISC_V_REG_LAST,
 } enum_risc_v_reg_t;
 
+// Risc V 32i + 64i Instructions and corresponding opcode.
+typedef enum {
+    ENUM_RISCV_LUI                              = 0x37,
+    ENUM_RISCV_AUIPC                            = 0x17,
+    ENUM_RISCV_JAL                              = 0x6f,
+    ENUM_RISCV_JALR                             = 0x67,
+    ENUM_RISCV_BRANCH                           = 0x63,
+    ENUM_RISCV_LOAD                             = 0x03,
+    ENUM_RISCV_STORE                            = 0x23,
+    ENUM_RISCV_ARITHMETIC_I_TYPE                = 0x13,
+    ENUM_RISCV_ARITHMETIC_R_TYPE                = 0x33,
+    ENUM_RISCV_FENCE                            = 0x0f,
+    ENUM_RISCV_ENV                              = 0x73,
+    ENUM_RISCV_ARITHMETIC_64_REGISTER_IMMEDIATE = 0x1b,
+    ENUM_RISCV_ARITHMETIC_64_REGISTER_REGISTER  = 0x3b,
+} enum_riscv_opcode_t;
+
 typedef struct riscv_s riscv_t;
 struct riscv_s {
     // Should never be accessed directly other than by `riscv.c`.

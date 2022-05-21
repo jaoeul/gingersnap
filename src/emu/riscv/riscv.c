@@ -17,23 +17,6 @@
 #include "../../utils/logger.h"
 #include "../../utils/vector.h"
 
-// Risc V 32i + 64i Instructions and corresponding opcode.
-enum ENUM_RISCV_OPCODE {
-    ENUM_RISCV_LUI                              = 0x37,
-    ENUM_RISCV_AUIPC                            = 0x17,
-    ENUM_RISCV_JAL                              = 0x6f,
-    ENUM_RISCV_JALR                             = 0x67,
-    ENUM_RISCV_BRANCH                           = 0x63,
-    ENUM_RISCV_LOAD                             = 0x03,
-    ENUM_RISCV_STORE                            = 0x23,
-    ENUM_RISCV_ARITHMETIC_I_TYPE                = 0x13,
-    ENUM_RISCV_ARITHMETIC_R_TYPE                = 0x33,
-    ENUM_RISCV_FENCE                            = 0x0f,
-    ENUM_RISCV_ENV                              = 0x73,
-    ENUM_RISCV_ARITHMETIC_64_REGISTER_IMMEDIATE = 0x1b,
-    ENUM_RISCV_ARITHMETIC_64_REGISTER_REGISTER  = 0x3b,
-};
-
 // Function prototyp needed as both `riscv_create` and `riscv_fork` call
 // eachother.
 riscv_t*
@@ -189,39 +172,7 @@ riscv_get_rd(const uint32_t instruction)
     return (instruction >> 7) & 0b11111;
 }
 
-static uint8_t
-riscv_get_opcode(const uint32_t instruction)
-{
-    return instruction & 0b1111111;
-}
-
-static bool
-riscv_validate_opcode(riscv_t* riscv, const uint8_t opcode)
-{
-    if (riscv->instructions[opcode] != 0) {
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-
-static uint32_t
-riscv_get_next_instruction(const riscv_t* riscv)
-{
-    uint8_t instruction_bytes[4] = {0};
-    for (int i = 0; i < 4; i++) {
-        const uint8_t current_permission = riscv->mmu->permissions[riscv->registers[RISC_V_REG_PC] + i];
-        if ((current_permission & MMU_PERM_EXEC) == 0) {
-            ginger_log(ERROR, "No exec perm set on address: 0x%x\n", riscv->registers[RISC_V_REG_PC] + i);
-            abort();
-        }
-        instruction_bytes[i] = riscv->mmu->memory[riscv->registers[RISC_V_REG_PC] + i];
-    }
-    return byte_arr_to_u64(instruction_bytes, 4, LSB);
-}
-
-void
+static void
 riscv_set_reg(riscv_t* riscv, const uint8_t reg, const uint64_t value)
 {
     ginger_log(DEBUG, "Setting register %s to 0x%lx\n", riscv_reg_to_str(reg), value);
@@ -1600,6 +1551,38 @@ riscv_execute_branch_instruction(riscv_t* riscv, const uint32_t instruction)
 /*                            Emulator functions                              */
 /* ========================================================================== */
 
+static uint32_t
+riscv_get_next_instruction(const riscv_t* riscv)
+{
+    uint8_t instruction_bytes[4] = {0};
+    for (int i = 0; i < 4; i++) {
+        const uint8_t current_permission = riscv->mmu->permissions[riscv->registers[RISC_V_REG_PC] + i];
+        if ((current_permission & MMU_PERM_EXEC) == 0) {
+            ginger_log(ERROR, "No exec perm set on address: 0x%x\n", riscv->registers[RISC_V_REG_PC] + i);
+            abort();
+        }
+        instruction_bytes[i] = riscv->mmu->memory[riscv->registers[RISC_V_REG_PC] + i];
+    }
+    return byte_arr_to_u64(instruction_bytes, 4, LSB);
+}
+
+static uint8_t
+riscv_get_opcode(const uint32_t instruction)
+{
+    return instruction & 0b1111111;
+}
+
+static bool
+riscv_validate_opcode(riscv_t* riscv, const uint8_t opcode)
+{
+    if (riscv->instructions[opcode] != 0) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 // Execute the instruction which the pc is pointing to.
 static void
 riscv_execute_next_instruction(riscv_t* riscv)
@@ -1665,33 +1648,6 @@ riscv_reset(riscv_t* dst_riscv, const riscv_t* src_riscv)
     dst_riscv->new_coverage = false;
 }
 
-static void
-riscv_report_exit_reason(emu_stats_t* stats, enum_emu_exit_reasons_t exit_reason)
-{
-    switch(exit_reason) {
-    case EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED:
-        emu_stats_inc(stats, EMU_COUNTERS_EXIT_REASON_SYSCALL_NOT_SUPPORTED);
-        break;
-    case EMU_EXIT_REASON_FSTAT_BAD_FD:
-        emu_stats_inc(stats, EMU_COUNTERS_EXIT_FSTAT_BAD_FD);
-        break;
-    case EMU_EXIT_REASON_SEGFAULT_READ:
-        emu_stats_inc(stats, EMU_COUNTERS_EXIT_SEGFAULT_READ);
-        break;
-    case EMU_EXIT_REASON_SEGFAULT_WRITE:
-        emu_stats_inc(stats, EMU_COUNTERS_EXIT_SEGFAULT_WRITE);
-        break;
-    case EMU_EXIT_REASON_INVALID_OPCODE:
-        emu_stats_inc(stats, EMU_COUNTERS_EXIT_INVALID_OPCODE);
-        break;
-    case EMU_EXIT_REASON_GRACEFUL:
-        emu_stats_inc(stats, EMU_COUNTERS_EXIT_GRACEFUL);
-        break;
-    case EMU_EXIT_REASON_NO_EXIT:
-        break;
-    }
-}
-
 // Run an emulator until it exits or crashes.
 static enum_emu_exit_reasons_t
 riscv_run(riscv_t* riscv, emu_stats_t* stats)
@@ -1702,7 +1658,7 @@ riscv_run(riscv_t* riscv, emu_stats_t* stats)
         emu_stats_inc(stats, EMU_COUNTERS_EXECUTED_INSTRUCTIONS);
     }
     // Report why emulator exited.
-    riscv_report_exit_reason(stats, riscv->exit_reason);
+    emu_stats_report_exit_reason(stats, riscv->exit_reason);
     return riscv->exit_reason;
 }
 
@@ -1715,7 +1671,7 @@ riscv_run_until(riscv_t* riscv, emu_stats_t* stats, const uint64_t break_adr)
     }
     // If we exited, crashed or encountered unknown behavior, report it.
     if (riscv->exit_reason == EMU_EXIT_REASON_NO_EXIT) {
-        riscv_report_exit_reason(stats, riscv->exit_reason);
+        emu_stats_report_exit_reason(stats, riscv->exit_reason);
     }
     return riscv->exit_reason;
 }
@@ -1730,11 +1686,9 @@ riscv_fork(const riscv_t* riscv)
         abort();
     }
 
-    // Copy register state.
-    memcpy(&forked->registers, &riscv->registers, sizeof(forked->registers));
-
-    // Copy memory and permission state.
-    memcpy(forked->mmu->memory, riscv->mmu->memory, forked->mmu->memory_size);
+    // Copy emulator state.
+    memcpy(forked->registers,        riscv->registers,        sizeof(forked->registers));
+    memcpy(forked->mmu->memory,      riscv->mmu->memory,      forked->mmu->memory_size);
     memcpy(forked->mmu->permissions, riscv->mmu->permissions, forked->mmu->memory_size);
 
     // Set the current allocation address.
@@ -1743,8 +1697,6 @@ riscv_fork(const riscv_t* riscv)
     return forked;
 }
 
-// Free all the internal data of the risc v emulator. The `riscv_t` struct
-// itself is freed by calling `generic_destroy()`.
 void
 riscv_destroy(riscv_t* riscv)
 {
