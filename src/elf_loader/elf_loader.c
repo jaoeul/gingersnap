@@ -193,7 +193,7 @@ elf_print(const elf_t* elf)
 
     char program_header_offset_str[64] = {0};
     sprintf(program_header_offset_str, "%lu", elf->program_header_offset);
-    elf_print_append(buf, row_length, "| Program headers: ", program_header_offset_str);
+    elf_print_append(buf, row_length, "| Program header offset: ", program_header_offset_str);
 
     char program_header_size_str[64] = {0};
     sprintf(program_header_size_str, "%lu", elf->program_header_size);
