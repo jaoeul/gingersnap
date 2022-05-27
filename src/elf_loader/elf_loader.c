@@ -8,20 +8,22 @@
 #include "../utils/endianess.h"
 
 static enum_elf_type_t
-parse_type(uint8_t* elf_bytes)
+parse_type(uint8_t* elf_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess)
 {
-    const uint8_t type = elf_bytes[ELF_HEADER_FIELD_TYPE];
-    bool valid_type = false;
+    bool valid = false;
+    enum_elf_type_t type = byte_arr_to_u64(elf_bytes + ELF_HEADER_FIELD_TYPE, 2, endianess);
 
     for (int i = ELF_TYPE_NONE; i < ELF_TYPE_HIPROC; i++) {
-        if (type == i) {
-            valid_type = true;
+        if (i == type) {
+            valid = true;
         }
     }
-    if (!valid_type) {
-        printf("Invalid elf type!\n");
+
+    if (!valid) {
+        printf("Could not parse elf program type!\n");
         abort();
     }
+
     return type;
 }
 
@@ -177,32 +179,36 @@ void
 elf_print(const elf_t* elf)
 {
     char buf[1024]  = {0};
-    size_t row_size = 46;
+    strcat(buf, "+============================== ELF ============================+\n");
 
-    strcat(buf, "+==================== ELF ====================+\n");
-    elf_print_append(buf, row_size, "| Path: ", elf->path);
-    elf_print_append(buf, row_size, "| Type: ", elf_type_to_str(elf->type));
-    elf_print_append(buf, row_size, "| Bitsize: ", elf->bitsize == ENUM_BITSIZE_32 ? "32" : "64");
-    elf_print_append(buf, row_size, "| Endianess: ", elf->endianess == ENUM_ENDIANESS_LSB ? "LSB" : "MSB");
+    size_t row_length = strlen(buf) - 2;
+
+    elf_print_append(buf, row_length, "| Path: ", elf->path);
+    elf_print_append(buf, row_length, "| Type: ", elf_type_to_str(elf->type));
+    elf_print_append(buf, row_length, "| Bitsize: ", elf->bitsize == ENUM_BITSIZE_32 ? "32" : "64");
+    elf_print_append(buf, row_length, "| Endianess: ", elf->endianess == ENUM_ENDIANESS_LSB ? "LSB" : "MSB");
 
     char entry_str[64] = {0};
     sprintf(entry_str, "%lx", elf->entry_point);
-    elf_print_append(buf, row_size, "| Entry point: 0x", entry_str);
+    elf_print_append(buf, row_length, "| Entry point: 0x", entry_str);
 
     char nb_program_headers_str[64] = {0};
     sprintf(nb_program_headers_str, "%lu", elf->nb_program_headers);
-    elf_print_append(buf, row_size, "| Program headers: ", nb_program_headers_str);
+    elf_print_append(buf, row_length, "| Program headers: ", nb_program_headers_str);
 
     char program_header_offset_str[64] = {0};
     sprintf(program_header_offset_str, "%lu", elf->program_header_offset);
-    elf_print_append(buf, row_size, "| Program headers: ", program_header_offset_str);
+    elf_print_append(buf, row_length, "| Program headers: ", program_header_offset_str);
 
     char program_header_size_str[64] = {0};
     sprintf(program_header_size_str, "%lu", elf->program_header_size);
-    elf_print_append(buf, row_size, "| Program header size: ", program_header_size_str);
+    elf_print_append(buf, row_length, "| Program header size: ", program_header_size_str);
 
-    strcat(buf, "+---------------------------------------------+\n");
-
+    strcat(buf, "+");
+    for (size_t i = 0; i < row_length - 1; i++) {
+        strcat(buf, "-");
+    }
+    strcat(buf, "+\n");
     printf("%s", buf);
 }
 
@@ -229,9 +235,9 @@ elf_create(char* path)
 	fclose(file_pointer);
 
     elf->path                  = path;
-    elf->type                  = parse_type(elf->data);
 	elf->bitsize               = parse_bitsize(elf->data);
 	elf->endianess             = parse_endianess(elf->data);
+    elf->type                  = parse_type(elf->data, elf->bitsize, elf->endianess);
 	elf->entry_point           = parse_entry_point(elf->data, elf->bitsize, elf->endianess);
 	elf->nb_program_headers    = parse_num_program_headers(elf->data, elf->bitsize, elf->endianess);
 	elf->program_header_offset = parse_program_header_offset(elf->data, elf->bitsize, elf->endianess);
