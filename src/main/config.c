@@ -58,7 +58,7 @@ global_config_set_arch(char* arch)
     if (strcmp(arch, "rv64i") == 0) {
         global_config.arch = ENUM_SUPPORTED_ARCHS_RISCV64I_LSB;
     }
-    else if (strcmp(arch, "mips64") == 0) {
+    else if (strcmp(arch, "mips64msb") == 0) {
         global_config.arch = ENUM_SUPPORTED_ARCHS_MIPS64_MSB;
     }
     else {
