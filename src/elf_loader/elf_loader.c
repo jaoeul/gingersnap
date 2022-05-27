@@ -118,21 +118,6 @@ parse_program_header_size(uint8_t* elf_bytes, enum_bitsize_t bitsize, enum_endia
 void
 parse_program_headers(elf_t* elf)
 {
-    uint64_t program_header_base = elf->program_header_offset;
-    for (uint64_t i = 0; i < elf->nb_program_headers; i++) {
-        uint64_t curr_prog_hdr_offset = program_header_base + (elf->program_header_size * i);
-
-        program_header_t program_header = {
-            .offset           = program_header_parse_offset(&elf->data[curr_prog_hdr_offset], elf->bitsize, elf->endianess),
-            .virtual_address  = program_header_parse_virtual_address(&elf->data[curr_prog_hdr_offset], elf->bitsize, elf->endianess),
-            .physical_address = program_header_parse_physical_address(&elf->data[curr_prog_hdr_offset], elf->bitsize, elf->endianess),
-            .memory_size      = program_header_parse_memory_size(&elf->data[curr_prog_hdr_offset], elf->bitsize, elf->endianess),
-            .file_size        = program_header_parse_file_size(&elf->data[curr_prog_hdr_offset], elf->bitsize, elf->endianess),
-            .align            = program_header_parse_align(&elf->data[curr_prog_hdr_offset], elf->bitsize, elf->endianess),
-            .flags            = program_header_parse_flags(&elf->data[curr_prog_hdr_offset], elf->bitsize, elf->endianess),
-        };
-        elf->program_headers[i] = program_header;
-    }
 }
 
 static char*
@@ -242,12 +227,15 @@ elf_create(char* path)
 	elf->nb_program_headers    = parse_num_program_headers(elf->data, elf->bitsize, elf->endianess);
 	elf->program_header_offset = parse_program_header_offset(elf->data, elf->bitsize, elf->endianess);
 	elf->program_header_size   = parse_program_header_size(elf->data, elf->bitsize, elf->endianess);
+    elf->program_headers       = calloc(elf->nb_program_headers, sizeof(program_header_t));
 
-    elf->program_headers = calloc(elf->nb_program_headers, sizeof(program_header_t));
-	parse_program_headers(elf);
+    uint64_t program_header_base = elf->program_header_offset;
+    for (uint64_t i = 0; i < elf->nb_program_headers; i++) {
+        uint64_t curr_prog_hdr_offset = program_header_base + (elf->program_header_size * i);
+        elf->program_headers[i] = program_header_create(&elf->data[curr_prog_hdr_offset], elf->bitsize, elf->endianess);
+    }
 
     elf_print(elf);
-
 	return elf;
 }
 

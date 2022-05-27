@@ -52,7 +52,7 @@ typedef struct{
 	enum_endianess_t endianess;
 	uint64_t entry_point;
 	uint64_t nb_program_headers;
-	program_header_t* program_headers;
+	program_header_t** program_headers;
 	uint64_t program_header_offset;
 	uint8_t* data;
 	uint64_t data_length;

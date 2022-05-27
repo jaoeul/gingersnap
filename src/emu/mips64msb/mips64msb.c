@@ -71,34 +71,38 @@ mips64msb_load_elf(mips64msb_t* mips, const target_t* target)
 
     // Load the loadable program headers into guest memory.
     for (int i = 0; i < target->elf->nb_program_headers; i++) {
-        const program_header_t curr_prg_hdr = target->elf->program_headers[i];
+        const program_header_t* curr_prg_hdr = target->elf->program_headers[i];
+
+        if (curr_prg_hdr->type != PROGRAM_HEADER_TYPE_LOAD) {
+            continue;
+        }
 
         // Sanity check.
-        if ((curr_prg_hdr.virtual_address + curr_prg_hdr.file_size) > (mips->mmu->memory_size - 1)) {
+        if ((curr_prg_hdr->virtual_address + curr_prg_hdr->file_size) > (mips->mmu->memory_size - 1)) {
             ginger_log(ERROR, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
                     "would cause write outside of emulator memory!\n", __func__,
-                    curr_prg_hdr.file_size, curr_prg_hdr.virtual_address);
+                    curr_prg_hdr->file_size, curr_prg_hdr->virtual_address);
             abort();
         }
-        mips->mmu->set_permissions(mips->mmu, curr_prg_hdr.virtual_address, MMU_PERM_WRITE, curr_prg_hdr.memory_size);
-        mips->mmu->write(mips->mmu, curr_prg_hdr.virtual_address, &target->elf->data[curr_prg_hdr.offset], curr_prg_hdr.file_size);
+        mips->mmu->set_permissions(mips->mmu, curr_prg_hdr->virtual_address, MMU_PERM_WRITE, curr_prg_hdr->memory_size);
+        mips->mmu->write(mips->mmu, curr_prg_hdr->virtual_address, &target->elf->data[curr_prg_hdr->offset], curr_prg_hdr->file_size);
 
         // Fill padding with zeros.
-        const int padding_len = curr_prg_hdr.memory_size - curr_prg_hdr.file_size;
+        const int padding_len = curr_prg_hdr->memory_size - curr_prg_hdr->file_size;
         if (padding_len > 0) {
             uint8_t padding[padding_len];
             memset(padding, 0, padding_len);
-            mips->mmu->write(mips->mmu, curr_prg_hdr.virtual_address + curr_prg_hdr.file_size, padding, padding_len);
+            mips->mmu->write(mips->mmu, curr_prg_hdr->virtual_address + curr_prg_hdr->file_size, padding, padding_len);
         }
 
-        mips->mmu->set_permissions(mips->mmu, curr_prg_hdr.virtual_address, curr_prg_hdr.flags, curr_prg_hdr.memory_size);
-        const uint64_t program_hdr_end = ((curr_prg_hdr.virtual_address + curr_prg_hdr.memory_size) + 0xfff) & ~0xfff;
+        mips->mmu->set_permissions(mips->mmu, curr_prg_hdr->virtual_address, curr_prg_hdr->flags, curr_prg_hdr->memory_size);
+        const uint64_t program_hdr_end = ((curr_prg_hdr->virtual_address + curr_prg_hdr->memory_size) + 0xfff) & ~0xfff;
         if (program_hdr_end > mips->mmu->curr_alloc_adr) {
             mips->mmu->curr_alloc_adr = program_hdr_end;
         }
         ginger_log(INFO, "Wrote program header %lu of size 0x%lx to guest address 0x%lx with perms ", i,
-                   curr_prg_hdr.file_size, curr_prg_hdr.virtual_address);
-        print_permissions(curr_prg_hdr.flags);
+                   curr_prg_hdr->file_size, curr_prg_hdr->virtual_address);
+        print_permissions(curr_prg_hdr->flags);
         printf("\n");
     }
 }
@@ -226,6 +230,7 @@ mips64msb_execute_next_instruction(mips64msb_t* mips)
 
     if (!mips64msb_validate_opcode(mips, opcode)) {
         ginger_log(ERROR, "Invalid opcode\t0x%x\n", opcode);
+        abort();
         mips->exit_reason = EMU_EXIT_REASON_INVALID_OPCODE;
         return;
     }

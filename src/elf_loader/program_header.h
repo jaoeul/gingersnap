@@ -4,19 +4,20 @@
 #include "../utils/endianess.h"
 
 typedef enum {
-    PROGRAM_HEADER_TYPE_NULL    = 0x00000000, // Program header table entry unused.
-    PROGRAM_HEADER_TYPE_LOAD    = 0x00000001, // Loadable segment.
-    PROGRAM_HEADER_TYPE_DYNAMIC = 0x00000002, // Dynamic linking information.
-    PROGRAM_HEADER_TYPE_INTERP  = 0x00000003, // Interpreter information.
-    PROGRAM_HEADER_TYPE_NOTE    = 0x00000004, // Auxiliary information.
-    PROGRAM_HEADER_TYPE_SHLIB   = 0x00000005, // Reserved.
-    PROGRAM_HEADER_TYPE_PHDR    = 0x00000006, // Segment containing program header table itself.
-    PROGRAM_HEADER_TYPE_TLS     = 0x00000007, // Thread-Local Storage template.
-    PROGRAM_HEADER_TYPE_LOOS    = 0x60000000, // Reserved inclusive range. Operating system specific.
-    PROGRAM_HEADER_TYPE_HIOS    = 0x6FFFFFFF, // Same as above.
-    PROGRAM_HEADER_TYPE_LOPROC  = 0x70000000, // Reserved inclusive range. Processor specific.
-    PROGRAM_HEADER_TYPE_HIPROC  = 0x7FFFFFFF, // Same as above.
-} enum_program_pt_t;
+    PROGRAM_HEADER_TYPE_UNKNOWN = -0x00000001, // Unknown program header type.
+    PROGRAM_HEADER_TYPE_NULL    = 0x00000000,  // Program header table entry unused.
+    PROGRAM_HEADER_TYPE_LOAD    = 0x00000001,  // Loadable segment.
+    PROGRAM_HEADER_TYPE_DYNAMIC = 0x00000002,  // Dynamic linking information.
+    PROGRAM_HEADER_TYPE_INTERP  = 0x00000003,  // Interpreter information.
+    PROGRAM_HEADER_TYPE_NOTE    = 0x00000004,  // Auxiliary information.
+    PROGRAM_HEADER_TYPE_SHLIB   = 0x00000005,  // Reserved.
+    PROGRAM_HEADER_TYPE_PHDR    = 0x00000006,  // Segment containing program header table itself.
+    PROGRAM_HEADER_TYPE_TLS     = 0x00000007,  // Thread-Local Storage template.
+    PROGRAM_HEADER_TYPE_LOOS    = 0x60000000,  // Reserved inclusive range. Operating system specific.
+    PROGRAM_HEADER_TYPE_HIOS    = 0x6FFFFFFF,  // Same as above.
+    PROGRAM_HEADER_TYPE_LOPROC  = 0x70000000,  // Reserved inclusive range. Processor specific.
+    PROGRAM_HEADER_TYPE_HIPROC  = 0x7FFFFFFF,  // Same as above.
+} enum_program_header_type_t;
 
 typedef enum {
     PROGRAM_HEADER_FIELD_TYPE      = 0x00,
@@ -37,6 +38,7 @@ typedef enum {
 } enum_program_header_field_t;
 
 typedef struct {
+    enum_program_header_type_t type;
 	uint64_t offset;
 	uint64_t virtual_address;
 	uint64_t physical_address;
@@ -46,25 +48,10 @@ typedef struct {
 	uint64_t flags;
 } program_header_t;
 
-uint64_t
-program_header_parse_offset(uint8_t* prog_hdr_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess);
+program_header_t*
+program_header_create(uint8_t* program_header_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess);
 
-uint64_t
-program_header_parse_virtual_address(uint8_t* prog_hdr_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess);
-
-uint64_t
-program_header_parse_physical_address(uint8_t* prog_hdr_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess);
-
-uint64_t
-program_header_parse_file_size(uint8_t* prog_hdr_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess);
-
-uint64_t
-program_header_parse_memory_size(uint8_t* prog_hdr_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess);
-
-uint64_t
-program_header_parse_align(uint8_t* prog_hdr_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess);
-
-uint64_t
-program_header_parse_flags(uint8_t* prog_hdr_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess);
+void
+program_header_destroy(program_header_t* program_header);
 
 #endif
