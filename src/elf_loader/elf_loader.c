@@ -10,21 +10,31 @@
 static enum_elf_type_t
 parse_type(uint8_t* elf_bytes, enum_bitsize_t bitsize, enum_endianess_t endianess)
 {
-    bool valid = false;
     enum_elf_type_t type = byte_arr_to_u64(elf_bytes + ELF_HEADER_FIELD_TYPE, 2, endianess);
-
-    for (int i = ELF_TYPE_NONE; i < ELF_TYPE_HIPROC; i++) {
-        if (i == type) {
-            valid = true;
-        }
-    }
-
-    if (!valid) {
-        printf("Could not parse elf program type!\n");
+    switch (type)
+    {
+    case ELF_TYPE_NONE:
+        return ELF_TYPE_NONE;
+    case ELF_TYPE_REL:
+        return ELF_TYPE_REL;
+    case ELF_TYPE_EXEC:
+        return ELF_TYPE_EXEC;
+    case ELF_TYPE_DYN:
+        return ELF_TYPE_DYN;
+    case ELF_TYPE_CORE:
+        return ELF_TYPE_CORE;
+    case ELF_TYPE_LOOS:
+        return ELF_TYPE_LOOS;
+    case ELF_TYPE_HIOS:
+        return ELF_TYPE_HIOS;
+    case ELF_TYPE_LOPROC:
+        return ELF_TYPE_LOPROC;
+    case ELF_TYPE_HIPROC:
+        return ELF_TYPE_HIPROC;
+    default:
+        printf("Could not parse ELF type!\n");
         abort();
     }
-
-    return type;
 }
 
 static enum_bitsize_t
