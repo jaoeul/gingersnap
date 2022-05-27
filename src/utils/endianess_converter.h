@@ -2,12 +2,23 @@
 #define ENDIANESS_CONVERTER_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 typedef enum {
     LSB = true,
     MSB = false,
 } ENDIANESS;
+
+typedef enum {
+	ENUM_ENDIANESS_LSB = 1,
+	ENUM_ENDIANESS_MSB,
+} enum_endianess_t;
+
+typedef enum {
+	ENUM_BITSIZE_32 = 1,
+	ENUM_BITSIZE_64,
+} enum_bitsize_t;
 
 uint64_t
 byte_arr_to_u64(uint8_t* bytes, size_t nb, ENDIANESS endianess);

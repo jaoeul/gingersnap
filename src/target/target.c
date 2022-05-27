@@ -16,7 +16,7 @@ target_create(const int argc, const hstring_t argv[])
     }
 
     // Parse the provided program name as an elf.
-    target->elf = elf_parse(target->argv[0].string);
+    target->elf = elf_create(target->argv[0].string);
 
     return target;
 }

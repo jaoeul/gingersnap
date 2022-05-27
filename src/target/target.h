@@ -1,7 +1,7 @@
 #ifndef TARGET_H
 #define TARGET_H
 
-#include "../utils/elf_loader.h"
+#include "../elf_loader/elf_loader.h"
 #include "../utils/hstring.h"
 
 typedef struct {

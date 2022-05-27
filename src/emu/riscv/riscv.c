@@ -233,21 +233,21 @@ riscv_stack_push(riscv_t* riscv, uint8_t bytes[], size_t nb_bytes)
 static void
 riscv_load_elf(riscv_t* riscv, const target_t* target)
 {
-    if (target->elf->length > riscv->mmu->memory_size) {
+    if (target->elf->data_length > riscv->mmu->memory_size) {
         abort();
     }
     // Set the execution entry point.
     riscv_set_pc(riscv, target->elf->entry_point);
 
     // Load the loadable program headers into guest memory.
-    for (int i = 0; i < target->elf->nb_prg_hdrs; i++) {
-        const program_header_t* curr_prg_hdr = &target->elf->prg_hdrs[i];
+    for (int i = 0; i < target->elf->nb_program_headers; i++) {
+        const program_header_t curr_prg_hdr = target->elf->program_headers[i];
 
         // Sanity check.
-        if ((curr_prg_hdr->virtual_address + curr_prg_hdr->file_size) > (riscv->mmu->memory_size - 1)) {
+        if ((curr_prg_hdr.virtual_address + curr_prg_hdr.file_size) > (riscv->mmu->memory_size - 1)) {
             ginger_log(ERROR, "[%s] Error! Write of 0x%lx bytes to address 0x%lx "
                     "would cause write outside of emulator memory!\n", __func__,
-                    curr_prg_hdr->file_size, curr_prg_hdr->virtual_address);
+                    curr_prg_hdr.file_size, curr_prg_hdr.virtual_address);
             abort();
         }
 
@@ -259,35 +259,35 @@ riscv_load_elf(riscv_t* riscv, const target_t* target)
         // header will be loaded to writeable. We have to do this since the
         // memory we are about to write to is not yet allocated, and does not
         // have WRITE permissions set.
-        riscv->mmu->set_permissions(riscv->mmu, curr_prg_hdr->virtual_address, MMU_PERM_WRITE, curr_prg_hdr->memory_size);
+        riscv->mmu->set_permissions(riscv->mmu, curr_prg_hdr.virtual_address, MMU_PERM_WRITE, curr_prg_hdr.memory_size);
 
         // Load the executable segments of the binary into the emulator
         // NOTE: This write dirties the executable memory. Might want to make it
         //       clean before starting the emulator
-        riscv->mmu->write(riscv->mmu, curr_prg_hdr->virtual_address, &target->elf->data[curr_prg_hdr->offset], curr_prg_hdr->file_size);
+        riscv->mmu->write(riscv->mmu, curr_prg_hdr.virtual_address, &target->elf->data[curr_prg_hdr.offset], curr_prg_hdr.file_size);
 
         // Fill padding with zeros.
-        const int padding_len = curr_prg_hdr->memory_size - curr_prg_hdr->file_size;
+        const int padding_len = curr_prg_hdr.memory_size - curr_prg_hdr.file_size;
         if (padding_len > 0) {
             uint8_t padding[padding_len];
             memset(padding, 0, padding_len);
-            riscv->mmu->write(riscv->mmu, curr_prg_hdr->virtual_address + curr_prg_hdr->file_size, padding, padding_len);
+            riscv->mmu->write(riscv->mmu, curr_prg_hdr.virtual_address + curr_prg_hdr.file_size, padding, padding_len);
         }
 
         // Set correct perms of loaded program header.
-        riscv->mmu->set_permissions(riscv->mmu, curr_prg_hdr->virtual_address, curr_prg_hdr->flags, curr_prg_hdr->memory_size);
+        riscv->mmu->set_permissions(riscv->mmu, curr_prg_hdr.virtual_address, curr_prg_hdr.flags, curr_prg_hdr.memory_size);
 
         // Updating the `curr_alloc_adr` here makes sure that the stack will never overwrite
         // the program headers, as long as it does not exceed `riscv->stack_size`.
-        const uint64_t program_hdr_end = ((curr_prg_hdr->virtual_address + curr_prg_hdr->memory_size) + 0xfff) & ~0xfff;
+        const uint64_t program_hdr_end = ((curr_prg_hdr.virtual_address + curr_prg_hdr.memory_size) + 0xfff) & ~0xfff;
         if (program_hdr_end > riscv->mmu->curr_alloc_adr) {
             riscv->mmu->curr_alloc_adr = program_hdr_end;
         }
 
         // TODO: Make permissions print out part of ginger_log().
         ginger_log(INFO, "Wrote program header %lu of size 0x%lx to guest address 0x%lx with perms ", i,
-                   curr_prg_hdr->file_size, curr_prg_hdr->virtual_address);
-        print_permissions(curr_prg_hdr->flags);
+                   curr_prg_hdr.file_size, curr_prg_hdr.virtual_address);
+        print_permissions(curr_prg_hdr.flags);
         printf("\n");
     }
 }

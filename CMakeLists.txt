@@ -6,6 +6,8 @@ add_executable(gingersnap
     src/corpus/corpus.c
     src/corpus/coverage.c
     src/debug_cli/debug_cli.c
+    src/elf_loader/elf_loader.c
+    src/elf_loader/program_header.c
     src/emu/emu_generic.c
     src/emu/emu_stats.c
     src/emu/mips64msb/mips64msb.c
@@ -19,7 +21,6 @@ add_executable(gingersnap
     src/target/target.c
     src/utils/cli.c
     src/utils/dir.c
-    src/utils/elf_loader.c
     src/utils/endianess_converter.c
     src/utils/hash.c
     src/utils/hstring.c
