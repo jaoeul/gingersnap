@@ -6,7 +6,7 @@
 #include "../utils/cli.h"
 
 typedef struct {
-    void*                  snapshot;          // The starting point of the fuzzcases.
+    emu_t*                 snapshot;          // The starting point of the fuzzcases.
     enum_supported_archs_t arch;              // The arch to cast the snapshot to.
     uint64_t               fuzz_buf_adr;      // Guest address where the fuzzcases will be injected.
     uint64_t               fuzz_buf_size;     // Size of the buffer which fuzzcases will be injected to.

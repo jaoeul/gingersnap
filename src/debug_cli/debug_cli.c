@@ -359,39 +359,35 @@ static void
 debug_cli_handle_options(debug_cli_result_t* res)
 {
     if (res->fuzz_buf_adr_set) {
-        printf("\nTarget buffer address: 0x%lx", res->fuzz_buf_adr);
+        printf("\nTarget buffer set: 0x%lx", res->fuzz_buf_adr);
     }
     else {
-        printf("\nFuzz input injection address not set.");
+        printf("\nTarget buffer NOT set.");
     }
 
     if (res->fuzz_buf_size_set) {
-        printf("\nTarget buffer length:  %lu", res->fuzz_buf_size);
+        printf("\nTarget buffer length set:  %lu", res->fuzz_buf_size);
     }
     else {
-        printf("\nFuzz input injection buffer size not set.");
+        printf("\nTarget buffer length NOT set.");
     }
 
     if (res->snapshot_set) {
-        printf("\nClean emulator snapshot:");
-
-        switch (global_config_get_arch()) {
-            case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
-                {
-                emu_t* snapshot = res->snapshot;
-                snapshot->print_regs(res->snapshot);
-                break;
-                }
-            case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
-                ginger_log(ERROR, "MIPS not yet implemented!\n");
-                break;
-            default:
-                ginger_log(ERROR, "Unrecognized arch!\n");
-                abort();
+        switch (global_config_get_arch())
+        {
+        case ENUM_SUPPORTED_ARCHS_RISCV64I_LSB:
+            printf("\nSnapshot set. PC: 0x%lx\n", res->snapshot->riscv->get_pc(res->snapshot->riscv));
+            break;
+        case ENUM_SUPPORTED_ARCHS_MIPS64_MSB:
+            printf("\nSnapshot set. PC: 0x%lx\n", res->snapshot->mips64msb->get_pc(res->snapshot->mips64msb));
+            break;
+        default:
+            printf("\nUnrecognized arch. Abort!\n");
+            abort();
         }
     }
     else {
-        printf("\nNo snapshot taken.");
+        printf("\nSnapshot NOT set.");
     }
     printf("\n");
 }
