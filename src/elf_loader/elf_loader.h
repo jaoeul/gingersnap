@@ -20,7 +20,7 @@ typedef enum {
 typedef enum {
     ELF_HEADER_FIELD_IDENT        = 0x00,
     ELF_HEADER_FIELD_EICLASS      = 0x04,
-    ELF_HEADER_FIELD_EIDATA       = 0x04,
+    ELF_HEADER_FIELD_EIDATA       = 0x05,
     ELF_HEADER_FIELD_TYPE         = 0x10,
     ELF_HEADER_FIELD_MACHINE      = 0x12,
     ELF_HEADER_FIELD_VERSION      = 0x14,
