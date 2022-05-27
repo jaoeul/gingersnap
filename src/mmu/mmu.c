@@ -29,7 +29,7 @@
 
 #include "mmu.h"
 
-#include "../utils/endianess_converter.h"
+#include "../utils/endianess.h"
 #include "../utils/logger.h"
 #include "../utils/print_utils.h"
 #include "../utils/vector.h"
@@ -48,7 +48,7 @@ mmu_print_mem(mmu_t* mmu, size_t start_adr, const size_t range,
     printf("\n");
     for (size_t i = start_adr; i < start_adr + (range * data_size); i += data_size) {
         printf("0x%lx\t", i);
-        printf("Value: 0x%.*lx\t", data_size * 2, byte_arr_to_u64(&mmu->memory[i], data_size, LSB));
+        printf("Value: 0x%.*lx\t", data_size * 2, byte_arr_to_u64(&mmu->memory[i], data_size, ENUM_ENDIANESS_LSB));
         printf("Perm: ");
         print_permissions(mmu->permissions[i]);
         printf("\t");
@@ -288,7 +288,7 @@ mmu_search(mmu_t* mmu, const uint64_t needle, const char size_letter)
     else { ginger_log(ERROR, "Invalid size letter!\n"); return false; }
 
     for (size_t i = 0; i < mmu->memory_size; i += data_size) {
-        uint64_t curr_value = byte_arr_to_u64(&mmu->memory[i], data_size, LSB);
+        uint64_t curr_value = byte_arr_to_u64(&mmu->memory[i], data_size, ENUM_ENDIANESS_LSB);
         if (curr_value == needle) {
             vector_append(hits, &i);
         }

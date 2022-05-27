@@ -1,7 +1,7 @@
 #ifndef PROGRAM_HEADER_H
 #define PROGRAM_HEADER_H
 
-#include "../utils/endianess_converter.h"
+#include "../utils/endianess.h"
 
 typedef enum {
     PROGRAM_HEADER_TYPE_NULL    = 0x00000000, // Program header table entry unused.

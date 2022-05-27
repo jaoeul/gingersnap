@@ -5,7 +5,7 @@
 #include "elf_loader.h"
 #include "program_header.h"
 
-#include "../utils/endianess_converter.h"
+#include "../utils/endianess.h"
 
 static enum_elf_type_t
 parse_type(uint8_t* elf_bytes)

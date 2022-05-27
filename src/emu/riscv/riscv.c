@@ -13,7 +13,7 @@
 
 #include "../../corpus/coverage.h"
 #include "../../corpus/corpus.h"
-#include "../../utils/endianess_converter.h"
+#include "../../utils/endianess.h"
 #include "../../utils/logger.h"
 #include "../../utils/vector.h"
 
@@ -345,13 +345,13 @@ riscv_build_stack(riscv_t* riscv, const target_t* target)
     // Push the guest addresses of the program arguments onto the stack.
     for (int i = target->argc - 1; i >= 0; i--) {
         uint8_t arg_buf[8] = {0};
-        u64_to_byte_arr(guest_arg_addresses[i], arg_buf, LSB);
+        u64_to_byte_arr(guest_arg_addresses[i], arg_buf, ENUM_ENDIANESS_LSB);
         riscv_stack_push(riscv, arg_buf, 8); // Push the argument.
     }
 
     // Push argc onto the stack.
     uint8_t argc_buf[8] = {0};
-    u64_to_byte_arr(target->argc, argc_buf, LSB);
+    u64_to_byte_arr(target->argc, argc_buf, ENUM_ENDIANESS_LSB);
     riscv_stack_push(riscv, argc_buf, 8);
 }
 
@@ -496,7 +496,7 @@ riscv_lb(riscv_t* riscv, const uint32_t instruction)
         return;
     }
 
-    int32_t loaded_value = (int32_t)byte_arr_to_u64(loaded_bytes, 1, LSB);
+    int32_t loaded_value = (int32_t)byte_arr_to_u64(loaded_bytes, 1, ENUM_ENDIANESS_LSB);
 
     riscv_set_rd(riscv, instruction, loaded_value);
     riscv_increment_pc(riscv);
@@ -518,7 +518,7 @@ riscv_lh(riscv_t* riscv, const uint32_t instruction)
     }
 
     // Sign-extend.
-    int32_t loaded_value = (int32_t)(uint32_t)byte_arr_to_u64(loaded_bytes, 2, LSB);
+    int32_t loaded_value = (int32_t)(uint32_t)byte_arr_to_u64(loaded_bytes, 2, ENUM_ENDIANESS_LSB);
 
     riscv_set_rd(riscv, instruction, loaded_value);
     riscv_increment_pc(riscv);
@@ -542,7 +542,7 @@ riscv_lw(riscv_t* riscv, const uint32_t instruction)
     }
 
     // Sign extend.
-    int32_t loaded_value = (int32_t)(uint32_t)byte_arr_to_u64(loaded_bytes, 4, LSB);
+    int32_t loaded_value = (int32_t)(uint32_t)byte_arr_to_u64(loaded_bytes, 4, ENUM_ENDIANESS_LSB);
     ginger_log(DEBUG, "Got value %d\n", loaded_value);
 
     riscv_set_rd(riscv, instruction, loaded_value);
@@ -564,7 +564,7 @@ riscv_ld(riscv_t* riscv, const uint32_t instruction)
         return;
     }
 
-    const uint64_t result = byte_arr_to_u64(loaded_bytes, 8, LSB);
+    const uint64_t result = byte_arr_to_u64(loaded_bytes, 8, ENUM_ENDIANESS_LSB);
 
     riscv_set_rd(riscv, instruction, result);
     riscv_increment_pc(riscv);
@@ -585,7 +585,7 @@ riscv_lbu(riscv_t* riscv, const uint32_t instruction)
         return;
     }
 
-    uint32_t loaded_value = (uint32_t)byte_arr_to_u64(loaded_bytes, 1, LSB);
+    uint32_t loaded_value = (uint32_t)byte_arr_to_u64(loaded_bytes, 1, ENUM_ENDIANESS_LSB);
 
     riscv_set_rd(riscv, instruction, loaded_value);
     riscv_increment_pc(riscv);
@@ -607,7 +607,7 @@ riscv_lhu(riscv_t* riscv, const uint32_t instruction)
     }
 
     // Zero-extend to 32 bit.
-    uint32_t loaded_value = (uint32_t)byte_arr_to_u64(loaded_bytes, 2, LSB);
+    uint32_t loaded_value = (uint32_t)byte_arr_to_u64(loaded_bytes, 2, ENUM_ENDIANESS_LSB);
 
     riscv_set_rd(riscv, instruction, loaded_value);
     riscv_increment_pc(riscv);
@@ -629,7 +629,7 @@ riscv_lwu(riscv_t* riscv, const uint32_t instruction)
         return;
     }
 
-    const uint64_t result = (uint64_t)byte_arr_to_u64(loaded_bytes, 4, LSB);
+    const uint64_t result = (uint64_t)byte_arr_to_u64(loaded_bytes, 4, ENUM_ENDIANESS_LSB);
 
     riscv_set_rd(riscv, instruction, result);
     riscv_increment_pc(riscv);
@@ -1301,7 +1301,7 @@ riscv_sh(riscv_t* riscv, const uint32_t instruction)
     // TODO: Update u64_to_byte_arr to be able to handle smaller integers,
     //       removing the need for 8 byte array here.
     uint8_t store_bytes[8] = {0};
-    u64_to_byte_arr(store_value, store_bytes, LSB);
+    u64_to_byte_arr(store_value, store_bytes, ENUM_ENDIANESS_LSB);
 
     // Write 2 bytes into guest memory at target address.
     const uint8_t write_ok = riscv->mmu->write(riscv->mmu, target, store_bytes, 2);
@@ -1327,7 +1327,7 @@ riscv_sw(riscv_t* riscv, const uint32_t instruction)
 
     // TODO: Update u64_to_byte_arr to be able to handle smaller integers,
     //       removing the need for 8 byte array here.
-    u64_to_byte_arr(store_value, store_bytes, LSB);
+    u64_to_byte_arr(store_value, store_bytes, ENUM_ENDIANESS_LSB);
 
     // Write 4 bytes into guest memory at target address.
     const uint8_t write_ok = riscv->mmu->write(riscv->mmu, target, store_bytes, 4);
@@ -1345,7 +1345,7 @@ riscv_sd(riscv_t* riscv, const uint32_t instruction)
     const uint64_t store_value = riscv_get_reg_rs2(riscv, instruction) & 0xffffffffffffffff;
 
     uint8_t store_bytes[8] = {0};
-    u64_to_byte_arr(store_value, store_bytes, LSB);
+    u64_to_byte_arr(store_value, store_bytes, ENUM_ENDIANESS_LSB);
 
     ginger_log(DEBUG, "Executing\tSD 0x%x 0x%lx\n", target, store_value);
 
@@ -1563,7 +1563,7 @@ riscv_get_next_instruction(const riscv_t* riscv)
         }
         instruction_bytes[i] = riscv->mmu->memory[riscv->registers[RISC_V_REG_PC] + i];
     }
-    return byte_arr_to_u64(instruction_bytes, 4, LSB);
+    return byte_arr_to_u64(instruction_bytes, 4, ENUM_ENDIANESS_LSB);
 }
 
 static uint8_t

@@ -8,7 +8,7 @@
 #include "../fuzzer/fuzzer.h"
 #include "../emu/riscv_emu.h"
 #include "../debug_cli/debug_cli.h"
-#include "../utils/endianess_converter.h"
+#include "../utils/endianess.h"
 #include "../utils/logger.h"
 #include "../utils/print_utils.h"
 

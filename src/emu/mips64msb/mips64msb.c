@@ -3,7 +3,7 @@
 
 #include "mips64msb.h"
 
-#include "../../utils/endianess_converter.h"
+#include "../../utils/endianess.h"
 #include "../../utils/logger.h"
 
 /* ========================================================================== */
@@ -156,13 +156,13 @@ mips64msb_build_stack(mips64msb_t* mips, const target_t* target)
     // Push the guest addresses of the program arguments onto the stack.
     for (int i = target->argc - 1; i >= 0; i--) {
         uint8_t arg_buf[8] = {0};
-        u64_to_byte_arr(guest_arg_addresses[i], arg_buf, MSB);
+        u64_to_byte_arr(guest_arg_addresses[i], arg_buf, ENUM_ENDIANESS_MSB);
         mips64msb_stack_push(mips, arg_buf, 8);
     }
 
     // Push argc onto the stack.
     uint8_t argc_buf[8] = {0};
-    u64_to_byte_arr(target->argc, argc_buf, MSB);
+    u64_to_byte_arr(target->argc, argc_buf, ENUM_ENDIANESS_MSB);
     mips64msb_stack_push(mips, argc_buf, 8);
 }
 
@@ -191,7 +191,7 @@ mips64msb_get_next_instruction(mips64msb_t* mips)
         }
         instruction_bytes[i] = mips->mmu->memory[byte_adr];
     }
-    return byte_arr_to_u64(instruction_bytes, 4, MSB);
+    return byte_arr_to_u64(instruction_bytes, 4, ENUM_ENDIANESS_MSB);
 }
 
 static uint8_t

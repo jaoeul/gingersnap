@@ -21,7 +21,7 @@ add_executable(gingersnap
     src/target/target.c
     src/utils/cli.c
     src/utils/dir.c
-    src/utils/endianess_converter.c
+    src/utils/endianess.c
     src/utils/hash.c
     src/utils/hstring.c
     src/utils/logger.c
