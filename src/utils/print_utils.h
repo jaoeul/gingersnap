@@ -12,6 +12,15 @@ enum {
 } ENUM_DATA_SIZE;
 
 void
+u8_binary_print(uint8_t u8);
+
+void
+u16_binary_print(uint16_t u16);
+
+void
+u32_binary_print(uint32_t u32);
+
+void
 u64_binary_print(uint64_t u64);
 
 void

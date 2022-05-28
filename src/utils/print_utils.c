@@ -12,6 +12,51 @@
 #include "print_utils.h"
 
 void
+u8_binary_print(uint8_t u8)
+{
+    uint32_t shift_bit = 1;
+
+    for (uint8_t i = 0; i < 8; i++) {
+        if ((u8 & (shift_bit << (7 - i))) == 0) {
+            printf("0");
+        }
+        else {
+            printf("1");
+        }
+    }
+}
+
+void
+u16_binary_print(uint16_t u16)
+{
+    uint16_t shift_bit = 1;
+
+    for (uint16_t i = 0; i < 16; i++) {
+        if ((u16 & (shift_bit << (15 - i))) == 0) {
+            printf("0");
+        }
+        else {
+            printf("1");
+        }
+    }
+}
+
+void
+u32_binary_print(uint32_t u32)
+{
+    uint32_t shift_bit = 1;
+
+    for (uint32_t i = 0; i < 32; i++) {
+        if ((u32 & (shift_bit << (31 - i))) == 0) {
+            printf("0");
+        }
+        else {
+            printf("1");
+        }
+    }
+}
+
+void
 u64_binary_print(uint64_t u64)
 {
     // Has to be 64 bits, to avoid wrapping when shifting
@@ -25,7 +70,6 @@ u64_binary_print(uint64_t u64)
             printf("1");
         }
     }
-    printf("\n");
 }
 
 void
