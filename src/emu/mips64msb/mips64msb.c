@@ -5,6 +5,81 @@
 
 #include "../../utils/endianess.h"
 #include "../../utils/logger.h"
+#include "../../utils/print_utils.h"
+
+typedef enum {
+    MIPS64MSB_INST_SPECIAL                = 0b000000,
+    MIPS64MSB_INST_REGIMM                 = 0b000001,
+    MIPS64MSB_INST_J                      = 0b000010,
+    MIPS64MSB_INST_JAL                    = 0b000011,
+    MIPS64MSB_INST_BEQ                    = 0b000100,
+    MIPS64MSB_INST_BNE                    = 0b000101,
+    MIPS64MSB_INST_BLEZ_POP06             = 0b000110,
+    MIPS64MSB_INST_BGTZ                   = 0b000111,
+
+    MIPS64MSB_INST_ADDI                   = 0b001000,
+    MIPS64MSB_INST_ADDIU                  = 0b001001,
+    MIPS64MSB_INST_SLTI                   = 0b001010,
+    MIPS64MSB_INST_SLTIU                  = 0b001011,
+    MIPS64MSB_INST_ANDI                   = 0b001100,
+    MIPS64MSB_INST_ORI                    = 0b001101,
+    MIPS64MSB_INST_XORI                   = 0b001110,
+    MIPS64MSB_INST_LUI                    = 0b001111,
+
+    MIPS64MSB_INST_COP0                   = 0b010000,
+    MIPS64MSB_INST_COP1                   = 0b010001,
+    MIPS64MSB_INST_COP2                   = 0b010010,
+    MIPS64MSB_INST_COP1X                  = 0b010011,
+    MIPS64MSB_INST_BEQL                   = 0b010100,
+    MIPS64MSB_INST_BNEL                   = 0b010101,
+    MIPS64MSB_INST_BLEZL_POP26            = 0b010110,
+    MIPS64MSB_INST_BGTZL                  = 0b010111,
+
+    MIPS64MSB_INST_DADDI_POP30            = 0b011000,
+    MIPS64MSB_INST_DADDIU                 = 0b011001,
+    MIPS64MSB_INST_LDL                    = 0b011010,
+    MIPS64MSB_INST_LDR                    = 0b011011,
+    MIPS64MSB_INST_SPECIAL2               = 0b011100,
+    MIPS64MSB_INST_JALX_DAUI              = 0b011101,
+    MIPS64MSB_INST_MSA                    = 0b011110,
+    MIPS64MSB_INST_SPECAIL3               = 0b011111,
+
+    MIPS64MSB_INST_LB                     = 0b100000,
+    MIPS64MSB_INST_LH                     = 0b100001,
+    MIPS64MSB_INST_LWL                    = 0b100010,
+    MIPS64MSB_INST_LW                     = 0b100011,
+    MIPS64MSB_INST_LBU                    = 0b100100,
+    MIPS64MSB_INST_LHU                    = 0b100101,
+    MIPS64MSB_INST_LWR                    = 0b100110,
+    MIPS64MSB_INST_LWU                    = 0b100111,
+
+    MIPS64MSB_INST_SB                     = 0b101000,
+    MIPS64MSB_INST_SHI                    = 0b101001,
+    MIPS64MSB_INST_SWL                    = 0b101010,
+    MIPS64MSB_INST_SW                     = 0b101011,
+    MIPS64MSB_INST_SDL                    = 0b101100,
+    MIPS64MSB_INST_SDR                    = 0b101101,
+    MIPS64MSB_INST_SWR                    = 0b101110,
+    MIPS64MSB_INST_CACHE                  = 0b101111,
+
+    MIPS64MSB_INST_LL                     = 0b110000,
+    MIPS64MSB_INST_LWC                    = 0b110001,
+    MIPS64MSB_INST_LWC2_BC                = 0b110010,
+    MIPS64MSB_INST_PREF                   = 0b110011,
+    MIPS64MSB_INST_LLD                    = 0b110100,
+    MIPS64MSB_INST_LDC                    = 0b110101,
+    MIPS64MSB_INST_LDC2_BEQZC_JIC_POP66   = 0b110110,
+    MIPS64MSB_INST_LD                     = 0b110111,
+
+    MIPS64MSB_INST_SC                     = 0b111000,
+    MIPS64MSB_INST_SWC                    = 0b111001,
+    MIPS64MSB_INST_SWC2_BALC              = 0b111010,
+    MIPS64MSB_INST_PCREL                  = 0b111011,
+    MIPS64MSB_INST_SCD                    = 0b111100,
+    MIPS64MSB_INST_SDC                    = 0b111101,
+    MIPS64MSB_INST_SDC2_BNEZC_JIALC_POP76 = 0b111110,
+    MIPS64MSB_INST_SD                     = 0b111111,
+} enum_mips64msb_opcodes_t;
 
 /* ========================================================================== */
 /*                           Register functions                               */
@@ -171,8 +246,184 @@ mips64msb_build_stack(mips64msb_t* mips, const target_t* target)
 }
 
 /* ========================================================================== */
+/*                           Instruction decoding functions                   */
+/* ========================================================================== */
+
+static uint8_t
+inst_get_opcode(const uint32_t instruction)
+{
+    return instruction >> 26;
+}
+
+static inline uint8_t
+inst_get_rt(uint32_t inst)
+{
+    return (inst >> 16) & 0b11111;
+}
+
+static inline uint8_t
+inst_get_rs(uint32_t inst)
+{
+    return (inst >> 21) & 0b11111;
+}
+
+static inline uint8_t
+inst_get_rd(uint32_t inst)
+{
+    return (inst >> 11) & 0b11111;
+}
+
+static uint8_t
+inst_get_special(uint32_t inst)
+{
+    return inst & 0b111111;
+}
+
+static uint16_t
+inst_get_immediate(uint32_t inst)
+{
+    // Lowest 16 bits.
+    return inst & 0xffff;
+}
+
+static inline uint8_t
+inst_get_base(uint32_t inst)
+{
+    return (inst >> 21) & 0b11111;
+}
+
+static inline uint16_t
+inst_get_offset(uint32_t inst)
+{
+    // Lowest 16 bits.
+    return inst & 0xffff;
+}
+
+/* ========================================================================== */
 /*                           Instruction functions                            */
 /* ========================================================================== */
+
+static void
+inst_lui(mips64msb_t* mips, uint32_t inst)
+{
+    const uint8_t  rt  = inst_get_rt(inst);
+    const uint16_t imm = inst_get_immediate(inst);
+    const uint64_t res = imm << 16; // Right shift preserves signedness.
+
+    ginger_log(DEBUG, "LUI rt: %u, immediate: %u, res: %u\n", rt, imm, res);
+
+    mips->registers[rt] = res;
+    mips->registers[MIPS64MSB_REG_PC] += 4;
+}
+
+static void
+inst_addiu(mips64msb_t* mips, uint32_t inst)
+{
+    const uint8_t  rs  = inst_get_rs(inst);
+    const uint8_t  rt  = inst_get_rt(inst);
+    const int16_t  imm = inst_get_immediate(inst);
+    const uint32_t res = mips->registers[rs] + imm;
+
+    ginger_log(DEBUG, "ADDIU rs: %u, rt: %u, imm %u, res: %u\n", rs, rt, imm, res);
+
+    mips->registers[rt] = res;
+    mips->registers[MIPS64MSB_REG_PC] += 4;
+}
+
+static void
+inst_or(mips64msb_t* mips, uint32_t inst)
+{
+    const uint8_t  rs  = inst_get_rs(inst);
+    const uint8_t  rt  = inst_get_rt(inst);
+    const uint8_t  rd  = inst_get_rd(inst);
+    const uint64_t res = mips->registers[rs] | mips->registers[rt];
+
+    ginger_log(DEBUG, "OR rs: %u, rt: %u, rd %u, res: %u\n", rs, rt, rd, res);
+
+    mips->registers[rd] = res;
+    mips->registers[MIPS64MSB_REG_PC] += 4;
+}
+
+static void
+inst_and(mips64msb_t* mips, uint32_t inst)
+{
+    const uint8_t  rs  = inst_get_rs(inst);
+    const uint8_t  rt  = inst_get_rt(inst);
+    const uint8_t  rd  = inst_get_rd(inst);
+    const uint64_t res = mips->registers[rs] & mips->registers[rt];
+
+    ginger_log(DEBUG, "AND rs: %u, rt: %u, rd %u, res: %u\n", rs, rt, rd, res);
+
+    mips->registers[rd] = res;
+    mips->registers[MIPS64MSB_REG_PC] += 4;
+}
+
+static void
+inst_lw(mips64msb_t* mips, uint32_t inst)
+{
+    const uint8_t  base      = inst_get_base(inst);
+    const uint8_t  rt        = inst_get_rt(inst);
+    const uint16_t offset    = inst_get_offset(inst);
+    // Risk of needing to fix signedness of following addition.
+    const uint64_t target    = mips->registers[base + offset];
+    uint8_t        loaded[4] = {0};
+
+    const uint8_t ok = mips->mmu->read(mips->mmu, loaded, target, 4);
+
+    if (ok != 0) {
+        mips->exit_reason = EMU_EXIT_REASON_SEGFAULT_READ;
+        return;
+    }
+    const uint32_t res = byte_arr_to_u64(loaded, 4, ENUM_ENDIANESS_MSB);
+
+    ginger_log(DEBUG, "LW base: %u, rt: %u, offset: %u, target: %lu, res: %u\n", base, rt, offset, target, res);
+
+    mips->registers[rt] = res;
+    mips->registers[MIPS64MSB_REG_PC] += 4;
+}
+
+static void
+inst_sw(mips64msb_t* mips, uint32_t inst)
+{
+    const uint8_t  base     = inst_get_base(inst);
+    const uint8_t  rt       = inst_get_rt(inst);
+    const uint16_t offset   = inst_get_offset(inst);
+    const uint64_t target   = mips->registers[base] + offset;
+    uint8_t        store[8] = {0};
+
+    u64_to_byte_arr(mips->registers[rt] & 0xffffffff, store, ENUM_ENDIANESS_MSB);
+    const uint8_t ok = mips->mmu->write(mips->mmu, target, store, 4);
+    if (ok != 0) {
+        mips->exit_reason = EMU_EXIT_REASON_SEGFAULT_WRITE;
+        return;
+    }
+
+    ginger_log(DEBUG, "SW base: %u, rt: %u, offset: %u, target: %u\n", base, rt, offset, target);
+    mips->registers[MIPS64MSB_REG_PC] += 4;
+}
+
+static void
+inst_special(mips64msb_t* mips, uint32_t inst)
+{
+    const uint8_t special = inst_get_special(inst);
+    switch (special)
+    {
+    // OR
+    case 0b100101:
+        inst_or(mips, inst);
+        break;
+    //AND
+    case 0b100100:
+        inst_and(mips, inst);
+        break;
+    default:
+        ginger_log(ERROR, "Unimplemented special function: ");
+        u8_binary_print(special);
+        printf("\n");
+        abort();
+        break;
+    }
+}
 
 /* ========================================================================== */
 /*                           Emulator functions                               */
@@ -198,12 +449,6 @@ mips64msb_get_next_instruction(mips64msb_t* mips)
     return byte_arr_to_u64(instruction_bytes, 4, ENUM_ENDIANESS_MSB);
 }
 
-static uint8_t
-mips64msb_get_opcode(const uint32_t instruction)
-{
-    return instruction & 0b1111111;
-}
-
 static bool
 mips64msb_validate_opcode(mips64msb_t* mips, const uint8_t opcode)
 {
@@ -221,16 +466,26 @@ mips64msb_execute_next_instruction(mips64msb_t* mips)
     mips->registers[MIPS64MSB_REG_R0] = 0;
 
     const uint32_t instruction = mips64msb_get_next_instruction(mips);
-    const uint8_t  opcode      = mips64msb_get_opcode(instruction);
+    const uint8_t  opcode      = inst_get_opcode(instruction);
 
     ginger_log(DEBUG, "=========================\n");
     ginger_log(DEBUG, "PC: 0x%x\n", mips64msb_get_pc(mips));
     ginger_log(DEBUG, "Instruction\t0x%08x\n", instruction);
     ginger_log(DEBUG, "Opcode\t\t0x%x\n", opcode);
 
+    u8_binary_print(opcode);
+    printf("\n");
+
     if (!mips64msb_validate_opcode(mips, opcode)) {
-        ginger_log(ERROR, "Invalid opcode\t0x%x\n", opcode);
-        abort();
+
+        ginger_log(ERROR, "Invalid opcode: ");
+        u8_binary_print(opcode);
+        printf("\n");
+
+        ginger_log(ERROR, "Instruction: ");
+        u32_binary_print(instruction);
+        printf("\n");
+
         mips->exit_reason = EMU_EXIT_REASON_INVALID_OPCODE;
         return;
     }
@@ -391,6 +646,12 @@ mips64msb_create(size_t memory_size, corpus_t* corpus)
     mips->exit_reason  = EMU_EXIT_REASON_NO_EXIT;
     mips->new_coverage = false;
     mips->corpus       = corpus;
+
+    mips->instructions[MIPS64MSB_INST_LUI]     = inst_lui;
+    mips->instructions[MIPS64MSB_INST_ADDIU]   = inst_addiu;
+    mips->instructions[MIPS64MSB_INST_SPECIAL] = inst_special;
+    mips->instructions[MIPS64MSB_INST_LW]      = inst_lw;
+    mips->instructions[MIPS64MSB_INST_SW]      = inst_sw;
 
     return mips;
 }
