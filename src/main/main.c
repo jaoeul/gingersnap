@@ -211,7 +211,7 @@ handle_cli_args(int argc, char** argv)
         {"arch",         required_argument, NULL, 'a'},
         {"jobs",         required_argument, NULL, 'j'},
         {"progress",     required_argument, NULL, 'p'},
-        {"verbosity",    no_argument,       NULL, 'v'},
+        {"verbose",      no_argument,       NULL, 'v'},
         {"no-coverage",  no_argument,       NULL, 'n'},
         {"help",         no_argument,       NULL, 'h'},
         {NULL, 0, NULL, 0}
