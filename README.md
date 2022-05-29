@@ -101,18 +101,20 @@ To restart the target quickly in userspace, we simply reset the state of the
 CPU and mmu to its initial pre-fuzzed snapshot. This allows for great
 performance as resets scale linearly with number of cpu cores.
 
-## Risc V
+Risc V
+------
+
 The cpu emulator will implement the riscv 64i instruction set. Target
 executables need to be statically linked and compiled for this architecture.
 How to build a target with these properties are described below.
 
-# Building a target
+### Building a target
 Gingersnap uses a cpu emulator, and does its work on machine instructions.
 This means that you do not need the source code for your target. However,
 if you would like to build a target for testing purposes, the below section
 describes how.
 
-## Setup
+### Setup
 
 ### Build a riscv toolchain
 Before we do anything else, a riscv toolchain is needed. The following sequence
@@ -148,7 +150,7 @@ sudo apt-get install qemu-user
 qemu-riscv64 <name_of_exe>
 ```
 
-## Debugging and singlestepping the target executable
+### Debugging and singlestepping the target executable
 
 Useful to find emulator bugs. Single step the executable in gdb and compare the
 how the registers change values in gdb and compare it to how they change in the
@@ -168,10 +170,45 @@ break *<program_entry_point_address>
 run
 ```
 
-## Browse the instructions of the target
+### Browse the instructions of the target
 Note that the `no-aliases` option shows only the canonical instructions, rather than
 pseudoinstructions.
 
 ```bash
 riscv_build_toolchain/bin/riscv64-unknown-elf-objdump -M intel,no-aliases -D ./target | less
+```
+
+MIPS
+----
+
+I've started to implement support for a 64 bit MIPS emulator backend as well.
+This is still under construction. Here follows instructions on downloading
+a mips tool chain, compiling a reasonable binary for emulator evaluation and
+remote debugging.
+
+### Download mips toolchain (inculdes qemu-mips)
+
+[mips toolchain](https://codescape.mips.com/components/toolchain/2019.02-05/downloads.html)
+
+#### Build target
+
+```bash
+mips-img-linux-gnu-gcc --static -mabi=64 -g -O0 -o <target> <src>
+```
+
+### Debug target
+
+```bash
+qemu-mips64-static -g <port> <target>
+```
+
+other terminal:
+
+```bash
+mips-img-linux-gnu-gdb
+```
+
+```gdb
+target remote localhost:<port>
+file <target>
 ```
