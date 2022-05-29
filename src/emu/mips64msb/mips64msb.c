@@ -3,6 +3,7 @@
 
 #include "mips64msb.h"
 
+#include "../../mmu/adr_map.h"
 #include "../../utils/endianess.h"
 #include "../../utils/logger.h"
 #include "../../utils/print_utils.h"
@@ -151,6 +152,11 @@ mips64msb_load_elf(mips64msb_t* mips, const target_t* target)
         if (curr_prg_hdr->type != PROGRAM_HEADER_TYPE_LOAD) {
             continue;
         }
+
+        // Allocate memory mapping for current, loadable program header.
+        mips->mmu->nb_adr_maps++;
+        mips->mmu->adr_maps = realloc(mips->mmu->adr_maps, sizeof(adr_map_t*) * mips->mmu->nb_adr_maps);
+        mips->mmu->adr_maps[mips->mmu->nb_adr_maps - 1] = adr_map_create(curr_prg_hdr);
 
         // Sanity check.
         if ((curr_prg_hdr->virtual_address + curr_prg_hdr->file_size) > (mips->mmu->memory_size - 1)) {

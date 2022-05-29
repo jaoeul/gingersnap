@@ -10,8 +10,11 @@
 #include "../mmu/mmu.h"
 #include "../target/target.h"
 
-// 256 MiB
-#define EMU_TOTAL_MEM 1024 * 1024 * 256
+static const uint64_t KiB = 1024;
+static const uint64_t MiB = 1024 * 1024;
+static const uint64_t GiB = 1024 * 1024 * 1024;
+
+static const uint64_t EMU_TOTAL_MEM = GiB * 5;
 
 typedef struct emu_s emu_t;
 struct emu_s {

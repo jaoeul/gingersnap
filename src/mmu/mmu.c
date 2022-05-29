@@ -385,6 +385,9 @@ mmu_create(const size_t memory_size, const size_t base_alloc_adr)
     //
     mmu->curr_alloc_adr = base_alloc_adr;
 
+    // Incremented for every loaded program header, when an elf is loaded.
+    mmu->nb_adr_maps = 0;
+
     // API functions.
     mmu->allocate        = mmu_allocate;
     mmu->set_permissions = mmu_set_permissions;

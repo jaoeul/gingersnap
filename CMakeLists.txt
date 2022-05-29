@@ -17,6 +17,7 @@ add_executable(gingersnap
     src/main/config.c
     src/main/main.c
     src/main/sig_handler.c
+    src/mmu/adr_map.c
     src/mmu/mmu.c
     src/target/target.c
     src/utils/cli.c

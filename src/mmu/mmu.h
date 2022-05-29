@@ -3,6 +3,8 @@
 
 #include "../utils/vector.h"
 
+#include "adr_map.h"
+
 // Amount of bytes in single block
 // TODO: Tune this value for performance
 #define DIRTY_BLOCK_SIZE  64
@@ -73,7 +75,14 @@ struct mmu {
     // memory[current_allocation - 1] == last allocated address in guest memory
     size_t curr_alloc_adr;
 
+    // Tracker of memory blocks which have been touched by program execution.
     dirty_state_t* dirty_state;
+
+    // Address translation mappings of virtual program header addresses to actual emulator memory.
+    adr_map_t** adr_maps;
+
+    // Number of address transation mappings in use. Should be one per loaded program header.
+    uint64_t nb_adr_maps;
 };
 
 mmu_t*
