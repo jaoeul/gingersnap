@@ -1,38 +1,51 @@
-/**
- * Guest memory layout:
- *
- * ===============================================================
- * |  Program headers  | <-- Guest stack (1MiB) | Guest heap --> |
- * ===============================================================
- * ^                                            ^                ^
- * |                                            |                |
- * Address 0.                                   Initial stack pointer (grows downwards).
- *                                              |                |
- *                                              Initial curr_alloc_adr (grows upwards).
- *                                                               |
- *                                                               Address: mmu->memory_size.
- *
- * Note that instead of having the stack and the heap traditianally growing towards eachother,
- * this emulator and mmu implements them differently. This is to avoid supporting emulation of big
- * allocations, which would use the mmap syscall instead of brk/sbrk and to safely allow for
- * allocatons of big chunks of memory on the heap without overwriting the stack. It will however
- * lead to diffing values returned by the brk/sbrk syscall, but this should hopefully not impact
- * program execution.
- */
-
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "adr_map.h"
 #include "mmu.h"
 
 #include "../utils/endianess.h"
 #include "../utils/logger.h"
 #include "../utils/print_utils.h"
 #include "../utils/vector.h"
+
+// Get the address in MMU memory buffer for a virtual address.
+static uint64_t
+mmu_virt_to_mapped(mmu_t* mmu, uint64_t virt_adr)
+{
+    adr_map_t**    maps    = mmu->adr_maps;
+    const uint64_t nb_maps = mmu->nb_adr_maps;
+
+    // Check if address is in any of the program header address maps.
+    for (uint64_t i = 0; i < nb_maps; i++) {
+        if (virt_adr >= maps[i]->low &&
+            virt_adr <= maps[i]->high)
+        {
+            // Strip away the virtual address offset of the address and return
+            // it.
+            return virt_adr - maps[i]->low;
+        }
+    }
+
+    // If the address was not found in any of the mappings, it could be a stack
+    // address. Check if it is between the upper threshold of the last program
+    // header address map and the start of the stack.
+    if (virt_adr > maps[nb_maps - 1]->high &&
+        virt_adr <= mmu->initial_stack_adr_virt)
+    {
+        // How far into the stack is the address?
+        const uint64_t delta = mmu->initial_stack_adr_virt - virt_adr;
+
+        // Find where in MMU memory buffer the stack address is.
+        return mmu->initial_stack_adr_mapped - delta;
+    }
+
+    ginger_log(ERROR, "Virtual address 0x%lx is outside the managed address space of the emulator\n", virt_adr);
+    abort();
+}
 
 // Print value of memory with corresponding permissions of an emulator.
 static void
@@ -323,6 +336,7 @@ print_permissions(uint8_t perms)
     }
 }
 
+
 dirty_state_t*
 dirty_state_create(size_t memory_size)
 {
@@ -395,6 +409,7 @@ mmu_create(const size_t memory_size, const size_t base_alloc_adr)
     mmu->read            = mmu_read;
     mmu->search          = mmu_search;
     mmu->print           = mmu_print_mem;
+    mmu->virt_to_mapped  = mmu_virt_to_mapped;
 
     return mmu;
 }

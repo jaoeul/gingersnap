@@ -1,3 +1,27 @@
+/**
+ * Guest memory layout:
+ *
+ * +============================+========================+================+
+ * |  Loadable program headers  | <-- Guest stack (1MiB) | Guest heap --> |
+ * +============================+========================+================+
+ * ^                                                     ^                ^
+ * |                                                     |                |
+ * Address 0                                             Initial stack pointer (grows downwards)
+ *                                                       |                |
+ *                                                       Initial curr_alloc_adr (grows upwards)
+ *                                                                        |
+ *                                                                        mmu->memory_size
+ *
+ * Note that instead of having the stack and the heap growing towards eachother,
+ * like they do in traditional OS'es, this emulator and mmu implements them
+ * differently. This is to avoid supporting emulation of big allocations, which
+ * would use the mmap syscall instead of brk/sbrk and to safely allow for
+ * allocatons of big chunks of memory on the heap without overwriting the stack.
+ * It will however lead to diffing values returned by the brk/sbrk syscall, but
+ * this should not impact the execution flow in any meaningful way.
+ */
+
+
 #ifndef MMU_H
 #define MMU_H
 
@@ -56,6 +80,7 @@ struct mmu {
     uint8_t   (*read)(mmu_t* mmu, uint8_t* destination_buffer, const size_t source_adress, size_t size);
     vector_t* (*search)(mmu_t* mmu, const uint64_t needle, const char size_letter);
     void      (*print)(mmu_t* mmu, size_t start_adr, const size_t range, const char size_letter);
+    uint64_t  (*virt_to_mapped)(mmu_t* mmu, uint64_t virt_adr);
 
     // The size of the emulator memory
     size_t memory_size;
@@ -70,10 +95,16 @@ struct mmu {
     uint8_t* permissions;
 
     // Counter tracking number of allocated bytes in guest memory. Acts as the virtual base address of next allocation
-    // for the guest.
+    // for the guest. Virtual address.
     //
     // memory[current_allocation - 1] == last allocated address in guest memory
     size_t curr_alloc_adr;
+
+    // Where in the MMU buffer the stack starts. Never changes once set.
+    size_t initial_stack_adr_mapped;
+
+    // Virtual address where the stack starts. Never changes once set.
+    size_t initial_stack_adr_virt;
 
     // Tracker of memory blocks which have been touched by program execution.
     dirty_state_t* dirty_state;

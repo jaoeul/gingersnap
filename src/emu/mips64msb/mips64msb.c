@@ -199,6 +199,11 @@ mips64msb_build_stack(mips64msb_t* mips, const target_t* target)
         ginger_log(ERROR, "Failed allocate memory for stack!\n");
     }
 
+    // Note the initial stack addresses in the MMU.
+    const uint64_t program_header_delta = mips->mmu->adr_maps[mips->mmu->nb_adr_maps - 1]->high - mips->mmu->adr_maps[0]->low;
+    mips->mmu->initial_stack_adr_mapped = program_header_delta + mips->stack_size;
+    mips->mmu->initial_stack_adr_virt   = stack_start;
+
     // Stack grows downwards, so we set the stack pointer to starting address of the
     // stack + the stack size. As variables are allocated on the stack, their size
     // is subtracted from the stack pointer.

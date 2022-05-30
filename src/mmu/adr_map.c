@@ -12,21 +12,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../elf_loader/program_header.h"
-
 #include "adr_map.h"
 
-uint64_t
-get_mapped(adr_map_t* maps, uint64_t nb_maps, uint64_t requested)
-{
-    for (uint64_t i = 0; i < nb_maps; i++) {
-        if (requested >= maps[i].low && requested <= maps[i].high) {
-            return requested - maps[i].low;
-        }
-    }
-    printf("Did not find requested value in any address mapping\n");
-    abort();
-}
+#include "../elf_loader/program_header.h"
 
 adr_map_t*
 adr_map_create(const program_header_t* prg_hdr)
