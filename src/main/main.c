@@ -17,7 +17,7 @@
 #include "../elf_loader/elf_loader.h"
 #include "../emu/emu_generic.h"
 #include "../emu/emu_stats.h"
-#include "../fuzzer/fuzzer.h"
+#include "../snap/snapshot_engine.h"
 #include "../debug_cli/debug_cli.h"
 #include "../utils/cli.h"
 #include "../utils/dir.h"
@@ -129,14 +129,14 @@ worker_run(void* arg)
     const emu_t*    clean_snapshot = t_info->clean_snapshot;
     emu_stats_t*    shared_stats   = t_info->shared_stats;
 
-    // Create the thread local fuzzer.
-    fuzzer_t* fuzzer = fuzzer_create(global_config_get_arch(),
-                                    corpus,
-                                    fuzz_buf_adr,
-                                    fuzz_buf_size,
-                                    target,
-                                    clean_snapshot,
-                                    global_config_get_crashes_dir());
+    // Create the thread local snapshot engine.
+    snapshot_engine_t* engine = snapshot_engine_create(global_config_get_arch(),
+                                corpus,
+                                fuzz_buf_adr,
+                                fuzz_buf_size,
+                                target,
+                                clean_snapshot,
+                                global_config_get_crashes_dir());
 
     // A timestamp which is used for comparison.
     struct timespec checkpoint;
@@ -144,34 +144,34 @@ worker_run(void* arg)
 
     for (;;) {
         // Run one fuzzcase.
-        fuzzer->fuzz(fuzzer);
+        engine->fuzz(engine);
 
         // If we crashed, write input to disk.
-        enum_emu_exit_reasons_t exit_reason = fuzzer->emu->get_exit_reason(fuzzer->emu);
+        enum_emu_exit_reasons_t exit_reason = engine->emu->get_exit_reason(engine->emu);
         if (exit_reason != EMU_EXIT_REASON_GRACEFUL) {
             if (exit_reason == EMU_EXIT_REASON_SYSCALL_NOT_SUPPORTED) {
                 ginger_log(ERROR, "Unsupported syscall!\n");
                 abort();
             }
-            fuzzer->write_crash(fuzzer);
+            engine->write_crash(engine);
         }
 
         // If the fuzz case generated new code coverage, save it to the corpus.
-        if (fuzzer->emu->get_new_coverage(fuzzer->emu)) {
-            corpus_add_input(fuzzer->emu->get_corpus(fuzzer->emu), fuzzer->curr_input);
-            emu_stats_inc(fuzzer->stats, EMU_COUNTERS_INPUTS);
+        if (engine->emu->get_new_coverage(engine->emu)) {
+            corpus_add_input(engine->emu->get_corpus(engine->emu), engine->curr_input);
+            emu_stats_inc(engine->stats, EMU_COUNTERS_INPUTS);
         }
         // We do not care for inputs which did not generate new coverage, so we
         // can free it.
         else {
-            corpus_input_destroy(fuzzer->curr_input);
+            corpus_input_destroy(engine->curr_input);
         }
 
         // Restore the emulator to its initial state.
-        fuzzer->emu->reset(fuzzer->emu, fuzzer->clean_snapshot);
+        engine->emu->reset(engine->emu, engine->clean_snapshot);
 
         // Increment the counter counting emulator resets.
-        emu_stats_inc(fuzzer->stats, EMU_COUNTERS_RESETS);
+        emu_stats_inc(engine->stats, EMU_COUNTERS_RESETS);
 
         // Update the main stats with data from the thread local stats if the time is right.
         struct timespec current;
@@ -182,21 +182,21 @@ worker_run(void* arg)
         // Report stats to the main thread.
         if (elapsed_ns > report_stats_interval_ns) {
             pthread_mutex_lock(&shared_stats->lock);
-            shared_stats->nb_executed_instructions += fuzzer->stats->nb_executed_instructions;
-            shared_stats->nb_unsupported_syscalls  += fuzzer->stats->nb_unsupported_syscalls;
-            shared_stats->nb_fstat_bad_fds         += fuzzer->stats->nb_fstat_bad_fds;
-            shared_stats->nb_graceful_exits        += fuzzer->stats->nb_graceful_exits;
-            shared_stats->nb_unknown_exit_reasons  += fuzzer->stats->nb_unsupported_syscalls;
-            shared_stats->nb_resets                += fuzzer->stats->nb_resets;
-            shared_stats->nb_segfault_reads        += fuzzer->stats->nb_segfault_reads;
-            shared_stats->nb_segfault_writes       += fuzzer->stats->nb_segfault_writes;
-            shared_stats->nb_invalid_opcodes       += fuzzer->stats->nb_invalid_opcodes;
+            shared_stats->nb_executed_instructions += engine->stats->nb_executed_instructions;
+            shared_stats->nb_unsupported_syscalls  += engine->stats->nb_unsupported_syscalls;
+            shared_stats->nb_fstat_bad_fds         += engine->stats->nb_fstat_bad_fds;
+            shared_stats->nb_graceful_exits        += engine->stats->nb_graceful_exits;
+            shared_stats->nb_unknown_exit_reasons  += engine->stats->nb_unsupported_syscalls;
+            shared_stats->nb_resets                += engine->stats->nb_resets;
+            shared_stats->nb_segfault_reads        += engine->stats->nb_segfault_reads;
+            shared_stats->nb_segfault_writes       += engine->stats->nb_segfault_writes;
+            shared_stats->nb_invalid_opcodes       += engine->stats->nb_invalid_opcodes;
             pthread_mutex_unlock(&shared_stats->lock);
             // Reset the timer checkpoint.
             clock_gettime(CLOCK_MONOTONIC, &checkpoint);
 
             // Clear the local stats.
-            memset(fuzzer->stats, 0, sizeof(emu_stats_t));
+            memset(engine->stats, 0, sizeof(emu_stats_t));
         }
     }
 }
@@ -438,7 +438,7 @@ main(int argc, char** argv)
         abort();
     }
 
-    // Start one fuzzer per available cpu.
+    // Start one engine per available cpu.
     for (uint8_t i = 0; i < nb_cpus; i++) {
         t_info[i].thread_num     = i;
         t_info[i].target         = target;

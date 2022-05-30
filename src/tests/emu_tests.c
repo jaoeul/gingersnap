@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "../fuzzer/fuzzer.h"
+#include "../snap_engine/snapshot_engine.h"
 #include "../emu/riscv_emu.h"
 #include "../debug_cli/debug_cli.h"
 #include "../utils/endianess.h"

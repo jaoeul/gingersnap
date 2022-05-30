@@ -4,7 +4,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "fuzzer.h"
+#include "snapshot_engine.h"
 
 #include "../emu/emu_generic.h"
 #include "../utils/dir.h"
@@ -13,7 +13,7 @@
 // Change randomize random amount of bytes in a buffer, up to the total number
 // of bytes in buffer.
 static void
-fuzzer_mutate(uint8_t* input, const uint64_t len)
+snapshot_engine_mutate(uint8_t* input, const uint64_t len)
 {
     const int nb_mut = rand() % len; // The random number of bytes to mutate.
     // Mutate atleast one byte. Max amount is equal to the size of the buffer.
@@ -32,33 +32,33 @@ fuzzer_mutate(uint8_t* input, const uint64_t len)
 
 // Inject a fuzzcase into emulator memory.
 static void
-fuzzer_inject(fuzzer_t* fuzzer, const uint8_t* input, const uint64_t len)
+snapshot_engine_inject(snapshot_engine_t* engine, const uint8_t* input, const uint64_t len)
 {
-    mmu_t* mmu = fuzzer->emu->get_mmu(fuzzer->emu);
+    mmu_t* mmu = engine->emu->get_mmu(engine->emu);
 
     // Save current permissions of the target buffer.
     uint8_t tmp_perms[len];
-    memcpy(tmp_perms, mmu->permissions + fuzzer->fuzz_buf_adr, len);
+    memcpy(tmp_perms, mmu->permissions + engine->fuzz_buf_adr, len);
 
     // Change permissions of the target buffer to writeable.
-    mmu->set_permissions(mmu, fuzzer->fuzz_buf_adr, MMU_PERM_WRITE, len);
+    mmu->set_permissions(mmu, engine->fuzz_buf_adr, MMU_PERM_WRITE, len);
 
     // Write the input into the target buffer.
-    mmu->write(mmu, fuzzer->fuzz_buf_adr, input, len);
+    mmu->write(mmu, engine->fuzz_buf_adr, input, len);
 
     // Change the permissions of the target buffer back.
-    memcpy(mmu->permissions + fuzzer->fuzz_buf_adr, tmp_perms, len);
+    memcpy(mmu->permissions + engine->fuzz_buf_adr, tmp_perms, len);
 }
 
 static enum_emu_exit_reasons_t
-fuzzer_fuzz(fuzzer_t* fuzzer)
+snapshot_engine_fuzz(snapshot_engine_t* engine)
 {
     const pid_t actual_tid = syscall(__NR_gettid);
-    corpus_t* corpus = fuzzer->emu->get_corpus(fuzzer->emu);
+    corpus_t* corpus = engine->emu->get_corpus(engine->emu);
 
-    if (fuzzer->tid != actual_tid) {
+    if (engine->tid != actual_tid) {
         ginger_log(ERROR, "[%s] Thread tried to execute someone elses emu!\n", __func__);
-        ginger_log(ERROR, "[%s] acutal_tid 0x%x, emu->tid: 0x%x\n", __func__, actual_tid, fuzzer->tid);
+        ginger_log(ERROR, "[%s] acutal_tid 0x%x, emu->tid: 0x%x\n", __func__, actual_tid, engine->tid);
         abort();
     }
 
@@ -76,49 +76,49 @@ fuzzer_fuzz(fuzzer_t* fuzzer)
         abort();
     }
 
-    // If the input length is less than the fuzzers buffer length, use that instead, as there
+    // If the input length is less than the snapshot_engines buffer length, use that instead, as there
     // is no reason to memcpy a bunch of zeroes.
     uint64_t effective_len = 0;
-    if (chosen_input->length < fuzzer->fuzz_buf_size) {
+    if (chosen_input->length < engine->fuzz_buf_size) {
         effective_len = chosen_input->length;
     }
     else {
-        effective_len = fuzzer->fuzz_buf_size;
+        effective_len = engine->fuzz_buf_size;
     }
     if (effective_len == 0) {
         ginger_log(ERROR, "Abort! Fuzz case length is 0!\n");
         abort();
     }
 
-    // Copy the data from the corpus to a fuzzer owned buffer, which we will mutate.
+    // Copy the data from the corpus to a snapshot_engine owned buffer, which we will mutate.
     // If the mutation crashes the emulator after injecton, we write this input
     // to disk.
-    fuzzer->curr_input = corpus_input_copy(chosen_input);
-    if (!fuzzer->curr_input) {
+    engine->curr_input = corpus_input_copy(chosen_input);
+    if (!engine->curr_input) {
         ginger_log(ERROR, "[%s] Could not reallocate buffer for input data! Requested size: %lu\n",
-                   fuzzer->curr_input->length, __func__);
+                   engine->curr_input->length, __func__);
         abort();
     }
 
     // Mutate the input.
-    fuzzer->mutate(fuzzer->curr_input->data, fuzzer->curr_input->length);
+    engine->mutate(engine->curr_input->data, engine->curr_input->length);
 
     // Inject the input.
-    fuzzer->inject(fuzzer, fuzzer->curr_input->data, fuzzer->curr_input->length);
+    engine->inject(engine, engine->curr_input->data, engine->curr_input->length);
 
     // Run the emulator until it exits or crashes.
-    return fuzzer->emu->run(fuzzer->emu, fuzzer->stats);
+    return engine->emu->run(engine->emu, engine->stats);
 }
 
 static void
-fuzzer_write_crash(fuzzer_t* fuzzer)
+snapshot_engine_write_crash(snapshot_engine_t* engine)
 {
     char filepath[4096] = {0};
     char filename[255]  = {0};
     char timestamp[21]  = {0};
 
     // Base filename on crash type and system time.
-    enum_emu_exit_reasons_t exit_reason = fuzzer->emu->get_exit_reason(fuzzer->emu);
+    enum_emu_exit_reasons_t exit_reason = engine->emu->get_exit_reason(engine->emu);
     switch (exit_reason)
     {
     case EMU_EXIT_REASON_SEGFAULT_READ:
@@ -148,7 +148,7 @@ fuzzer_write_crash(fuzzer_t* fuzzer)
     strcat(filename, ".crash");
 
     // Build filepath.
-    strcat(filepath, fuzzer->crash_dir);
+    strcat(filepath, engine->crash_dir);
     strcat(filepath, "/");
     strcat(filepath, filename);
 
@@ -157,45 +157,45 @@ fuzzer_write_crash(fuzzer_t* fuzzer)
     if (!fp) {
         ginger_log(ERROR, "Failed to open crash file for writing!\n");
     }
-    if (!fwrite(fuzzer->curr_input->data, 1, fuzzer->curr_input->length, fp)) {
+    if (!fwrite(engine->curr_input->data, 1, engine->curr_input->length, fp)) {
         ginger_log(ERROR, "Failed to write to crash file!\n");
     }
     fclose(fp);
 }
 
-fuzzer_t*
-fuzzer_create(enum_supported_archs_t arch, corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size,
+snapshot_engine_t*
+snapshot_engine_create(enum_supported_archs_t arch, corpus_t* corpus, uint64_t fuzz_buf_adr, uint64_t fuzz_buf_size,
               const target_t* target, const emu_t* snapshot, const char* crash_dir)
 {
-    fuzzer_t* fuzzer = calloc(1, sizeof(fuzzer_t));
+    snapshot_engine_t* engine = calloc(1, sizeof(snapshot_engine_t));
 
-    // Create and setup the emulator this fuzzer will use.
+    // Create and setup the emulator this snapshot_engine will use.
     emu_t* emu = emu_create(arch, EMU_TOTAL_MEM, corpus);
 
     emu->load_elf(emu, target);
     emu->build_stack(emu, target);
 
-    fuzzer->tid               = syscall(__NR_gettid);
-    fuzzer->emu               = emu;
-    fuzzer->fuzz_buf_adr      = fuzz_buf_adr;
-    fuzzer->fuzz_buf_size     = fuzz_buf_size;
-    fuzzer->crash_dir         = crash_dir;
-    fuzzer->clean_snapshot    = snapshot;
-    fuzzer->stats             = emu_stats_create();
+    engine->tid               = syscall(__NR_gettid);
+    engine->emu               = emu;
+    engine->fuzz_buf_adr      = fuzz_buf_adr;
+    engine->fuzz_buf_size     = fuzz_buf_size;
+    engine->crash_dir         = crash_dir;
+    engine->clean_snapshot    = snapshot;
+    engine->stats             = emu_stats_create();
 
     // API
-    fuzzer->fuzz              = fuzzer_fuzz;
-    fuzzer->mutate            = fuzzer_mutate;
-    fuzzer->inject            = fuzzer_inject;
-    fuzzer->write_crash       = fuzzer_write_crash;
+    engine->fuzz              = snapshot_engine_fuzz;
+    engine->mutate            = snapshot_engine_mutate;
+    engine->inject            = snapshot_engine_inject;
+    engine->write_crash       = snapshot_engine_write_crash;
 
-    return fuzzer;
+    return engine;
 }
 
 void
-fuzzer_destroy(fuzzer_t* fuzzer)
+snapshot_engine_destroy(snapshot_engine_t* engine)
 {
-    emu_destroy(fuzzer->emu);
-    emu_stats_destroy(fuzzer->stats);
-    free(fuzzer);
+    emu_destroy(engine->emu);
+    emu_stats_destroy(engine->stats);
+    free(engine);
 }
