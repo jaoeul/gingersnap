@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <sys/stat.h>
 
-enum {
+typedef enum {
     BYTE_SIZE     = 1,
     HALFWORD_SIZE = 2,
     WORD_SIZE     = 4,
